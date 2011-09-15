@@ -1,0 +1,31 @@
+Dan Posch
+dcposch@dcpos.ch
+
+WebGL tomfoolery.
+
+Next steps:
+* clean up shaders
+* make a demo game
+* add a server-side component to the game with node and mongo
+* run it on heroku + mongohq
+* keep the webgl backend clean and small
+* ...make it suck less
+* ...add semver
+* library!
+
+
+Goals for the library:
+* lighter than 3js. everything that's mem intensive should be Float32Array, etc, not JS objects.
+* provide shaders for a simple fixed-function pipeline
+* respect opengl's naming conventions
+* provide utils for loading models and textures
+* mipmapping, filtering
+
+
+Left for other places (not in the lib):
+* scene graph (octree, kdtree)
+* terrain generation
+* jquery-style selectors to address models, find neighbors, modify properties, etc
+* physics
+* animation (dcgl just includes requestAnimFrame())
+* hooks for d3?

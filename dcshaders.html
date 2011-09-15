@@ -1,0 +1,117 @@
+<!--
+   Dan Posch
+   Sep 2011
+   Some simple webgl shaders
+-->
+
+<script type="x-shader/x-fragment" id="frag_color">
+    #ifdef GL_ES
+    precision highp float;
+    #endif
+
+    varying vec4 vColor;
+
+    void main(void) {
+        gl_FragColor = vColor;
+    }
+</script>
+
+<script type="x-shader/x-fragment" id="frag_grid">
+    #ifdef GL_ES
+    precision highp float;
+    #endif
+    #define FOG_COLOR vec3(0.0,0.0,0.0)
+    #define GRID_COLOR vec3(0.0,0.7,0.0)
+    #define BG_COLOR vec3(0.1,0.0,0.0)
+
+    uniform vec2 uUv;
+    varying vec2 vUv;
+
+    void main(void) {
+        float dist = distance(uUv, vUv);
+        float nlines = 300.0, width = 0.02;
+        float d1 = mod(vUv[0]*nlines/width, 1.0/width)*width;
+        float d2 = mod(vUv[1]*nlines/width, 1.0/width)*width;
+        d1 = exp(-d1*(1.0-d1)*20.0);
+        d2 = exp(-d2*(1.0-d2)*20.0);
+        float d = clamp(d1+d2,0.0,1.0);
+        float line = d*d;
+
+        float fog = smoothstep(0.0, 0.02, dist);
+        vec3 color = fog*FOG_COLOR +
+            (1.0-fog)*line*GRID_COLOR +
+            (1.0-fog)*(1.0-line)*BG_COLOR;
+        gl_FragColor = vec4(color,1.0);
+    }
+</script>
+
+<script type="x-shader/x-vertex" id="vert_texture">
+    attribute vec3 aVertexPosition;
+    attribute vec2 aVertexUv;
+
+    uniform mat4 uMatrix;
+
+    varying vec2 vUv;
+
+    void main(void) {
+        gl_Position = uMatrix * vec4(aVertexPosition, 1.0);
+        vUv = aVertexUv;
+    }
+</script>
+
+<script type="x-shader/x-vertex" id="vert_simple">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aVertexColor;
+
+    uniform mat4 uMatrix;
+
+    varying vec4 vColor;
+
+    void main(void) {
+        gl_Position = uMatrix * vec4(aVertexPosition, 1.0);
+        vColor = vec4(aVertexColor, 1.0);
+    }
+</script>
+
+<script type="x-shader/x-vertex" id="vert_fixed_todo">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aVertexColor;
+    attribute vec3 aVertexNormal;
+
+    uniform mat4 uMatrix;
+    uniform vec3 uCameraLoc;
+
+    varying vec4 vColor;
+
+    void main(void) {
+        gl_Position = uMatrix * vec4(aVertexPosition, 1.0);
+
+        vec3 dir = normalize(uCameraLoc - aVertexPosition);
+        float t = pow(clamp(dot(dir, aVertexNormal),0.0,1.0), 2.0);
+        vec3 color = aVertexColor ;
+        vColor = aVertexColor;
+    }
+</script>
+
+<script type="x-shader/x-vertex" id="vert_point_todo">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aVertexColor;
+    attribute vec3 aVertexNormal;
+
+    uniform mat4 uMatrix;
+    uniform vec3 uCameraLoc;
+
+    varying vec4 vColor;
+
+    void main(void) {
+        //vec3 cameraV = uCameraLoc - aVertexPosition;
+        //float dist = sqrt(dot(cameraV, cameraV));
+
+        gl_Position = uMatrix * vec4(aVertexPosition, 1.0);
+        //gl_PointSize = 100.0 / dist;
+        //vColor = vec4(aVertexColor, 1.0);
+        //vColor = vec4(clamp(uCameraLoc[0]/40.0,0.0,1.0),0.5,0, 1.0);
+        vColor = vec4(1,1,1,1);
+    }
+</script>
+
