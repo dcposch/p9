@@ -12,7 +12,7 @@
     var mvstack = [];
 
     // anim
-    var t = 0, dt = (1/60.0);
+    var t = 0.0, dt = (1/60.0);
 
     // camera
     var loc = vec3.create([0,0,40]);
@@ -183,10 +183,10 @@
             };
  
         var startTime = new Date().getTime()/1000.0;
-        var lastTime = startTime;
+        var lastTime = 0;
         (function animloop(){
             //update time
-            t = new Date().getTime() - startTime;
+            t = (new Date().getTime())/1000.0 - startTime;
             dt = t - lastTime;
             lastTime = t;
 
