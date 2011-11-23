@@ -10,12 +10,18 @@ var canvas = $("#gl");
 // world
 var scene = [];
 var car = {};
+var road = null;
 var nissan_gtr = {
     mass:1800, //kg
     cda:6.0, //m^2
     max_skid_lat:4.0, //about 0.5g skidpad
     max_skid_vert:9.0, //about 1g skidpad
-    max_power:500 //Mine's GTR, 500kW/800hp
+    max_power:500, //Mine's GTR, 500kW/800hp
+    
+    wheelbase:2.780,
+    track:1.8,
+    k:360000, //newtons per meter, per wheel
+    kdamp:300000 //newtons per (meter/sec), per wheel
     };
 var model = nissan_gtr;
 var env = {temp:20}; //20C
@@ -77,7 +83,7 @@ function drawScene() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     //setup camera
-    mat4.perspective(50, width / height, 0.1, 10000.0, pmat);
+    mat4.perspective(50, width / height, 1.0, 100000.0, pmat);
 
     //setup matrixes
     mat4.identity(mvmat);
@@ -136,7 +142,7 @@ function init(canvas) {
     scene.push(car);
     scene.push(genGrid());
     loadRoad(function(m){
-        console.log("ADDING>..");
+        road = m;
         scene.push(m);
     });
 
@@ -172,7 +178,6 @@ function update(){
     car.calc_accel_lim = null;
     if(input.gas){
         car.accel = calc_fwd_accel(car.speed)*input.gas;
-        console.log(["WTF", input.gas, car.accel]);
     } else if(input.brake){
         if(car.speed < 0)
             //janky hack, but i don't care about sim accuracy in reverse gear
@@ -240,11 +245,87 @@ function physics(){
         car.shift_start = null;
     }
 
+    //steering
     car.heading += car.steer*car.speed*dt;
+
+    //elastic collision with the road
+    physicsRoad();
+
+    
+    //gravity
+
     car.direction = vec3.create([Math.cos(car.heading), 0, Math.sin(car.heading)]);
     var dpos = vec3.create(car.direction);
     vec3.scale(dpos, car.speed);
     vec3.add(car.position, dpos);
+}
+
+function physicsRoad(){
+    if(road == null) return;
+
+    //calc the loc of the four contact patches
+    var tr = model.track;
+    var wb = model.wheelbase;
+    var contacts = [];
+    contacts.push(vec3.add(vec3.create(car.position), vec3.create(
+        [tr/2, 0, wb/2])));
+    contacts.push(vec3.add(vec3.create(car.position), vec3.create(
+        [-tr/2, 0, wb/2])));
+    contacts.push(vec3.add(vec3.create(car.position), vec3.create(
+        [tr/2, 0, -wb/2])));
+    contacts.push(vec3.add(vec3.create(car.position), vec3.create(
+        [-tr/2, 0, -wb/2])));
+
+    var forces = [];
+
+    //find intersecting tris
+    for(var i in contacts){
+        var c = contacts[i];
+        var vdiff, vlen ;
+        
+        for(var j = 0; j < road.tris.length/3; j++){
+            var verts = road.tri_verts(j);
+            var vu = vec3.subtract(verts[1], verts[0], vec3.create());
+            var vv = vec3.subtract(verts[2], verts[0], vec3.create());
+            var vc = vec3.subtract(c, verts[0], vec3.create());
+
+            var u = vec3.dot(vc, vu) / vec3.dot(vu, vu);
+            var v = vec3.dot(vc, vv) / vec3.dot(vv, vv);
+
+            //are we in the triangle?
+            if(u < 0 || v < 0 || u+v > 1) continue;
+
+            //are we above the point of contact
+            var vcontact = vec3.create(verts[0]);
+            vec3.add(vcontact, vec3.scale(vu, u, vec3.create()));
+            vec3.add(vcontact, vec3.scale(vv, v, vec3.create()));
+
+            var vd= vec3.subtract(c, vcontact, vec3.create());
+            var vl= vec3.length(vd);
+            if(!vdiff || vl < vlen){
+                vdiff = vd;
+                vlen = vl; 
+            }
+        }
+
+        //if the wheel intersects the road, calculate how much
+        //the suspension is being deflected and the resulting force
+
+        //no-intersect is gravity, 1/4 of car weight per wheel
+        //TODO: make this cleaner
+        var f = vec3.create(0, -model.mass*9.8 / 4, 0);
+        
+        if(vdiff && vdiff[1] < 0 && vlen < 1){
+            var deflect = vlen;
+            //TODO: this models spring, but not the damper. include kdamp
+            var force = deflect*model.k;
+            f = vec3.scale(vdiff, -force, vec3.create());
+        }
+        forces.push(f);
+    }
+    
+    if(!(this.fuu || (this.fuu=1)) || this.fuu++<5)
+        console.log(["TROLOLO", contacts, forces]);
 }
 
 function cameraTracking(){

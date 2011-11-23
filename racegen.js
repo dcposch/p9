@@ -3,6 +3,50 @@
  * Generate some simple test models, + models for glrace.
  */
 
+//TODO: use Model for other stuff, too
+function Model(props){
+    if(!props) return;
+
+    //props is expected to contain
+    //ntris, positions, tris, colors, etc
+    for(var k in props){
+        this[k] = props[k];
+    }
+}
+
+/*
+ * Returns the point indices that are
+ * vertices of a given triangle. (Triangle index.)
+ */
+Model.prototype.tri_vert_ixs = function(tri_ix){
+    return [
+        this.tris[3*tri_ix],
+        this.tris[3*tri_ix+1],
+        this.tris[3*tri_ix+2]];
+}
+/*
+ * Returns an array of vec3 objs: the verts of a given tri.
+ */
+Model.prototype.tri_verts = function(tri_ix){
+    var ixs = this.tri_vert_ixs(tri_ix);
+    return [
+        vec3.create([
+            this.positions[3*ixs[0]],
+            this.positions[3*ixs[0]+1],
+            this.positions[3*ixs[0]+2]]),
+        vec3.create([
+            this.positions[3*ixs[1]],
+            this.positions[3*ixs[1]+1],
+            this.positions[3*ixs[1]+2]]),
+        vec3.create([
+            this.positions[3*ixs[2]],
+            this.positions[3*ixs[2]+1],
+            this.positions[3*ixs[2]+2]])
+            ];
+}
+
+
+
 function genSquare(){
     var verts = [
         1,0,0,
@@ -217,6 +261,50 @@ function genGrid(){
     return model;
 }
 
+function debug(pt, msg){
+    msg = msg || "point";
+    console.log([msg, pt[0],pt[1],pt[2]]);
+}
+
+/**
+ * Makes a 1D B-spline using 'points' as ctrl pts.
+ * Upsamples, returns m times as many points (a smoother curve)
+ * than the original array.
+ */
+function upsampleBezier(points, m){
+    var ret = [];
+    var n = points.length;
+    for(var i = 0; i < n; i++){
+        var pt = points[i];
+        var pt1 = points[(i+1)%n];
+        var pt2 = points[(i+2)%n];
+
+        for(var t = 0; t < 1; t+=(1.0/m)){
+            
+            var a11 =  1*pt[0]  -2*pt1[0]  +1*pt2[0];
+            var a12 =  1*pt[1]  -2*pt1[1]  +1*pt2[1];
+            var a13 =  1*pt[2]  -2*pt1[2]  +1*pt2[2];
+            var a21 = -2*pt[0]  +2*pt1[0];
+            var a22 = -2*pt[1]  +2*pt1[1];
+            var a23 = -2*pt[2]  +2*pt1[2];
+            var a31 =  1*pt[0]  +1*pt1[0];
+            var a32 =  1*pt[1]  +1*pt1[1];
+            var a33 =  1*pt[2]  +1*pt1[2];
+
+            var t2 = t*t;
+            var ptNew = vec3.create([
+                t2*a11 + t*a21 + a31,
+                t2*a12 + t*a22 + a32,
+                t2*a13 + t*a23 + a33]);
+            vec3.scale(ptNew, 0.5);
+
+            ret.push(ptNew);
+        }
+    }
+
+    return ret;
+}
+
 function loadRoad(fn){
     var loc = "data/roads/nurburgring.csv";
     $.get(loc, function(data){
@@ -225,6 +313,9 @@ function loadRoad(fn){
         //if(lines[0].toLowerCase()!="latitude,longitude,elevation")
         //    die("road file is in wrong format: "+loc);
         var n = lines.length-1;
+        //handle trailing newline
+        if(lines[n].length == 0)
+            n--;
         var lats=[],lons=[],elevs=[];
         for(var i = 1; i <= n; i++){
             var parts = lines[i].split(',');
@@ -243,35 +334,57 @@ function loadRoad(fn){
             var dz = elevs[i]-elevs[0];
             points.push([dx,dy,dz]);
         }
+        
+        //upsample points w bspline
+        //TODO: the gps points should be intersecion pts, not ctrl pts
+        points = upsampleBezier(points, 5);
+
+        //translate the entire track so that the lowest point is at y-coord 0
+        var ranges = [[0,0], [0,0], [0,0]];
+        for(var i = 0; i < n; i++){
+            ranges[0][0] = Math.min(ranges[0][0],points[i][0]);
+            ranges[0][1] = Math.max(ranges[0][1],points[i][0]);
+            ranges[1][0] = Math.min(ranges[1][0],points[i][1]);
+            ranges[1][1] = Math.max(ranges[1][1],points[i][1]);
+            ranges[2][0] = Math.min(ranges[2][0],points[i][2]);
+            ranges[2][1] = Math.max(ranges[2][1],points[i][2]);
+        }
+        var offset = [0,-ranges[2][0],0];
+        console.log(['OFFSET', offset]);
 
 
         //now get some verts and normals
         var verts = [], cols = [], tris = [];
         for(var i = 0; i < n; i++){
-            verts[3*i  ] = points[i][0];
-            verts[3*i+1] = points[i][1];
-            verts[3*i+2] = points[i][2];
+            verts[3*i  ] = points[i][0] + offset[0];
+            verts[3*i+1] = points[i][2] + offset[1];
+            verts[3*i+2] = points[i][1] + offset[2];
 
             //TODO: less shitty geom
-            var dx = points[(i+1)%n][0] - points[i][0];
-            var dy = points[(i+1)%n][1] - points[i][1];
+            var width=12;
+            //var dx = points[(i+1)%n][0] - points[i][0];
+            //var dy = points[(i+1)%n][1] - points[i][1];
+            var dx = points[(i+1)%n][0] - points[(i+n-1)%n][0];
+            var dy = points[(i+1)%n][1] - points[(i+n-1)%n][1];
             var ndx = dy/Math.sqrt(dx*dx+dy*dy)*10;
             var ndy = -dx/Math.sqrt(dx*dx+dy*dy)*10;
-            verts[3*n+3*i  ] = points[i][0]+ndx;
-            verts[3*n+3*i+1] = points[i][1]+ndy;
-            verts[3*n+3*i+2] = points[i][2];
+            verts[3*n+3*i  ] = points[i][0]+width*ndx + offset[0];
+            verts[3*n+3*i+1] = points[i][2] + offset[1];
+            verts[3*n+3*i+2] = points[i][1]+width*ndy + offset[2];
 
             tris.push(i, (i+1)%n, n+i);
             tris.push((i+1)%n, n+(i+1)%n, n+i);
 
-            cols[3*i  ] = Math.cos(i/10.0);
-            cols[3*i+1] = Math.sin(i/23.0);
-            cols[3*i+2] = Math.sin(i/37.0);
-            cols[3*n+3*i  ] =  Math.cos(i/10.0);
-            cols[3*n+3*i+1] =  Math.sin(i/23.0);
-            cols[3*n+3*i+2] =  Math.sin(i/37.0);
+            //TODO:texture
+            var m = 0.3, b = 0.6;
+            cols[3*i  ] = Math.cos(i/10.0)*m+b;
+            cols[3*i+1] = Math.sin(i/23.0)*m+b;
+            cols[3*i+2] = Math.sin(i/37.0)*m+b;
+            cols[3*n+3*i  ] =  Math.cos(i/10.0)*m+b;
+            cols[3*n+3*i+1] =  Math.sin(i/23.0)*m+b;
+            cols[3*n+3*i+2] =  Math.sin(i/37.0)*m+b;
         }
-        var model = {
+        var model = new Model({
             ntris:n*2,
             nverts:n*2,
 
@@ -280,7 +393,7 @@ function loadRoad(fn){
             //normals:new Float32Array(norms),
             tris:new Uint32Array(tris),
             position:vec3.create()
-        };
+        });
 
         console.log(["ROAD",model]);
         fn(model);
