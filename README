@@ -1,7 +1,7 @@
 Dan Posch
 dcposch@dcpos.ch
 
-WebGL tomfoolery.
+Trying out WebGL
 
 Next steps:
 * clean up shaders
@@ -11,21 +11,21 @@ Next steps:
 * keep the webgl backend clean and small
 * ...make it suck less
 * ...add semver
-* library!
 
 
 Goals for the library:
-* lighter than 3js. everything that's mem intensive should be Float32Array, etc, not JS objects.
+* lighter than 3js. everything that's memory intensive should be Float32Array, etc, not JS objects.
 * provide shaders for a simple fixed-function pipeline
 * respect opengl's naming conventions
 * provide utils for loading models and textures
 * mipmapping, filtering
 
 
-Left for other places (not in the lib):
+Not goals. These can be implemented somewhere else, outside of DCGL:
 * scene graph (octree, kdtree)
 * terrain generation
 * jquery-style selectors to address models, find neighbors, modify properties, etc
 * physics
 * animation (dcgl just includes requestAnimFrame())
 * hooks for d3?
+

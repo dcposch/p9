@@ -15,7 +15,7 @@
     var t = 0.0, dt = (1/60.0);
 
     // camera
-    var loc = vec3.create([0,0,40]);
+    var loc = vec3.create([0,50,150]);
     var dir = 0;
     var azith = 0;
 
@@ -94,10 +94,9 @@
     function setShaders(vertexShader, fragmentShader) {
         //memoize
         var key = vertexShader + "_" + fragmentShader;
-        if(shader_prog_cache[key]){
+        if (shader_prog_cache[key]) {
             prog = shader_prog_cache[key];
-        }
-        else {
+        } else {
             //link them
             log("linking shader program "+key);
             prog = gl.createProgram();
@@ -112,18 +111,27 @@
         gl.useProgram(prog);
     }
 
+    function getAttribute(name) {
+        var pos = gl.getAttribLocation(prog, name)
+        if (pos < 0) {
+            die("Attribute "+name+" not found. " +
+              "Maybe stripped out because it's unused in shader code?")
+        }
+        return pos
+    }
+
 
 
 
     /* MATRIX STACK + UNIFORMS */
 
-    function mvpush(){
+    function mvPush(){
         var copy = mat4.create();
         mat4.set(mvmat, copy);
         mvstack.push(copy);
     }
 
-    function mvpop(){
+    function mvPop(){
         mvmat = mvstack.pop() || die("can't pop, no modelview mats on stack");
     }
 
@@ -138,6 +146,7 @@
 
     }
 
+    // TODO: DELETE. creating a new buffer each time is wrong.
     //sets a shader program attribute
     //
     //name, eg "aVertexPosition"

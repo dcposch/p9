@@ -22,7 +22,7 @@ var nissan_gtr = {
     track:1.8,
     k:360000, //newtons per meter, per wheel
     kdamp:300000 //newtons per (meter/sec), per wheel
-    };
+};
 var model = nissan_gtr;
 var env = {temp:20}; //20C
 
@@ -105,18 +105,17 @@ function drawScene() {
         setAttributes(model);
 
         //transform, render
-        mvpush();
+        mvPush();
         mat4.translate(mvmat, vec3.create(model.position));
         if(model.heading)
             mat4.rotate(mvmat, -model.heading, [0,1,0]);
         setUniforms();
 
-
         //allow model to do fancy stuff
-        if(model.prerender)
+        if(model.prerender) {
             model.prerender();
-
-        if(model.tris){
+        }
+        if(model.tris) {
             //draw element array (array contains vertex indices)
             var buf = gl.createBuffer();
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf);
@@ -127,11 +126,11 @@ function drawScene() {
             //draw triangle array
             gl.drawArrays(gl.TRIANGLES, 0, model.nverts);
         }
-
-        if(model.postrender)
+        if(model.postrender) {
             model.postrender();
+        }
 
-        mvpop();
+        mvPop();
     }
 }
 
@@ -361,8 +360,7 @@ function frame(){
 }
 
 function main(){
-    var canvas = $("#gl")[0];
-    init(canvas);
-    animate(frame, canvas);
+    init(canvas[0]);
+    animate(frame, canvas[0]);
 }
 
