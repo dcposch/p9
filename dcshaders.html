@@ -23,10 +23,11 @@
 
     varying vec2 vUV;
 
-    //uniform sampler2D uSampler;
+    uniform sampler2D uSampler;
 
     void main(void) {
-        gl_FragColor = vec4(0.8,vUV.x,vUV.y,1.0);
+        vec4 texColor = texture2D(uSampler, vUV);
+        gl_FragColor = texColor;
     }
 </script>
 

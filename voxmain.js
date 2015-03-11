@@ -9,13 +9,22 @@ var CHUNK_HEIGHT = 64;
 
 var VOX_TYPE_AIR = 0;
 var VOX_TYPE_WATER = 1;
-var VOX_TYPE_STONE = 2;
+var VOX_TYPE_GRASS = 2;
+var VOX_TYPE_STONE = 3;
 
 var chunks = [];
 for(var x = 0; x < 16*20; x+=CHUNK_WIDTH)
 for(var z = 0; z < 16*20; z+=CHUNK_WIDTH){
     chunks.push(createChunk(x,z,1));
 }
+
+// http://dcpos.ch/canvas/dcgl/blocksets/simple.png
+var blockTexture;
+var blockTextureUVs = {};
+blockTextureUVs[VOX_TYPE_WATER] = {side:[13,12], top:[13,12], bottom:[13,12]};
+blockTextureUVs[VOX_TYPE_GRASS] = {side:[3,0], top:[0,0], bottom:[2,0]};
+blockTextureUVs[VOX_TYPE_STONE] = {side:[1,0], top:[1,0], bottom:[1,0]};
+
 
 // Generates a test chunk at the given coords and LOD
 function createChunk(x, z, lod) {
@@ -30,7 +39,7 @@ function createChunk(x, z, lod) {
 
         var voxtype;
         if(voxy < 10*((Math.sin(voxx/23) + Math.cos(voxz/19))+2)){
-            voxtype = VOX_TYPE_STONE;
+            voxtype = VOX_TYPE_GRASS;
         } else if (voxy < 15){
             voxtype = VOX_TYPE_WATER;
         } else {
@@ -76,12 +85,12 @@ function loadChunkToGPU(chunk) {
         var jz = iz;
         for(; jy < CHUNK_HEIGHT; jy++) {
             var jvoxtype = getVoxel(chunk.data, jx, jy, jz)
-            if (jvoxtype === VOX_TYPE_AIR) break
+            if (jvoxtype !== voxtype) break
         }
         for(; jx < CHUNK_WIDTH; jx++) {
             var hasGaps = false
             for(var ky = iy; ky < jy; ky++) {
-                hasGaps |= getVoxel(chunk.data, jx, ky, jz) == VOX_TYPE_AIR
+                hasGaps |= getVoxel(chunk.data, jx, ky, jz) !== voxtype
             }
             if (hasGaps) break
         }
@@ -89,7 +98,7 @@ function loadChunkToGPU(chunk) {
             var hasGaps = false
             for(var ky = iy; ky < jy; ky++)
             for(var kx = ix; kx < jx; kx++) {
-                hasGaps |= getVoxel(chunk.data, kx, ky, jz) == VOX_TYPE_AIR
+                hasGaps |= getVoxel(chunk.data, kx, ky, jz) !== voxtype
             }
             if (hasGaps) break
         }
@@ -135,28 +144,35 @@ function loadChunkToGPU(chunk) {
                 voxx2, voxy, zface,
                 voxx2, voxy2, zface)
 
-            // TODO: spritemap uvs for each voxel face
+            var uvVox = blockTextureUVs[voxtype]
+            var uvVoxXZ = uvVox.side
+            var uvVoxY = fside === 1 ? uvVox.top : uvVox.bottom
+            var uvVoxXZ0 = uvVoxXZ[0] / 16
+            var uvVoxXZ1 = uvVoxXZ[1] / 16
+            var uvVoxY0 = uvVoxY[0] / 16
+            var uvVoxY1 = uvVoxY[1] / 16
+            var uvW = 1/16
             uvs.push(
-                0, 0,
-                0, 0,
-                0, 0,
-                0, 0,
-                0, 0,
-                0, 0,
+                uvVoxXZ0, uvVoxXZ1,
+                uvVoxXZ0+uvW, uvVoxXZ1,
+                uvVoxXZ0, uvVoxXZ1+uvW,
+                uvVoxXZ0, uvVoxXZ1+uvW,
+                uvVoxXZ0+uvW, uvVoxXZ1,
+                uvVoxXZ0+uvW, uvVoxXZ1+uvW,
 
-                1, 0,
-                1, 0,
-                1, 0,
-                1, 0,
-                1, 0,
-                1, 0,
+                uvVoxY0, uvVoxY1,
+                uvVoxY0+uvW, uvVoxY1,
+                uvVoxY0, uvVoxY1+uvW,
+                uvVoxY0, uvVoxY1+uvW,
+                uvVoxY0+uvW, uvVoxY1,
+                uvVoxY0+uvW, uvVoxY1+uvW,
 
-                0, 1,
-                0, 1,
-                0, 1,
-                0, 1,
-                0, 1,
-                0, 1)
+                uvVoxXZ0, uvVoxXZ1,
+                uvVoxXZ0+uvW, uvVoxXZ1,
+                uvVoxXZ0, uvVoxXZ1+uvW,
+                uvVoxXZ0, uvVoxXZ1+uvW,
+                uvVoxXZ0+uvW, uvVoxXZ1,
+                uvVoxXZ0+uvW, uvVoxXZ1+uvW)
         }
     }
 
@@ -211,17 +227,24 @@ function renderFrame(canvas){
     mat4.rotate(mvmat, -azith, [1,0,0]);
     mat4.rotate(mvmat, -dir, [0,1,0]);
     mat4.translate(mvmat, [-loc[0], -loc[1], -loc[2]]);
-    setUniforms()
 
     // draw some voxels
     setShaders("vert_texture", "frag_voxel");
+    setUniforms()
     var posVertexPosition = getAttribute("aVertexPosition")
     var posVertexUV = getAttribute("aVertexUV")
+    var posSampler = getUniform("uSampler")
     gl.enableVertexAttribArray(posVertexPosition)
     gl.enableVertexAttribArray(posVertexUV)
     chunks.forEach(function(chunk) {
         if (!chunk.gl) return
 
+        // bind textures (already copied to GPU)
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, blockTexture);
+        gl.uniform1i(posSampler, 0);
+
+        // bind verts and uvs (already copied to GPU)
         gl.bindBuffer(gl.ARRAY_BUFFER, chunk.gl.vertexBuffer)
         gl.vertexAttribPointer(posVertexPosition, 3, gl.FLOAT, false, 0, 0)
         gl.bindBuffer(gl.ARRAY_BUFFER, chunk.gl.uvBuffer)
@@ -232,13 +255,15 @@ function renderFrame(canvas){
 }
 
 function main() {
-    var canvas = document.getElementById("gl");
-    initGL(canvas);
+    var canvas = document.getElementById("gl")
+    initGL(canvas)
     chunks.forEach(function(chunk){
         loadChunkToGPU(chunk);
     })
-    animate(function(){
-        handleInput();
-        renderFrame(canvas);
-    }, canvas);
+    blockTexture = loadTexture("blocksets/simple.png", function(){
+        animate(function(){
+            handleInput();
+            renderFrame(canvas);
+        }, canvas);
+    })
 }

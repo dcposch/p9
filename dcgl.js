@@ -120,6 +120,34 @@
         return pos
     }
 
+    function getUniform(name) {
+        var pos = gl.getUniformLocation(prog, name)
+        if (pos < 0) {
+            die("Uniform "+name+" not found. " +
+              "Maybe stripped out because it's unused in shader code?")
+        }
+        return pos
+    }
+
+    // Starts loading a texture from a given image URL
+    // Returns the texture ID immediately
+    // Calls an optional callback once the texture is copied to the GPU
+    function loadTexture(url, cb) {
+      var tex = gl.createTexture()
+      var texImg = new Image()
+      texImg.onload = function() { 
+          gl.bindTexture(gl.TEXTURE_2D, tex)
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texImg)
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
+          gl.generateMipmap(gl.TEXTURE_2D)
+          gl.bindTexture(gl.TEXTURE_2D, null)
+        
+          if (cb) cb()
+      }
+      texImg.src = url
+      return tex
+    }
 
 
 
@@ -143,7 +171,6 @@
 
         var camPos = gl.getUniformLocation(prog, "uCameraLoc");
         gl.uniform3f(camPos, loc.x, loc.y, loc.z);
-
     }
 
     // TODO: DELETE. creating a new buffer each time is wrong.
