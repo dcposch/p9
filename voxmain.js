@@ -175,7 +175,26 @@ function loadChunkToGPU(chunk) {
     };
 }
 
-function frame(canvas){
+function moveXZ(r, theta) {
+    loc[0] += Math.sin(theta) * r
+    loc[2] += Math.cos(theta) * r
+}
+
+function handleInput() {
+    var speed = 15
+    if(keys.up) moveXZ(dt*speed, dir + Math.PI)
+    if(keys.down) moveXZ(dt*speed, dir)
+    if(keys.left) moveXZ(dt*speed, dir + Math.PI*0.5)
+    if(keys.right) moveXZ(dt*speed, dir + Math.PI*1.5)
+
+    if(!mouse.drag) return
+    var sensitivity = 0.01
+    azith -= mouse.move.y*sensitivity
+    azith = Math.min(0.4*Math.PI, Math.max(-0.4*Math.PI, azith))
+    dir -= mouse.move.x*sensitivity
+}
+
+function renderFrame(canvas){
     // scale, clear window
     var width = canvas.clientWidth;
     var height = canvas.clientHeight;
@@ -192,11 +211,7 @@ function frame(canvas){
     mat4.rotate(mvmat, -azith, [1,0,0]);
     mat4.rotate(mvmat, -dir, [0,1,0]);
     mat4.translate(mvmat, [-loc[0], -loc[1], -loc[2]]);
-
-    mvPush();
-    mat4.rotate(mvmat, t, [0,1,0]);
-    setUniforms();
-    mvPop();
+    setUniforms()
 
     // draw some voxels
     setShaders("vert_texture", "frag_voxel");
@@ -222,5 +237,8 @@ function main() {
     chunks.forEach(function(chunk){
         loadChunkToGPU(chunk);
     })
-    animate(frame.bind(this,canvas), canvas);
+    animate(function(){
+        handleInput();
+        renderFrame(canvas);
+    }, canvas);
 }
