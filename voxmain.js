@@ -12,11 +12,10 @@ var VOX_TYPE_WATER = 1;
 var VOX_TYPE_STONE = 2;
 
 var chunks = [];
-chunks.push(createChunk(0,0,1))
-//for(var x = 0; x < 64; x+=CHUNK_WIDTH)
-//for(var z = 0; z < 64; z+=CHUNK_WIDTH){
-//    chunks.push(createChunk(x,z,1));
-//}
+for(var x = 0; x < 16*20; x+=CHUNK_WIDTH)
+for(var z = 0; z < 16*20; z+=CHUNK_WIDTH){
+    chunks.push(createChunk(x,z,1));
+}
 
 // Generates a test chunk at the given coords and LOD
 function createChunk(x, z, lod) {
@@ -48,45 +47,93 @@ function createChunk(x, z, lod) {
     }
 }
 
+function getVoxel(data, ix, iy, iz) {
+    return data[iy*CHUNK_WIDTH*CHUNK_WIDTH + ix*CHUNK_WIDTH + iz]
+}
+
+function setVoxel(data, ix, iy, iz, val) {
+    data[iy*CHUNK_WIDTH*CHUNK_WIDTH + ix*CHUNK_WIDTH + iz] = val
+}
+
 function loadChunkToGPU(chunk) {
     if(chunk.gl) return;
 
-    // naive algo: just draw every voxel
+    // greedy meshing algo
+    // http://0fps.net/2012/06/30/meshing-in-a-minecraft-game/
     var verts = [], uvs = [];
+    var meshed = new Uint8Array(chunk.data.length);
     for(var iy = 0; iy < CHUNK_HEIGHT; iy++)
     for(var ix = 0; ix < CHUNK_WIDTH; ix++)
     for(var iz = 0; iz < CHUNK_WIDTH; iz++) {
-        var voxtype = chunk.data[iy*CHUNK_WIDTH*CHUNK_WIDTH + ix*CHUNK_WIDTH + iz]
+        var voxtype = getVoxel(chunk.data, ix, iy, iz)
         if (voxtype === VOX_TYPE_AIR) continue
+        var isMeshed = getVoxel(meshed, ix, iy, iz)
+        if (isMeshed > 0) continue
+
+        // expand to largest possible quad
+        var jy = iy;
+        var jx = ix;
+        var jz = iz;
+        for(; jy < CHUNK_HEIGHT; jy++) {
+            var jvoxtype = getVoxel(chunk.data, jx, jy, jz)
+            if (jvoxtype === VOX_TYPE_AIR) break
+        }
+        for(; jx < CHUNK_WIDTH; jx++) {
+            var hasGaps = false
+            for(var ky = iy; ky < jy; ky++) {
+                hasGaps |= getVoxel(chunk.data, jx, ky, jz) == VOX_TYPE_AIR
+            }
+            if (hasGaps) break
+        }
+        for(; jz < CHUNK_WIDTH; jz++) {
+            var hasGaps = false
+            for(var ky = iy; ky < jy; ky++)
+            for(var kx = ix; kx < jx; kx++) {
+                hasGaps |= getVoxel(chunk.data, kx, ky, jz) == VOX_TYPE_AIR
+            }
+            if (hasGaps) break
+        }
+
+        // mark quad as done
+        for(var ky = iy; ky < jy; ky++)
+        for(var kx = ix; kx < jx; kx++) 
+        for(var kz = iz; kz < jz; kz++) {
+            setVoxel(meshed, kx, ky, kz, 1)
+        }
+
+        // add the six faces (12 tris total) for the quad
         var voxsize = 1 << chunk.lod
         var voxx = chunk.x + ix*voxsize
         var voxy = iy*voxsize;
         var voxz = chunk.z + iz*voxsize
+        var voxx2 = chunk.x + jx*voxsize
+        var voxy2 = jy*voxsize;
+        var voxz2 = chunk.z + jz*voxsize
         for(var fside = 0; fside < 2; fside++) {
-            var xface = voxx + fside*voxsize
+            var xface = fside === 1 ? voxx2 : voxx
             verts.push(
                 xface, voxy, voxz,
-                xface, voxy + voxsize, voxz,
-                xface, voxy, voxz + voxsize,
-                xface, voxy, voxz + voxsize,
-                xface, voxy + voxsize, voxz,
-                xface, voxy + voxsize, voxz + voxsize)
-            var yface = voxy + fside*voxsize
+                xface, voxy2, voxz,
+                xface, voxy, voxz2,
+                xface, voxy, voxz2,
+                xface, voxy2, voxz,
+                xface, voxy2, voxz2)
+            var yface = fside === 1 ? voxy2 : voxy
             verts.push(
                 voxx, yface, voxz,
-                voxx + voxsize, yface, voxz,
-                voxx, yface, voxz + voxsize,
-                voxx, yface, voxz + voxsize,
-                voxx + voxsize, yface, voxz,
-                voxx + voxsize, yface, voxz + voxsize)
-            var zface = voxz + fside*voxsize
+                voxx2, yface, voxz,
+                voxx, yface, voxz2,
+                voxx, yface, voxz2,
+                voxx2, yface, voxz,
+                voxx2, yface, voxz2)
+            var zface = fside === 1 ? voxz2 : voxz
             verts.push(
                 voxx, voxy, zface,
-                voxx + voxsize, voxy, zface,
-                voxx, voxy + voxsize, zface,
-                voxx, voxy + voxsize, zface,
-                voxx + voxsize, voxy, zface,
-                voxx + voxsize, voxy + voxsize, zface)
+                voxx2, voxy, zface,
+                voxx, voxy2, zface,
+                voxx, voxy2, zface,
+                voxx2, voxy, zface,
+                voxx2, voxy2, zface)
 
             // TODO: spritemap uvs for each voxel face
             uvs.push(
@@ -151,31 +198,10 @@ function frame(canvas){
     setUniforms();
     mvPop();
 
-    // draw sample triangles
-    /*setShaders("vert_simple", "frag_color");
-    var verts = new Float32Array([
-        0,0,0,
-        1,0,0,
-        0,1,0,
-        0,1,0,
-        1,0,0,
-        1,1,0]);
-    var cols = new Float32Array([
-        1,1,1,
-        0,1,1,
-        1,0,1,
-        1,0,1,
-        0,1,1,
-        0,0,1]);
-    setAttribute("aVertexPosition", verts, 3);
-    setAttribute("aVertexColor", cols, 3);
-    gl.drawArrays(gl.TRIANGLES, 0, 6);*/
-
     // draw some voxels
     setShaders("vert_texture", "frag_voxel");
     var posVertexPosition = getAttribute("aVertexPosition")
     var posVertexUV = getAttribute("aVertexUV")
-    // console.log([posVertexPosition, posVertexUV]);
     gl.enableVertexAttribArray(posVertexPosition)
     gl.enableVertexAttribArray(posVertexUV)
     chunks.forEach(function(chunk) {
