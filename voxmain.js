@@ -15,7 +15,7 @@ var VOX_TYPE_STONE = 3;
 var chunks = [];
 for(var x = 0; x < 16*20; x+=CHUNK_WIDTH)
 for(var z = 0; z < 16*20; z+=CHUNK_WIDTH){
-    chunks.push(createChunk(x,z,1));
+    chunks.push(createChunk(x,z,0));
 }
 
 // http://dcpos.ch/canvas/dcgl/blocksets/simple.png
@@ -38,7 +38,8 @@ function createChunk(x, z, lod) {
         var voxz = z + iz*voxsize;
 
         var voxtype;
-        if(voxy < 10*((Math.sin(voxx/23) + Math.cos(voxz/19))+2)){
+        if(voxy < 10*((Math.sin(voxx/23) + Math.cos(voxz/19))+2)) {
+        // if(voxy < 30 && voxy > 20 && ix > 1 && ix < 8 && iz > 1 && iz < 8) {
             voxtype = VOX_TYPE_GRASS;
         } else if (voxy < 15){
             voxtype = VOX_TYPE_WATER;
@@ -151,7 +152,7 @@ function loadChunkToGPU(chunk) {
             var uvVoxXZ1 = uvVoxXZ[1] / 16
             var uvVoxY0 = uvVoxY[0] / 16
             var uvVoxY1 = uvVoxY[1] / 16
-            var uvW = 1/16
+            var uvW = 0 // 1/16
             uvs.push(
                 uvVoxXZ0, uvVoxXZ1,
                 uvVoxXZ0+uvW, uvVoxXZ1,

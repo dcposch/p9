@@ -22,11 +22,13 @@
     #endif
 
     varying vec2 vUV;
+    varying vec3 vPosition;
 
     uniform sampler2D uSampler;
 
     void main(void) {
-        vec4 texColor = texture2D(uSampler, vUV);
+        vec2 tiledUV = vUV + mod(vec2(vPosition.x, vPosition.z), 1.0)/16.0;
+        vec4 texColor = texture2D(uSampler, tiledUV);
         gl_FragColor = texColor;
     }
 </script>
@@ -67,10 +69,12 @@
     uniform mat4 uMatrix;
 
     varying vec2 vUV;
+    varying vec3 vPosition;
 
     void main(void) {
         gl_Position = uMatrix * vec4(aVertexPosition, 1.0);
         vUV = aVertexUV;
+        vPosition = aVertexPosition;
     }
 </script>
 
