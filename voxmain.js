@@ -9,6 +9,11 @@
 var CHUNK_WIDTH = 16
 var CHUNK_HEIGHT = 64
 
+var LOD_MAX = 4 // biggest blocks are 2^4 = 16 units on a side
+var LOD_CHUNK_RADIUS = 8 // 16x16 neighborhood around the viewer
+var LOD_CHUNK_RADIUS2 = LOD_CHUNK_RADIUS*LOD_CHUNK_RADIUS
+var LOD_SPIRAL = getCartesianSpiral(LOD_CHUNK_RADIUS2*8) // 4x + some extra
+
 // There are different kinds of blocks
 var VOX_TYPE_AIR = 0
 var VOX_TYPE_WATER = 1
@@ -124,13 +129,14 @@ function loadChunkToGPU(chunk) {
         }
 
         // add the six faces (12 tris total) for the quad
+        var eps = 0.001
         var voxsize = 1 << chunk.lod
         var voxx = chunk.x + ix*voxsize
         var voxy = iy*voxsize
         var voxz = chunk.z + iz*voxsize
-        var voxx2 = chunk.x + jx*voxsize
-        var voxy2 = jy*voxsize
-        var voxz2 = chunk.z + jz*voxsize
+        var voxx2 = chunk.x + jx*voxsize - eps
+        var voxy2 = jy*voxsize - eps
+        var voxz2 = chunk.z + jz*voxsize - eps
         for(var fside = 0; fside < 2; fside++) {
             var xface = fside === 1 ? voxx2 : voxx
             verts.push(
@@ -218,7 +224,7 @@ function handleInput() {
     var speed = INPUT_SPEED
     if(input.keys.shift) speed *= 3
     if(input.keys.up) move(dt*speed, dir + Math.PI, attitude)
-    if(input.keys.down) move(dt*speed, dir, attitude)
+    if(input.keys.down) move(dt*speed, dir, -attitude)
     if(input.keys.left) move(dt*speed, dir + Math.PI*0.5, 0)
     if(input.keys.right) move(dt*speed, dir + Math.PI*1.5, 0)
 
@@ -229,41 +235,75 @@ function handleInput() {
     dir -= movePx.x*INPUT_SENSITIVITY
 }
 
+// Moves you (the camera) in any direction by any distance
 function move(r, theta, attitude) {
     loc[0] += Math.sin(theta) * Math.cos(attitude) * r
     loc[1] += Math.sin(attitude) * r
     loc[2] += Math.cos(theta) * Math.cos(attitude) * r
 }
 
+function getCartesianSpiral(n) {
+    var ret = [[0,0]]
+    if(ret.length >= n) return ret
+    for(var dist = 1;; dist++) {
+        for(var x = -dist; x < dist; x++) {
+            ret.push([x,dist])
+            if(ret.length >= n) return ret
+        }
+        for(var y = dist; y > -dist; y--) {
+            ret.push([dist,y])
+            if(ret.length >= n) return ret
+        }
+        for(var x = dist; x > -dist; x--) {
+            ret.push([x,-dist])
+            if(ret.length >= n) return ret
+        }
+        for(var y = -dist; y < dist; y++) {
+            ret.push([-dist,y])
+            if(ret.length >= n) return ret
+        }
+    }
+}
+
+// Loads up to *one* chunk, starting with lowest LOD
+// and starting closest to where you stand
+// Unloads *all* chunks that are out of range
 function updateChunks() {
     var lodBounds = []
-    for(var lod = 0; lod < 4; lod++) {
+    var allLoaded = true
+    for(var lod = 0; lod < LOD_MAX; lod++) {
         var lodChunkWidth = CHUNK_WIDTH<<lod
         var chunkx = Math.round(loc[0]/lodChunkWidth) * lodChunkWidth
         var chunkz = Math.round(loc[2]/lodChunkWidth) * lodChunkWidth
 
-        // load up to one chunk in a 8x8 neighborhood
-        var allLoaded = true
-        var chunkRadius = 8*lodChunkWidth
+        // load one chunk, if needed, to fill an 2*radius by 2*radius 
+        // neighborhood of chunks around where you're standing
+        var chunkRadius = LOD_CHUNK_RADIUS*lodChunkWidth
         // align with the grid of the next LOD level up
         var chunkWidth2 = lodChunkWidth*2
-        var minX = Math.round((chunkx-chunkRadius)/chunkWidth2)*chunkWidth2
-        var maxX = Math.round((chunkx+chunkRadius)/chunkWidth2)*chunkWidth2
-        var minZ = Math.round((chunkz-chunkRadius)/chunkWidth2)*chunkWidth2
-        var maxZ = Math.round((chunkz+chunkRadius)/chunkWidth2)*chunkWidth2
-        outer: for(var x = minX; x < maxX; x += lodChunkWidth)
-        for(var z = minZ; z < maxZ; z += lodChunkWidth) {
-            var key = x+"_"+z+"_"+lod
-            if(chunks[key]) continue
-            allLoaded = false
-            var chunk = createChunk(x, z, lod)
-            loadChunkToGPU(chunk)
-            chunks[key] = chunk
-            break outer
+        var minX = Math.floor((chunkx-chunkRadius)/chunkWidth2)*chunkWidth2
+        var maxX = Math.floor((chunkx+chunkRadius)/chunkWidth2)*chunkWidth2
+        var minZ = Math.floor((chunkz-chunkRadius)/chunkWidth2)*chunkWidth2
+        var maxZ = Math.floor((chunkz+chunkRadius)/chunkWidth2)*chunkWidth2
+        // only go to next coarser (further away) LOD once the finer ones are fully loaded
+        if(allLoaded) {
+            // load from closest to farthest away, in a spiral
+            for(var i = 0; i < LOD_SPIRAL.length; i++) {
+                var x = LOD_SPIRAL[i][0]*lodChunkWidth+chunkx
+                var z = LOD_SPIRAL[i][1]*lodChunkWidth+chunkz
+                if(x<minX || x>=maxX || z<minZ || z>=maxZ) continue
+                var key = x+"_"+z+"_"+lod
+                if(chunks[key]) continue
+                allLoaded = false
+                var chunk = createChunk(x, z, lod)
+                loadChunkToGPU(chunk)
+                linkChunkIntoChunkTree(chunk)
+                chunks[key] = chunk
+                break
+            }
         }
-        if(!allLoaded) break
 
-        // unload all chunks outside the 8x8 neighborhood
+        // unload all chunks outside the neighborhood
         for(key in chunks) {
             var chunk = chunks[key]
             if(chunk.lod !== lod) continue
@@ -276,6 +316,57 @@ function updateChunks() {
             }
         }
     }
+}
+
+// Links the chunk at LOD x to the four chunks at LOD x-1
+// if already loaded and to the parent (LOD x+1) if loaded
+function linkChunkIntoChunkTree(chunk) {
+    chunk.children = []
+    if(chunk.lod > 0)  {
+        var halfWidth = CHUNK_WIDTH<<(chunk.lod-1)
+        for(var ix = 0; ix <= 1; ix++)
+        for(var iz = 0; iz <= 1; iz++) {
+            var x = chunk.x + halfWidth*ix
+            var z = chunk.z + halfWidth*iz
+            var child = chunks[x+"_"+z+"_"+(chunk.lod-1)]
+            if(child) {
+                chunk.children.push(child)
+                if(child.parent && child.parent.gl) die("Invalid state: two identical parent chunks loaded");
+                child.parent = chunk
+            }
+        }
+    }
+    var doubleWidth = CHUNK_WIDTH<<(chunk.lod+1)
+    var px = Math.floor(chunk.x/doubleWidth)*doubleWidth
+    var pz = Math.floor(chunk.z/doubleWidth)*doubleWidth
+    chunk.parent = chunks[px+"_"+pz+"_"+(chunk.lod+1)]
+    if(chunk.parent) {
+        var sibIx = 0
+        for(; sibIx < chunk.parent.children.length; sibIx++){
+            var sibling = chunk.parent.children[sibIx]
+            if(sibling.x === chunk.x && sibling.z === chunk.z) {
+                if(sibling.gl) die("Invalid state: two identical child chunks loaded")
+                break
+            }
+        }
+        if (sibIx < chunk.parent.children.length ) {
+            // replace sibling
+            chunk.parent.children[sibIx] = chunk
+        } else {
+            // add new sibling
+            chunk.parent.children.push(chunk)
+        }
+    }
+}
+
+// Does this chunk have all four of its children loaded?
+// If so we want to draw those instead
+function hasBetterChunksLoaded(chunk) {
+    if(chunk.children.length < 4) return false
+    for(var i = 0; i < 4; i++) {
+        if(!chunk.children[i].gl) return false
+    }
+    return true
 }
 
 // Renders one frame
@@ -316,7 +407,9 @@ function renderFrame(canvas){
         // don't render if the chunk is not loaded to GPU
         if (!chunk.gl) continue
         // don't render if we have a higher res chunk for the same location
-        if (chunks[chunk.x+"_"+chunk.z+"_"+(chunk.lod-1)]) continue
+        if (hasBetterChunksLoaded(chunk)) continue
+        // don't render if we're going to render the parent instead
+        if (chunk.parent && !hasBetterChunksLoaded(chunk.parent)) continue
 
         // bind verts and uvs (already copied to GPU)
         gl.bindBuffer(gl.ARRAY_BUFFER, chunk.gl.vertexBuffer)
