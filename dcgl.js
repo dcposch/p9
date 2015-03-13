@@ -33,8 +33,10 @@
     }
 
     function initGL(canvas) {
-        gl = canvas.getContext("experimental-webgl")
+        gl = canvas.getContext("webgl", {antialias:true})
             || die("could not initialise WebGL");
+        console.log("GL attributes: "+JSON.stringify(gl.getContextAttributes()))
+        console.log("GL antialiasing level: "+ gl.getParameter(gl.SAMPLES))
         gl.viewportWidth = canvas.width;
         gl.viewportHeight = canvas.height;
 
@@ -139,8 +141,8 @@
           gl.bindTexture(gl.TEXTURE_2D, tex)
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texImg)
           gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
-          gl.generateMipmap(gl.TEXTURE_2D)
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+          //gl.generateMipmap(gl.TEXTURE_2D)
           gl.bindTexture(gl.TEXTURE_2D, null)
         
           if (cb) cb()

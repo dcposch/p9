@@ -382,7 +382,7 @@ function renderFrame(canvas){
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
     // setup camera
-    mat4.perspective(50, width / height, 1.0, 3000.0, pmat)
+    mat4.perspective(50, width / height, 0.1, 1000.0, pmat)
 
     // setup matrixes
     mat4.identity(mvmat)
