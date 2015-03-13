@@ -44,10 +44,7 @@
         gl.enable(gl.DEPTH_TEST);
         gl.enable(gl.DEPTH_TEST);
         //gl.enable(gl.BLEND);
-        //gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-
-        //gl.enable(gl.VERTEX_PROGRAM_POINT_SIZE);
-        //gl.enable(gl.POINT_SMOOTH);
+        //gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     }
 
     function shader(id) {
@@ -141,8 +138,8 @@
           gl.bindTexture(gl.TEXTURE_2D, tex)
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texImg)
           gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-          //gl.generateMipmap(gl.TEXTURE_2D)
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR)
+          gl.generateMipmap(gl.TEXTURE_2D)
           gl.bindTexture(gl.TEXTURE_2D, null)
         
           if (cb) cb()

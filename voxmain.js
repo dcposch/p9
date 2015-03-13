@@ -31,11 +31,11 @@ var chunks = {}
 var input = null
 
 // Textures for every kind of block, all on one image.
-// See http://dcpos.ch/canvas/dcgl/blocksets/simple.png
+// See http://dcpos.ch/canvas/dcgl/blocksets/
 var blockTexture
 var blockTextureUVs = {}
 blockTextureUVs[VOX_TYPE_WATER] = {side:[13,12], top:[13,12], bottom:[13,12]}
-blockTextureUVs[VOX_TYPE_GRASS] = {side:[3,0], top:[0,0], bottom:[2,0]}
+blockTextureUVs[VOX_TYPE_GRASS] = {side:[3,0], top:[1,9], bottom:[2,0]}
 blockTextureUVs[VOX_TYPE_STONE] = {side:[1,0], top:[1,0], bottom:[1,0]}
 
 
@@ -87,7 +87,7 @@ function loadChunkToGPU(chunk) {
 
     // greedy meshing algo
     // http://0fps.net/2012/06/30/meshing-in-a-minecraft-game/
-    var verts = [], uvs = []
+    var verts = [], uvs = [], normals = []
     var meshed = new Uint8Array(chunk.data.length)
     for(var iy = 0; iy < CHUNK_HEIGHT; iy++)
     for(var ix = 0; ix < CHUNK_WIDTH; ix++)
@@ -163,6 +163,29 @@ function loadChunkToGPU(chunk) {
                 voxx2, voxy, zface,
                 voxx2, voxy2, zface)
 
+            var dir = fside * 2 - 1 // -1 or 1
+            normals.push(
+                dir, 0, 0,
+                dir, 0, 0,
+                dir, 0, 0,
+                dir, 0, 0,
+                dir, 0, 0,
+                dir, 0, 0)
+            normals.push(
+                0, dir, 0,
+                0, dir, 0,
+                0, dir, 0,
+                0, dir, 0,
+                0, dir, 0,
+                0, dir, 0)
+            normals.push(
+                0, 0, dir,
+                0, 0, dir,
+                0, 0, dir,
+                0, 0, dir,
+                0, 0, dir,
+                0, 0, dir)
+
             var uvVox = blockTextureUVs[voxtype]
             var uvVoxXZ = uvVox.side
             var uvVoxY = fside === 1 ? uvVox.top : uvVox.bottom
@@ -198,6 +221,9 @@ function loadChunkToGPU(chunk) {
     var vertexBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW)
+    var normalBuffer = gl.createBuffer()
+    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer)
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW)
     var uvBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW)
@@ -205,6 +231,7 @@ function loadChunkToGPU(chunk) {
     chunk.gl = {
         vertexBuffer: vertexBuffer,
         vertexCount: vertexCount,
+        normalBuffer: normalBuffer,
         uvBuffer: uvBuffer
     }
 }
@@ -382,7 +409,7 @@ function renderFrame(canvas){
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
     // setup camera
-    mat4.perspective(50, width / height, 0.1, 1000.0, pmat)
+    mat4.perspective(50, width / height, 0.1, 2000.0, pmat)
 
     // setup matrixes
     mat4.identity(mvmat)
@@ -394,9 +421,11 @@ function renderFrame(canvas){
     setShaders("vert_texture", "frag_voxel")
     setUniforms()
     var posVertexPosition = getAttribute("aVertexPosition")
+    var posVertexNormal = getAttribute("aVertexNormal")
     var posVertexUV = getAttribute("aVertexUV")
     var posSampler = getUniform("uSampler")
     gl.enableVertexAttribArray(posVertexPosition)
+    gl.enableVertexAttribArray(posVertexNormal)
     gl.enableVertexAttribArray(posVertexUV)
     // bind textures (already copied to GPU)
     gl.activeTexture(gl.TEXTURE0)
@@ -414,6 +443,8 @@ function renderFrame(canvas){
         // bind verts and uvs (already copied to GPU)
         gl.bindBuffer(gl.ARRAY_BUFFER, chunk.gl.vertexBuffer)
         gl.vertexAttribPointer(posVertexPosition, 3, gl.FLOAT, false, 0, 0)
+        gl.bindBuffer(gl.ARRAY_BUFFER, chunk.gl.normalBuffer)
+        gl.vertexAttribPointer(posVertexNormal, 3, gl.FLOAT, false, 0, 0)
         gl.bindBuffer(gl.ARRAY_BUFFER, chunk.gl.uvBuffer)
         gl.vertexAttribPointer(posVertexUV, 2, gl.FLOAT, false, 0, 0)
 
@@ -427,7 +458,7 @@ function main() {
     canvas.addEventListener('click', input.requestPointerLock.bind(input))
 
     initGL(canvas)
-    blockTexture = loadTexture("blocksets/simple.png", function(){
+    blockTexture = loadTexture("blocksets/isabella.png", function(){
         animate(function(){
             handleInput()
             updateChunks()
