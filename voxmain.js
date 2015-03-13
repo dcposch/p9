@@ -19,12 +19,8 @@ var VOX_TYPE_STONE = 3
 var INPUT_SPEED = 25 // blocks per second
 var INPUT_SENSITIVITY = 0.01 // radians per pixel
 
-// Generate a demo voxel world
-var chunks = []
-for(var x = 0; x < 16*20; x+=CHUNK_WIDTH)
-for(var z = 0; z < 16*20; z+=CHUNK_WIDTH){
-    chunks.push(createChunk(x,z,0))
-}
+// Voxel world
+var chunks = {}
 
 // The DCInput object. See dcinput.js
 var input = null
@@ -200,7 +196,6 @@ function loadChunkToGPU(chunk) {
     gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW)
     var vertexCount = verts.length / 3
-    console.log("Loaded chunk to GPU. "+vertexCount+" verts")
     chunk.gl = {
         vertexBuffer: vertexBuffer,
         vertexCount: vertexCount,
@@ -208,24 +203,79 @@ function loadChunkToGPU(chunk) {
     }
 }
 
+// Removes all resources a (loaded) chunk
+// uses on the GPU. Sets chunk.gl to null
+function unloadChunkFromGPU(chunk) {
+    if(!chunk.gl) return
+    gl.deleteBuffer(chunk.gl.vertexBuffer)
+    gl.deleteBuffer(chunk.gl.uvBuffer)
+    chunk.gl = null
+}
+
 // Handles all keyboard and mouse input
 // Lets you move and look around
 function handleInput() {
-    if(input.keys.up) moveXZ(dt*INPUT_SPEED, dir + Math.PI)
-    if(input.keys.down) moveXZ(dt*INPUT_SPEED, dir)
-    if(input.keys.left) moveXZ(dt*INPUT_SPEED, dir + Math.PI*0.5)
-    if(input.keys.right) moveXZ(dt*INPUT_SPEED, dir + Math.PI*1.5)
+    var speed = INPUT_SPEED
+    if(input.keys.shift) speed *= 3
+    if(input.keys.up) move(dt*speed, dir + Math.PI, attitude)
+    if(input.keys.down) move(dt*speed, dir, attitude)
+    if(input.keys.left) move(dt*speed, dir + Math.PI*0.5, 0)
+    if(input.keys.right) move(dt*speed, dir + Math.PI*1.5, 0)
 
-    var move = input.getAndClearMouseMove()
+    var movePx = input.getAndClearMouseMove()
     if(!input.mouse.drag && !input.mouse.pointerLock) return
-    azith -= move.y*INPUT_SENSITIVITY
-    azith = Math.min(0.4*Math.PI, Math.max(-0.4*Math.PI, azith))
-    dir -= move.x*INPUT_SENSITIVITY
+    attitude -= movePx.y*INPUT_SENSITIVITY
+    attitude = Math.min(0.4*Math.PI, Math.max(-0.4*Math.PI, attitude))
+    dir -= movePx.x*INPUT_SENSITIVITY
 }
 
-function moveXZ(r, theta) {
-    loc[0] += Math.sin(theta) * r
-    loc[2] += Math.cos(theta) * r
+function move(r, theta, attitude) {
+    loc[0] += Math.sin(theta) * Math.cos(attitude) * r
+    loc[1] += Math.sin(attitude) * r
+    loc[2] += Math.cos(theta) * Math.cos(attitude) * r
+}
+
+function updateChunks() {
+    var lodBounds = []
+    for(var lod = 0; lod < 4; lod++) {
+        var lodChunkWidth = CHUNK_WIDTH<<lod
+        var chunkx = Math.round(loc[0]/lodChunkWidth) * lodChunkWidth
+        var chunkz = Math.round(loc[2]/lodChunkWidth) * lodChunkWidth
+
+        // load up to one chunk in a 8x8 neighborhood
+        var allLoaded = true
+        var chunkRadius = 8*lodChunkWidth
+        // align with the grid of the next LOD level up
+        var chunkWidth2 = lodChunkWidth*2
+        var minX = Math.round((chunkx-chunkRadius)/chunkWidth2)*chunkWidth2
+        var maxX = Math.round((chunkx+chunkRadius)/chunkWidth2)*chunkWidth2
+        var minZ = Math.round((chunkz-chunkRadius)/chunkWidth2)*chunkWidth2
+        var maxZ = Math.round((chunkz+chunkRadius)/chunkWidth2)*chunkWidth2
+        outer: for(var x = minX; x < maxX; x += lodChunkWidth)
+        for(var z = minZ; z < maxZ; z += lodChunkWidth) {
+            var key = x+"_"+z+"_"+lod
+            if(chunks[key]) continue
+            allLoaded = false
+            var chunk = createChunk(x, z, lod)
+            loadChunkToGPU(chunk)
+            chunks[key] = chunk
+            break outer
+        }
+        if(!allLoaded) break
+
+        // unload all chunks outside the 8x8 neighborhood
+        for(key in chunks) {
+            var chunk = chunks[key]
+            if(chunk.lod !== lod) continue
+            if(chunk.x < minX ||
+               chunk.x >= maxX ||
+               chunk.z < minZ ||
+               chunk.z >= maxZ) {
+                unloadChunkFromGPU(chunk)
+                delete chunks[key]
+            }
+        }
+    }
 }
 
 // Renders one frame
@@ -241,11 +291,11 @@ function renderFrame(canvas){
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
     // setup camera
-    mat4.perspective(50, width / height, 1.0, 1000.0, pmat)
+    mat4.perspective(50, width / height, 1.0, 3000.0, pmat)
 
     // setup matrixes
     mat4.identity(mvmat)
-    mat4.rotate(mvmat, -azith, [1,0,0])
+    mat4.rotate(mvmat, -attitude, [1,0,0])
     mat4.rotate(mvmat, -dir, [0,1,0])
     mat4.translate(mvmat, [-loc[0], -loc[1], -loc[2]])
 
@@ -257,13 +307,16 @@ function renderFrame(canvas){
     var posSampler = getUniform("uSampler")
     gl.enableVertexAttribArray(posVertexPosition)
     gl.enableVertexAttribArray(posVertexUV)
-    chunks.forEach(function(chunk) {
-        if (!chunk.gl) return
-
-        // bind textures (already copied to GPU)
-        gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D, blockTexture)
-        gl.uniform1i(posSampler, 0)
+    // bind textures (already copied to GPU)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, blockTexture)
+    gl.uniform1i(posSampler, 0)
+    for(var key in chunks) {
+        var chunk = chunks[key]
+        // don't render if the chunk is not loaded to GPU
+        if (!chunk.gl) continue
+        // don't render if we have a higher res chunk for the same location
+        if (chunks[chunk.x+"_"+chunk.z+"_"+(chunk.lod-1)]) continue
 
         // bind verts and uvs (already copied to GPU)
         gl.bindBuffer(gl.ARRAY_BUFFER, chunk.gl.vertexBuffer)
@@ -272,7 +325,7 @@ function renderFrame(canvas){
         gl.vertexAttribPointer(posVertexUV, 2, gl.FLOAT, false, 0, 0)
 
         gl.drawArrays(gl.TRIANGLES, 0, chunk.gl.vertexCount)
-    })
+    }
 }
 
 function main() {
@@ -281,12 +334,10 @@ function main() {
     canvas.addEventListener('click', input.requestPointerLock.bind(input))
 
     initGL(canvas)
-    chunks.forEach(function(chunk){
-        loadChunkToGPU(chunk)
-    })
     blockTexture = loadTexture("blocksets/simple.png", function(){
         animate(function(){
             handleInput()
+            updateChunks()
             renderFrame(canvas)
         }, canvas)
     })

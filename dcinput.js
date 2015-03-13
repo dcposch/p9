@@ -8,7 +8,8 @@ function DCInput(canvas) {
     this.keyMap = {
         38:'up', 40:'down', 37: 'right', 39:'left', //arrow keys
         87:'up', 83:'down', 65: 'right', 68:'left', //wasd
-        81:'strafeleft', 69:'straferight' //qe
+        81:'strafeleft', 69:'straferight', //qe
+        16:'shift', 17:'control'
     }
 
     // Currently pressed keys, {'up':true} if up is currently pressed
@@ -50,7 +51,6 @@ function DCInput(canvas) {
         var key = ev.keyCode
         if(this.keyMap[key]){
             this.keys[this.keyMap[key]] = true
-            console.log(this.keyMap[key])
         }
     }
 

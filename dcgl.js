@@ -17,7 +17,7 @@
     // camera
     var loc = vec3.create([0,50,150]);
     var dir = 0;
-    var azith = 0;
+    var attitude = 0;
 
     //shaders
     var shader_cache = {};
