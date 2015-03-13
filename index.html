@@ -24,31 +24,77 @@
     </head>
 
 <body>
-    <h1>dcpos.ch webgl test</h1>    
-    <canvas id="gl" ></canvas>
-    <h2 id="status">initializing...</h2>
 
+<h1>dcpos.ch webgl test</h1>    
+<canvas id="gl" ></canvas>
 
+<script type="x-shader/x-fragment" id="frag_color">
+    #ifdef GL_ES
+    precision highp float;
+    #endif
 
-<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.js"></script>
-<script type="text/javascript" src="glmatrix.js"></script>
-<script type="text/javascript" src="dcgl.js"></script>
-<script type="text/javascript" src="dcinput.js"></script>
+    varying vec4 vColor;
 
-<!--
-<script type="text/javascript" src="racegen.js" ></script>
-<script type="text/javascript" src="racemain.js" > </script>
--->
+    void main(void) {
+        gl_FragColor = vColor;
+    }
+</script>
+
+<script type="x-shader/x-fragment" id="frag_voxel">
+    #ifdef GL_ES
+    precision highp float;
+    #endif
+
+    varying vec2 vUV;
+    varying vec3 vPosition;
+
+    uniform sampler2D uSampler;
+
+    void main(void) {
+        vec2 tiledUV = vUV + mod(vec2(vPosition.x, vPosition.z), 1.0)/16.0;
+        vec4 texColor = texture2D(uSampler, tiledUV);
+        gl_FragColor = texColor;
+    }
+</script>
+
+<script type="x-shader/x-vertex" id="vert_texture">
+    attribute vec3 aVertexPosition;
+    attribute vec2 aVertexUV;
+
+    uniform mat4 uMatrix;
+
+    varying vec2 vUV;
+    varying vec3 vPosition;
+
+    void main(void) {
+        gl_Position = uMatrix * vec4(aVertexPosition, 1.0);
+        vUV = aVertexUV;
+        vPosition = aVertexPosition;
+    }
+</script>
+
+<script type="x-shader/x-vertex" id="vert_simple">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aVertexColor;
+
+    uniform mat4 uMatrix;
+
+    varying vec4 vColor;
+
+    void main(void) {
+        gl_Position = uMatrix * vec4(aVertexPosition, 1.0);
+        vColor = vec4(aVertexColor, 1.0);
+    }
+</script>
+
+<script src="glmatrix.js"></script>
+<script src="dcgl.js"></script>
+<script src="dcinput.js"></script>
 <script src="voxmain.js"></script>
-
-<script type="text/javascript">
-$.get("dcshaders.html", function(html){
-    $("body").append(html);
+<script>
     main();
-});
 </script>
 
 </body>
-
 </html>
 
