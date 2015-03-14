@@ -51,9 +51,9 @@
 
     uniform sampler2D uSampler;
 
-    // From a sweet blog post
-    //  http://0fps.net/2013/07/09/texture-atlases-wrapping-and-mip-mapping/
-    vec4 fourTapSample(vec2 tileOffset,
+    // Algorithm from a sweet blog post
+    // http://0fps.net/2013/07/09/texture-atlases-wrapping-and-mip-mapping/
+    vec4 sampleTileAtlas(vec2 tileOffset,
                       vec2 tileUV,
                       float tileSize,
                       sampler2D atlas) {
@@ -89,7 +89,7 @@
         float v = dot(vPosition, vNormal.yzx);
         vec2 tileUV = fract(vec2(u, v));
 
-        gl_FragColor = fourTapSample(vUV, tileUV, tileSize, uSampler);
+        gl_FragColor = sampleTileAtlas(vUV, tileUV, tileSize, uSampler);
     }
 
 </script>

@@ -9,10 +9,36 @@
 var CHUNK_WIDTH = 16
 var CHUNK_HEIGHT = 64
 
-var LOD_MAX = 4 // biggest blocks are 2^4 = 16 units on a side
+var LOD_MAX = 5 // biggest blocks are 2^4 = 16 units on a side
 var LOD_CHUNK_RADIUS = 8 // 16x16 neighborhood around the viewer
 var LOD_CHUNK_RADIUS2 = LOD_CHUNK_RADIUS*LOD_CHUNK_RADIUS
 var LOD_SPIRAL = getCartesianSpiral(LOD_CHUNK_RADIUS2*8) // 4x + some extra
+
+// Terrain gen
+var BIOME_ISLANDS = {
+    perlinHeightmapAmplitudes: [0, 0.5, 0, 0, 10, 10, 5]
+}
+var BIOME_PLAINS = {
+    perlinHeightmapAmplitudes: [0, 0.5, 0, 0, 0, 0, 0, 0, 15, 15, 15, 15]
+}
+var BIOME_MOUNTAINS = {
+    perlinHeightmapAmplitudes: [0, 0.5, 2, 2, 5, 0, 20, 40]
+}
+var BIOMES = [
+    BIOME_ISLANDS,
+    BIOME_ISLANDS,
+    BIOME_ISLANDS,
+    BIOME_ISLANDS,
+    BIOME_ISLANDS,
+    BIOME_PLAINS,
+    BIOME_PLAINS,
+    BIOME_PLAINS,
+    BIOME_PLAINS,
+    BIOME_PLAINS,
+    BIOME_PLAINS,
+    BIOME_PLAINS,
+    BIOME_PLAINS,
+    BIOME_MOUNTAINS]
 
 // There are different kinds of blocks
 var VOX_TYPE_AIR = 0
@@ -23,6 +49,8 @@ var VOX_TYPE_STONE = 3
 // How fast you can move and look around
 var INPUT_SPEED = 25 // blocks per second
 var INPUT_SENSITIVITY = 0.01 // radians per pixel
+
+var PERLIN_HEIGHTMAP_AMPLITUDES = [0, 0.5, 0, 0, 0, 20, 20, 20]
 
 // Voxel world
 var chunks = {}
@@ -38,21 +66,80 @@ blockTextureUVs[VOX_TYPE_WATER] = {side:[13,12], top:[13,12], bottom:[13,12]}
 blockTextureUVs[VOX_TYPE_GRASS] = {side:[3,0], top:[1,9], bottom:[2,0]}
 blockTextureUVs[VOX_TYPE_STONE] = {side:[1,0], top:[1,0], bottom:[1,0]}
 
+// Generates a nxn grid of deterministic perlin noise in [0,sum(amps))
+var seed = 2892;
+function generatePerlinNoise(x, y, stride, width, amplitudes) {
+    var ret = new Float32Array(width*width)
+    var ampSum = amplitudes.reduce(function(x,y){return x+y}, 0.0)
+    for(var i = 0; i < amplitudes.length; i++){
+        var lod = 1<<i
+        for(var iu = 0; iu < width; iu++)
+        for(var iv = 0; iv < width; iv++) {
+            var u = x + iu*stride
+            var v = y + iv*stride
+            var u0 = Math.floor(u/lod)*lod
+            var v0 = Math.floor(v/lod)*lod
+            var u1 = Math.floor(u/lod + 1)*lod
+            var v1 = Math.floor(v/lod + 1)*lod
+            var rand00 = hashcodeRand([seed, lod, u0, v0])
+            var rand01 = hashcodeRand([seed, lod, u0, v1])
+            var rand10 = hashcodeRand([seed, lod, u1, v0])
+            var rand11 = hashcodeRand([seed, lod, u1, v1])
+            var utween = (u-u0)/(u1-u0)
+            var vtween = (v-v0)/(v1-v0)
+            var rand = 
+                rand00*(1-utween)*(1-vtween) +
+                rand01*(1-utween)*(vtween) +
+                rand10*(utween)*(1-vtween) +
+                rand11*(utween)*(vtween)
+            ret[iu*width+iv] += rand*amplitudes[i]
+        }
+    }
+    return ret
+}
+
+// Returns a hash code random value in [0.0, 1.0)
+function hashcodeRand(values) {
+    var hc = hashcodeInts(values)
+    return hc / (1<<30)
+}
+
+// Returns a hash code in [0, 1<<30)
+function hashcodeInts(values) {
+   var result = 65539
+   var shift = 3
+   for (var j = 0; j < 2; j++)
+   for (var i = 0; i < values.length; i++) {
+      shift = (shift + 11) % 31
+      result ^= (values[i] << shift) ^ (values[i] >>> (32-shift))
+      result *= 31
+      result &= (1<<30) - 1
+   }
+   return result
+}
 
 // Generates a test chunk at the given coords and LOD
 function createChunk(x, z, lod) {
+    var voxsize = 1<<lod;
     var data = new Uint8Array(CHUNK_WIDTH*CHUNK_WIDTH*CHUNK_HEIGHT)
+
+    // Terrain generation
+    var biome = BIOMES[Math.floor(BIOMES.length*hashcodeRand([Math.floor(x/256),Math.floor(z/256)]))]
+    var perlinW = CHUNK_WIDTH*voxsize
+    var perlinHeight = generatePerlinNoise(x, z, voxsize, CHUNK_WIDTH, biome.perlinHeightmapAmplitudes)
+
     for(var iy = 0; iy < CHUNK_HEIGHT; iy++)
     for(var ix = 0; ix < CHUNK_WIDTH; ix++)
     for(var iz = 0; iz < CHUNK_WIDTH; iz++) {
-        var voxsize = 1<<lod;
         var voxx = x + ix*voxsize
         var voxy = iy*voxsize
         var voxz = z + iz*voxsize
 
+        //TODO: average over voxel
+        var voxPerlinHeight = perlinHeight[ix*CHUNK_WIDTH + iz]
+   
         var voxtype
-        if(voxy < 10*((Math.sin(voxx/23) + Math.cos(voxz/19))+2)) {
-        // if(voxy < 30 && voxy > 20 && ix > 1 && ix < 8 && iz > 1 && iz < 8) {
+        if(voxy < voxPerlinHeight) {
             voxtype = VOX_TYPE_GRASS
         } else if (voxy < 15){
             voxtype = VOX_TYPE_WATER
