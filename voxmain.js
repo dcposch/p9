@@ -16,7 +16,7 @@ var LOD_SPIRAL = getCartesianSpiral(LOD_CHUNK_RADIUS2*8) // 4x + some extra
 
 // Terrain gen
 var BIOME_ISLANDS = {
-    perlinHeightmapAmplitudes: [0, 0.5, 0, 0, 10, 10, 5]
+    perlinHeightmapAmplitudes: [20] //, 0.5, 0, 0, 10, 10, 5]
 }
 var BIOME_PLAINS = {
     perlinHeightmapAmplitudes: [0, 0.5, 0, 0, 0, 0, 0, 0, 15, 15, 15, 15]
@@ -66,34 +66,76 @@ blockTextureUVs[VOX_TYPE_WATER] = {side:[13,12], top:[13,12], bottom:[13,12]}
 blockTextureUVs[VOX_TYPE_GRASS] = {side:[3,0], top:[1,9], bottom:[2,0]}
 blockTextureUVs[VOX_TYPE_STONE] = {side:[1,0], top:[1,0], bottom:[1,0]}
 
+// Generates a biome using deterministic noise
+function generateBiome(x, z) {
+    var fnBiomeIx = function(ix, iz) {
+        return Math.floor(BIOMES.length*hashcodeRand([ix, iz]))
+    }
+    var ix = Math.floor(x/256)
+    var iz = Math.floor(z/256)
+    var b00 = BIOMES[fnBiomeIx(ix, iz)]
+    var b01 = BIOMES[fnBiomeIx(ix, iz+1)]
+    var b10 = BIOMES[fnBiomeIx(ix+1, iz)]
+    var b11 = BIOMES[fnBiomeIx(ix+1, iz+1)]
+    return {
+        perlinHeightmapAmplitudes: interpArraysCosine(
+            b00.perlinHeightmapAmplitudes,
+            b01.perlinHeightmapAmplitudes,
+            b10.perlinHeightmapAmplitudes,
+            b11.perlinHeightmapAmplitudes,
+            x/256 - ix,
+            z/256 - iz)
+    }
+}
+
 // Generates a nxn grid of deterministic perlin noise in [0,sum(amps))
 var seed = 2892;
-function generatePerlinNoise(x, y, stride, width, amplitudes) {
+function generatePerlinNoise(x, z, stride, width, amplitudes) {
     var ret = new Float32Array(width*width)
-    var ampSum = amplitudes.reduce(function(x,y){return x+y}, 0.0)
+    var ampSum = amplitudes.reduce(function(x,z){return x+z}, 0.0)
     for(var i = 0; i < amplitudes.length; i++){
         var lod = 1<<i
         for(var iu = 0; iu < width; iu++)
         for(var iv = 0; iv < width; iv++) {
             var u = x + iu*stride
-            var v = y + iv*stride
+            var v = z + iv*stride
             var u0 = Math.floor(u/lod)*lod
             var v0 = Math.floor(v/lod)*lod
-            var u1 = Math.floor(u/lod + 1)*lod
-            var v1 = Math.floor(v/lod + 1)*lod
+            var u1 = u0 + lod
+            var v1 = v0 + lod
             var rand00 = hashcodeRand([seed, lod, u0, v0])
             var rand01 = hashcodeRand([seed, lod, u0, v1])
             var rand10 = hashcodeRand([seed, lod, u1, v0])
             var rand11 = hashcodeRand([seed, lod, u1, v1])
-            var utween = (u-u0)/(u1-u0)
-            var vtween = (v-v0)/(v1-v0)
-            var rand = 
-                rand00*(1-utween)*(1-vtween) +
-                rand01*(1-utween)*(vtween) +
-                rand10*(utween)*(1-vtween) +
-                rand11*(utween)*(vtween)
+
+            // Cosine interpolation
+            var rand = interpCosine(rand00, rand01, rand10, rand11, (u-u0)/lod, (v-v0)/lod)
             ret[iu*width+iv] += rand*amplitudes[i]
         }
+    }
+    return ret
+}
+
+// 2D Cosine interpolation
+function interpCosine(v00, v01, v10, v11, u, v) {
+    var utween = 1-Math.cos(u * Math.PI)
+    var vtween = 1-Math.cos(v * Math.PI)
+    return v00*(1-utween)*(1-vtween) +
+        v01*(1-utween)*(vtween) +
+        v10*(utween)*(1-vtween) +
+        v11*(utween)*(vtween)
+}
+
+function interpArraysCosine(a00, a01, a10, a11, u, v) {
+    var n = Math.max(a00.length, a01.length, a10.length, a11.length)
+    var ret = []
+    for(var i = 0; i < n; i++) {
+        ret.push(interpCosine(
+            a00[i] || 0.0,
+            a01[i] || 0.0,
+            a10[i] || 0.0,
+            a11[i] || 0.0,
+            u, v))
     }
     return ret
 }
@@ -110,8 +152,9 @@ function hashcodeInts(values) {
    var shift = 3
    for (var j = 0; j < 2; j++)
    for (var i = 0; i < values.length; i++) {
+      var val = values[i]
       shift = (shift + 11) % 31
-      result ^= (values[i] << shift) ^ (values[i] >>> (32-shift))
+      result ^= (val << shift) ^ (val >>> (32-shift))
       result *= 31
       result &= (1<<30) - 1
    }
@@ -124,8 +167,7 @@ function createChunk(x, z, lod) {
     var data = new Uint8Array(CHUNK_WIDTH*CHUNK_WIDTH*CHUNK_HEIGHT)
 
     // Terrain generation
-    var biome = BIOMES[Math.floor(BIOMES.length*hashcodeRand([Math.floor(x/256),Math.floor(z/256)]))]
-    var perlinW = CHUNK_WIDTH*voxsize
+    var biome = BIOME_ISLANDS
     var perlinHeight = generatePerlinNoise(x, z, voxsize, CHUNK_WIDTH, biome.perlinHeightmapAmplitudes)
 
     for(var iy = 0; iy < CHUNK_HEIGHT; iy++)
@@ -136,7 +178,7 @@ function createChunk(x, z, lod) {
         var voxz = z + iz*voxsize
 
         //TODO: average over voxel
-        var voxPerlinHeight = perlinHeight[ix*CHUNK_WIDTH + iz]
+        var voxPerlinHeight = hashcodeRand([voxx, voxz])*20 //perlinHeight[ix*CHUNK_WIDTH + iz]
    
         var voxtype
         if(voxy < voxPerlinHeight) {
