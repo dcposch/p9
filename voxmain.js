@@ -15,6 +15,7 @@ var LOD_CHUNK_RADIUS2 = LOD_CHUNK_RADIUS*LOD_CHUNK_RADIUS
 var LOD_SPIRAL = getCartesianSpiral(LOD_CHUNK_RADIUS2*8) // 4x + some extra
 
 // Terrain gen
+var RAND_SEED = 2892;
 var BIOME_ISLANDS = {
     perlinHeightmapAmplitudes: [20] //, 0.5, 0, 0, 10, 10, 5]
 }
@@ -89,7 +90,6 @@ function generateBiome(x, z) {
 }
 
 // Generates a nxn grid of deterministic perlin noise in [0,sum(amps))
-var seed = 2892;
 function generatePerlinNoise(x, z, stride, width, amplitudes) {
     var ret = new Float32Array(width*width)
     var ampSum = amplitudes.reduce(function(x,z){return x+z}, 0.0)
@@ -103,10 +103,10 @@ function generatePerlinNoise(x, z, stride, width, amplitudes) {
             var v0 = Math.floor(v/lod)*lod
             var u1 = u0 + lod
             var v1 = v0 + lod
-            var rand00 = hashcodeRand([seed, lod, u0, v0])
-            var rand01 = hashcodeRand([seed, lod, u0, v1])
-            var rand10 = hashcodeRand([seed, lod, u1, v0])
-            var rand11 = hashcodeRand([seed, lod, u1, v1])
+            var rand00 = hashcodeRand([RAND_SEED, lod, u0, v0])
+            var rand01 = hashcodeRand([RAND_SEED, lod, u0, v1])
+            var rand10 = hashcodeRand([RAND_SEED, lod, u1, v0])
+            var rand11 = hashcodeRand([RAND_SEED, lod, u1, v1])
 
             // Cosine interpolation
             var rand = interpCosine(rand00, rand01, rand10, rand11, (u-u0)/lod, (v-v0)/lod)
@@ -143,22 +143,13 @@ function interpArraysCosine(a00, a01, a10, a11, u, v) {
 // Returns a hash code random value in [0.0, 1.0)
 function hashcodeRand(values) {
     var hc = hashcodeInts(values)
-    return hc / (1<<30)
+    return (hc & 0x7fffffff) / 0x7fffffff
 }
 
 // Returns a hash code in [0, 1<<30)
 function hashcodeInts(values) {
-   var result = 65539
-   var shift = 3
-   for (var j = 0; j < 2; j++)
-   for (var i = 0; i < values.length; i++) {
-      var val = values[i]
-      shift = (shift + 11) % 31
-      result ^= (val << shift) ^ (val >>> (32-shift))
-      result *= 31
-      result &= (1<<30) - 1
-   }
-   return result
+   var str = values.join("")
+   return MurmurHash3.hashString(str, str.length, RAND_SEED)
 }
 
 // Generates a test chunk at the given coords and LOD
