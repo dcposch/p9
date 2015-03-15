@@ -88,8 +88,9 @@
         float u = dot(vPosition, vNormal.zxy);
         float v = dot(vPosition, vNormal.yzx);
         vec2 tileUV = fract(vec2(u, v));
+        vec4 texColor = sampleTileAtlas(vUV, tileUV, tileSize, uSampler);
 
-        gl_FragColor = sampleTileAtlas(vUV, tileUV, tileSize, uSampler);
+        gl_FragColor = texColor;
     }
 
 </script>
