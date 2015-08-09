@@ -42,6 +42,8 @@ var INPUT_SENSITIVITY = 0.01 // radians per pixel
 
 var PERLIN_HEIGHTMAP_AMPLITUDES = [0, 0.5, 0, 0, 0, 20, 20, 20]
 
+var MAX_CHUNK_LOADS_PER_TICK = 20
+
 // Voxel world
 var chunks = {}
 
@@ -78,51 +80,79 @@ function generateBiome(x, z) {
     }
 }
 
+
 // Generates a nxn grid of deterministic perlin noise in [0,sum(amps))
-function generatePerlinNoise(x, z, stride, width, amplitudes) {
+// (x, z) - location of block in world coords
+// lod - (1<<lod) is the size of a single cell in the output grid
+// width - (width x width) are the dimensions of the output grid in cells
+// amplitudes - perlin amplitudes. 0 thru lod-1 are ignored.
+var frist = true
+function generatePerlinNoise(x, z, lod, width, amplitudes) {
+    var stride = 1<<lod
     var ret = new Float32Array(width*width)
-    for(var i = 0; i < amplitudes.length; i++){
-        var lod = 1<<i
+    for(var i = lod; i < amplitudes.length; i++){
+        if (amplitudes[i] === 0.0) {
+            continue
+        }
+        var istride = 1 << i
+        var ix0 = Math.floor(x/istride)*istride
+        var iz0 = Math.floor(z/istride)*istride
+        var w = Math.max(width >> (i-lod), 1) + 1
+        var perlin = new Float32Array(w*w)
+        for(var iu = 0; iu < w; iu++)
+        for(var iv = 0; iv < w; iv++) {
+            var u = ix0 + iu*istride
+            var v = iz0 + iv*istride
+            var rand = hashcodeRand([RAND_SEED, i, u, v])
+            perlin[w*iu + iv] = rand
+        }
+        /*if(frist) {
+            var out = ""
+            for(var iu = 0; iu < w; iu++) {
+                var row = ""
+                for(var iv = 0; iv < w; iv++) {
+                    row += perlin[w*iu + iv].toFixed(3) + "  "
+                }
+                out += "\n"+row
+            }
+            console.log("perlin "+i+" at ("+ix0+","+iz0+"):\n"+out)
+        }*/
+
         for(var iu = 0; iu < width; iu++)
         for(var iv = 0; iv < width; iv++) {
             var u = x + iu*stride
             var v = z + iv*stride
-            var u0 = Math.floor(u/lod)*lod
-            var v0 = Math.floor(v/lod)*lod
-            var u1 = u0 + lod
-            var v1 = v0 + lod
-            var rand00 = hashcodeRand([RAND_SEED, lod, u0, v0])
-            var rand01 = hashcodeRand([RAND_SEED, lod, u0, v1])
-            var rand10 = hashcodeRand([RAND_SEED, lod, u1, v0])
-            var rand11 = hashcodeRand([RAND_SEED, lod, u1, v1])
+            var u0 = Math.floor((u-ix0)/istride)
+            var v0 = Math.floor((v-iz0)/istride)
+            var u1 = u0 + 1
+            var v1 = v0 + 1
+            var rand00 = perlin[u0*w + v0]
+            var rand01 = perlin[u0*w + v1]
+            var rand10 = perlin[u1*w + v0]
+            var rand11 = perlin[u1*w + v1]
 
-            // Cosine interpolation
-            var rand = interpCosine(rand00, rand01, rand10, rand11, (u-u0)/lod, (v-v0)/lod)
+            // Interpolate and sum
+            var tweenX = u/istride - Math.floor(u/istride)
+            var tweenZ = v/istride - Math.floor(v/istride)
+            var rand = interpCosine(rand00, rand01, rand10, rand11, tweenX, tweenZ)
+            /*if(frist) {
+                console.log("term ("+u0+","+v0+") = "+rand00+" interp ("+tweenX.toFixed(3)+","+tweenZ.toFixed(3)+" = "+rand)
+            }*/
             ret[iu*width+iv] += rand*amplitudes[i]
         }
     }
+    //frist = false
     return ret
 }
 
-function generatePerlinNoisePoint(u, v, amplitudes) {
-    var sum = 0
-    for(var i = 0; i < amplitudes.length; i++){
-        var lod = 1<<i
-
-        var u0 = Math.floor(u/lod)*lod
-        var v0 = Math.floor(v/lod)*lod
-        var u1 = u0 + lod
-        var v1 = v0 + lod
-        var rand00 = hashcodeRand([RAND_SEED, lod, u0, v0])
-        var rand01 = hashcodeRand([RAND_SEED, lod, u0, v1])
-        var rand10 = hashcodeRand([RAND_SEED, lod, u1, v0])
-        var rand11 = hashcodeRand([RAND_SEED, lod, u1, v1])
-
-        // Cosine interpolation
-        var rand = interpCosine(rand00, rand01, rand10, rand11, (u-u0)/lod, (v-v0)/lod)
-        sum += rand*amplitudes[i]
-    }
-    return sum
+// 2D linear interpolation
+function interpLinear(v00, v01, v10, v11, u, v) {
+    var utween = u
+    var vtween = v
+    return v00*(1-utween)*(1-vtween) +
+        v01*(1-utween)*(vtween) +
+        v10*(utween)*(1-vtween) +
+        v11*(utween)*(vtween)
 }
 
 // 2D Cosine interpolation
@@ -169,7 +199,7 @@ function createChunk(x, z, lod) {
 
     // Terrain generation
     var biome = generateBiome(x, z)
-    var perlinHeightmap = generatePerlinNoise(x, z, voxsize, 
+    var perlinHeightmap = generatePerlinNoise(x, z, lod, 
             CHUNK_WIDTH, biome.perlinHeightmapAmplitudes)
 
     for(var iy = 0; iy < CHUNK_HEIGHT; iy++)
@@ -179,9 +209,7 @@ function createChunk(x, z, lod) {
         var voxy = iy*voxsize
         var voxz = z + iz*voxsize
 
-        //TODO: average over voxel
         var voxPerlinHeight = perlinHeightmap[ix*CHUNK_WIDTH + iz] 
-        // Slow: generatePerlinNoisePoint(voxx, voxz, biome.perlinHeightmapAmplitudes)
    
         var voxtype
         if(voxy < voxPerlinHeight) {
@@ -429,7 +457,7 @@ function getCartesianSpiral(n) {
 // Unloads *all* chunks that are out of range
 function updateChunks() {
     var lodBounds = []
-    var allLoaded = true
+    var chunksLoaded = 0 
     for(var lod = 0; lod < LOD_MAX; lod++) {
         var lodChunkWidth = CHUNK_WIDTH<<lod
         var chunkx = Math.round(loc[0]/lodChunkWidth) * lodChunkWidth
@@ -445,21 +473,23 @@ function updateChunks() {
         var minZ = Math.floor((chunkz-chunkRadius)/chunkWidth2)*chunkWidth2
         var maxZ = Math.floor((chunkz+chunkRadius)/chunkWidth2)*chunkWidth2
         // only go to next coarser (further away) LOD once the finer ones are fully loaded
-        if(allLoaded) {
-            // load from closest to farthest away, in a spiral
-            for(var i = 0; i < LOD_SPIRAL.length; i++) {
-                var x = LOD_SPIRAL[i][0]*lodChunkWidth+chunkx
-                var z = LOD_SPIRAL[i][1]*lodChunkWidth+chunkz
-                if(x<minX || x>=maxX || z<minZ || z>=maxZ) continue
-                var key = x+"_"+z+"_"+lod
-                if(chunks[key]) continue
-                allLoaded = false
-                var chunk = createChunk(x, z, lod)
-                loadChunkToGPU(chunk)
-                linkChunkIntoChunkTree(chunk)
-                chunks[key] = chunk
+        // load from closest to farthest away, in a spiral
+        for(var i = 0; i < LOD_SPIRAL.length; i++) {
+            if (chunksLoaded >= MAX_CHUNK_LOADS_PER_TICK) {
                 break
             }
+            var x = LOD_SPIRAL[i][0]*lodChunkWidth+chunkx
+            var z = LOD_SPIRAL[i][1]*lodChunkWidth+chunkz
+            if(x<minX || x>=maxX || z<minZ || z>=maxZ) continue
+            var key = x+"_"+z+"_"+lod
+            if(chunks[key]) continue
+
+            // load chunk
+            var chunk = createChunk(x, z, lod)
+            loadChunkToGPU(chunk)
+            linkChunkIntoChunkTree(chunk)
+            chunks[key] = chunk
+            chunksLoaded++
         }
 
         // unload all chunks outside the neighborhood
@@ -475,7 +505,15 @@ function updateChunks() {
             }
         }
     }
+    if (chunksLoaded == 0 && prevChunksLoaded != 0) {
+        console.log("Boom! All chunks loaded! " + (new Date().getTime() - startMillis) + "ms")
+    } else if (chunksLoaded == 0) {
+        startMillis = new Date().getTime()
+    }
+    prevChunksLoaded = chunksLoaded;
 }
+var prevChunksLoaded = 0;
+var startMillis = new Date().getTime()
 
 // Links the chunk at LOD x to the four chunks at LOD x-1
 // if already loaded and to the parent (LOD x+1) if loaded
