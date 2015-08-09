@@ -82,11 +82,11 @@ function generateBiome(x, z) {
 
 
 // Generates a nxn grid of deterministic perlin noise in [0,sum(amps))
+//
 // (x, z) - location of block in world coords
 // lod - (1<<lod) is the size of a single cell in the output grid
 // width - (width x width) are the dimensions of the output grid in cells
 // amplitudes - perlin amplitudes. 0 thru lod-1 are ignored.
-var frist = true
 function generatePerlinNoise(x, z, lod, width, amplitudes) {
     var stride = 1<<lod
     var ret = new Float32Array(width*width)
@@ -106,17 +106,6 @@ function generatePerlinNoise(x, z, lod, width, amplitudes) {
             var rand = hashcodeRand([RAND_SEED, i, u, v])
             perlin[w*iu + iv] = rand
         }
-        /*if(frist) {
-            var out = ""
-            for(var iu = 0; iu < w; iu++) {
-                var row = ""
-                for(var iv = 0; iv < w; iv++) {
-                    row += perlin[w*iu + iv].toFixed(3) + "  "
-                }
-                out += "\n"+row
-            }
-            console.log("perlin "+i+" at ("+ix0+","+iz0+"):\n"+out)
-        }*/
 
         for(var iu = 0; iu < width; iu++)
         for(var iv = 0; iv < width; iv++) {
@@ -135,13 +124,9 @@ function generatePerlinNoise(x, z, lod, width, amplitudes) {
             var tweenX = u/istride - Math.floor(u/istride)
             var tweenZ = v/istride - Math.floor(v/istride)
             var rand = interpCosine(rand00, rand01, rand10, rand11, tweenX, tweenZ)
-            /*if(frist) {
-                console.log("term ("+u0+","+v0+") = "+rand00+" interp ("+tweenX.toFixed(3)+","+tweenZ.toFixed(3)+" = "+rand)
-            }*/
             ret[iu*width+iv] += rand*amplitudes[i]
         }
     }
-    //frist = false
     return ret
 }
 
@@ -506,7 +491,7 @@ function updateChunks() {
         }
     }
     if (chunksLoaded == 0 && prevChunksLoaded != 0) {
-        console.log("Boom! All chunks loaded! " + (new Date().getTime() - startMillis) + "ms")
+        console.log("All chunks loaded! " + (new Date().getTime() - startMillis) + "ms")
     } else if (chunksLoaded == 0) {
         startMillis = new Date().getTime()
     }
