@@ -29,12 +29,13 @@ var BIOMES = [
     BIOME_ISLANDS,
     BIOME_PLAINS,
     BIOME_MOUNTAINS]
+var BIOME_WIDTH = 256 // 16x16 chunks
 
 // Skybox
 var SKY_HORIZON_DISTANCE = 1000
-var SKY_COLOR_BOTTOM = [0, 0, 0]
-var SKY_COLOR_HORIZON = [0.15, 0.2, 0.25]
-var SKY_COLOR_TOP = [0.3, 0.4, 0.5]
+var SKY_COLOR_BOTTOM = [0.3, 0.4, 0.5]
+var SKY_COLOR_HORIZON = [0.3, 0.4, 0.5]
+var SKY_COLOR_TOP = [0.15, 0.2, 0.25]
 var SUN_DISTANCE = 500
 var SUN_DIAMETER = 100
 var SUN_COLOR = [1, 1, 0.9]
@@ -69,24 +70,24 @@ blockTextureUVs[VOX_TYPE_GRASS] = {side:[3,0], top:[1,9], bottom:[2,0]}
 blockTextureUVs[VOX_TYPE_STONE] = {side:[1,0], top:[1,0], bottom:[1,0]}
 
 // Generates a biome using deterministic noise
-function generateBiome(x, z) {
+// Takes the chunk x and z coord, and the chunk size
+function generateChunkBiome(x, z, width) {
     var fnBiomeIx = function(ix, iz) {
         return Math.floor(BIOMES.length*hashcodeRand([ix, iz]))
     }
-    var ix = Math.floor(x/256)
-    var iz = Math.floor(z/256)
+    var ix = Math.floor(x/BIOME_WIDTH)
+    var iz = Math.floor(z/BIOME_WIDTH)
     var b00 = BIOMES[fnBiomeIx(ix, iz)]
     var b01 = BIOMES[fnBiomeIx(ix, iz+1)]
     var b10 = BIOMES[fnBiomeIx(ix+1, iz)]
     var b11 = BIOMES[fnBiomeIx(ix+1, iz+1)]
     return {
-        perlinHeightmapAmplitudes: interpArraysCosine(
-            b00.perlinHeightmapAmplitudes,
-            b01.perlinHeightmapAmplitudes,
-            b10.perlinHeightmapAmplitudes,
-            b11.perlinHeightmapAmplitudes,
-            x/256 - ix,
-            z/256 - iz)
+        b00: b00,
+        b01: b01,
+        b10: b10,
+        b11: b11,
+        offsetx: x - ix*BIOME_WIDTH,
+        offsetz: z - iz*BIOME_WIDTH
     }
 }
 
@@ -193,9 +194,20 @@ function createChunk(x, z, lod) {
     var data = new Uint8Array(CHUNK_WIDTH*CHUNK_WIDTH*CHUNK_HEIGHT)
 
     // Terrain generation
-    var biome = generateBiome(x, z)
-    var perlinHeightmap = generatePerlinNoise(x, z, lod, 
-            CHUNK_WIDTH, biome.perlinHeightmapAmplitudes)
+    var biome = generateChunkBiome(x, z, CHUNK_WIDTH*voxsize)
+    var cw = CHUNK_WIDTH
+    var p00 = generatePerlinNoise(x, z, lod, cw, biome.b00.perlinHeightmapAmplitudes)
+    var p01 = generatePerlinNoise(x, z, lod, cw, biome.b01.perlinHeightmapAmplitudes)
+    var p10 = generatePerlinNoise(x, z, lod, cw, biome.b10.perlinHeightmapAmplitudes)
+    var p11 = generatePerlinNoise(x, z, lod, cw, biome.b11.perlinHeightmapAmplitudes)
+    var perlinHeightmap = new Float32Array(cw*CHUNK_WIDTH)
+    for (var i = 0; i < cw; i++)
+    for (var j = 0; j < cw; j++) {
+        var ix = i*cw+j
+        var u = (biome.offsetx+i)/BIOME_WIDTH
+        var v = (biome.offsetz+j)/BIOME_WIDTH
+        perlinHeightmap[ix] = interpCosine(p00[ix], p01[ix], p10[ix], p11[ix], u, v)
+    }
 
     for(var iy = 0; iy < CHUNK_HEIGHT; iy++)
     for(var ix = 0; ix < CHUNK_WIDTH; ix++)
