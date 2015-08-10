@@ -27,6 +27,7 @@
 
 <h1>dcpos.ch webgl test</h1>    
 <canvas id="gl" ></canvas>
+<p>WASD to move, hold Shift to move faster</p>
 
 <script type="x-shader/x-fragment" id="frag_color">
     #ifdef GL_ES
@@ -91,7 +92,7 @@
         vec4 texColor = sampleTileAtlas(vUV, tileUV, tileSize, uSampler);
 
         float lightDot = dot(vec3(0.8, 0.48, 0.36), vNormal);
-        vec3 light = vec3(1.0,1.0,1.0) + lightDot * vec3(1.0, 1.0, 0.8);
+        vec3 light = vec3(1.0,1.0,1.0) + lightDot * vec3(0.8, 1.0, 1.0);
 
         gl_FragColor = vec4(light * texColor.xyz, 1.0);
     }

@@ -30,6 +30,15 @@ var BIOMES = [
     BIOME_PLAINS,
     BIOME_MOUNTAINS]
 
+// Skybox
+var SKY_HORIZON_DISTANCE = 1000
+var SKY_COLOR_BOTTOM = [0, 0, 0]
+var SKY_COLOR_HORIZON = [0.15, 0.2, 0.25]
+var SKY_COLOR_TOP = [0.3, 0.4, 0.5]
+var SUN_DISTANCE = 500
+var SUN_DIAMETER = 100
+var SUN_COLOR = [1, 1, 0.9]
+
 // There are different kinds of blocks
 var VOX_TYPE_AIR = 0
 var VOX_TYPE_WATER = 1
@@ -42,13 +51,14 @@ var INPUT_SENSITIVITY = 0.01 // radians per pixel
 
 var PERLIN_HEIGHTMAP_AMPLITUDES = [0, 0.5, 0, 0, 0, 20, 20, 20]
 
-var MAX_CHUNK_LOADS_PER_TICK = 20
-
-// Voxel world
-var chunks = {}
+var MAX_CHUNK_LOADS_PER_FRAME = 20
 
 // The DCInput object. See dcinput.js
 var input = null
+
+// Voxel world
+var chunks = {}
+var sky = {}
 
 // Textures for every kind of block, all on one image.
 // See http://dcpos.ch/canvas/dcgl/blocksets/
@@ -223,6 +233,151 @@ function getVoxel(data, ix, iy, iz) {
 // Helper method for writing up a value from a packed voxel array (YXZ layout)
 function setVoxel(data, ix, iy, iz, val) {
     data[iy*CHUNK_WIDTH*CHUNK_WIDTH + ix*CHUNK_WIDTH + iz] = val
+}
+
+// Creates the skybox
+function createSky() {
+    sky.skybox = createSkybox()
+    sky.sun = createSun()
+}
+
+// Creates the sun or moon
+// Just a bright square in the sky
+// How it looks depends on the SUN_* constants
+function createSun() {
+    //TODO: travel thru the sky
+    //TODO: send lightDir as a uniform when drawing voxels
+    var dir = [0.8, 0.48, 0.36]
+    var up = [0, 1, 0]
+    var u = cross(dir, up)
+    var v = cross(u, dir)
+
+    var center = scale(SUN_DISTANCE, dir)
+    var r = SUN_DIAMETER/2
+    var c00 = sum(center, scale(-r, u), scale(-r, v))
+    var c01 = sum(center, scale(-r, u), scale(+r, v))
+    var c10 = sum(center, scale(+r, u), scale(-r, v))
+    var c11 = sum(center, scale(+r, u), scale(+r, v))
+    var verts = [], colors = []
+    verts.push(
+        c00[0], c00[1], c00[2],
+        c01[0], c01[1], c01[2],
+        c11[0], c11[1], c11[2],
+        c00[0], c00[1], c00[2],
+        c11[0], c11[1], c11[2],
+        c10[0], c10[1], c10[2])
+    var col = SUN_COLOR
+    colors.push(
+        col[0], col[1], col[2],
+        col[0], col[1], col[2],
+        col[0], col[1], col[2],
+        col[0], col[1], col[2],
+        col[0], col[1], col[2],
+        col[0], col[1], col[2])
+
+    // send it to the GPU
+    return {
+        gl: createVertexColorBuffers(verts, colors)
+    }
+}
+
+// Creates buffers, sends data to GPU
+// Returns {vertexCount, vertexBuffer, colorBuffer} 
+function createVertexColorBuffers(verts, colors) {
+    var vertexBuffer = gl.createBuffer()
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW)
+    var colorBuffer = gl.createBuffer()
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer)
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW)
+    var vertexCount = verts.length / 3
+    return {
+        vertexBuffer: vertexBuffer,
+        vertexCount: vertexCount,
+        colorBuffer: colorBuffer
+    }
+}
+
+// Scalar multiplication
+function scale(a, vec) {
+    return vec.map(function(x){ return a*x })
+}
+
+// Vector addition
+function sum(vec0) {
+    var ret = vec0.slice()
+    for(var i = 0; i < arguments.length; i++){
+        var veci = arguments[i]
+        if (veci.length !== ret.length) {
+            throw new Error("Tried to sum vectors of unequal length")
+        }
+        for(var j = 0; j < ret.length; j++){
+            ret[j] += veci[j]
+        }
+    }
+    return ret
+}
+
+// Cross product
+function cross(a, b) {
+    return [
+        a[1]*b[2] - a[2]*b[1],
+        a[2]*b[0] - a[0]*b[2],
+        a[0]*b[1] - a[1]*b[0]]
+
+}
+
+function createSkybox() {
+    var verts = [], colors = []
+    var h = SKY_HORIZON_DISTANCE
+    // north, east, south, west
+    for (var i = 0; i < 4; i++)
+    for (var j = 0; j < 2; j++) {
+        var z0 = (i == 0 || i == 1) ? h : -h
+        var x0 = (i == 1 || i == 2) ? h : -h
+        var z1 = (i == 1 || i == 2) ? h : -h
+        var x1 = (i == 2 || i == 3) ? h : -h
+        var h0 = (j == 0) ? -h : 0
+        var h1 = (j == 0) ? 0 : h
+        var c0 = (j == 0) ? SKY_COLOR_BOTTOM : SKY_COLOR_HORIZON
+        var c1 = (j == 0) ? SKY_COLOR_HORIZON : SKY_COLOR_TOP
+        verts.push(
+           x0, h0, z0,
+           x0, h1, z0,
+           x1, h1, z1,
+           x0, h0, z0,
+           x1, h1, z1,
+           x1, h0, z1)
+        colors.push(
+           c0[0], c0[1], c0[2],
+           c1[0], c1[1], c1[2],
+           c1[0], c1[1], c1[2],
+           c0[0], c0[1], c0[2],
+           c1[0], c1[1], c1[2],
+           c0[0], c0[1], c0[2])
+    }
+    // top
+    var c = SKY_COLOR_TOP
+    verts.push(
+         h, h,  h,
+         h, h, -h,
+        -h, h, -h,
+         h, h,  h,
+        -h, h, -h,
+        -h, h,  h)
+    colors.push(
+       c[0], c[1], c[2],
+       c[0], c[1], c[2],
+       c[0], c[1], c[2],
+       c[0], c[1], c[2],
+       c[0], c[1], c[2],
+       c[0], c[1], c[2])
+
+    // send it to the GPU
+    // send it to the GPU
+    return {
+        gl: createVertexColorBuffers(verts, colors)
+    }
 }
 
 // Meshes a chunk, and sends the mesh (as a vertex buffer + UV buffer)
@@ -437,7 +592,7 @@ function getCartesianSpiral(n) {
     }
 }
 
-// Loads up to *one* chunk, starting with lowest LOD
+// Loads up to MAX_CHUNK_LOADS_PER_FRAME chunk, starting with lowest LOD
 // and starting closest to where you stand
 // Unloads *all* chunks that are out of range
 function updateChunks() {
@@ -460,7 +615,7 @@ function updateChunks() {
         // only go to next coarser (further away) LOD once the finer ones are fully loaded
         // load from closest to farthest away, in a spiral
         for(var i = 0; i < LOD_SPIRAL.length; i++) {
-            if (chunksLoaded >= MAX_CHUNK_LOADS_PER_TICK) {
+            if (chunksLoaded >= MAX_CHUNK_LOADS_PER_FRAME) {
                 break
             }
             var x = LOD_SPIRAL[i][0]*lodChunkWidth+chunkx
@@ -566,7 +721,50 @@ function renderFrame(canvas){
     // setup camera
     mat4.perspective(50, width / height, 0.1, 2000.0, pmat)
 
+    // draw the scene
+    renderSky(canvas)
+    renderVoxels(canvas)
+}
+
+// Renders the skybox and clouds
+function renderSky() {
     // setup matrixes
+    mat4.identity(mvmat)
+    mat4.rotate(mvmat, -attitude, [1,0,0])
+
+    // draw the sky
+    setShaders("vert_simple", "frag_color")
+    setUniforms()
+    var posVertexPosition = getAttribute("aVertexPosition")
+    var posVertexColor = getAttribute("aVertexColor")
+    gl.enableVertexAttribArray(posVertexPosition)
+    gl.enableVertexAttribArray(posVertexColor)
+    draw(sky.skybox.gl)
+
+    // draw the sun and clouds
+    mat4.rotate(mvmat, -dir, [0,1,0])
+    setUniforms()
+    draw(sky.sun.gl)
+    //TODO: clouds
+
+    // clean up
+    gl.disableVertexAttribArray(posVertexPosition)
+    gl.disableVertexAttribArray(posVertexColor)
+
+    // helper method to bind and draw a vertex + color buffer
+    function draw (buffers) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.vertexBuffer)
+        gl.vertexAttribPointer(posVertexPosition, 3, gl.FLOAT, false, 0, 0)
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.colorBuffer)
+        gl.vertexAttribPointer(posVertexColor, 3, gl.FLOAT, false, 0, 0)
+        gl.drawArrays(gl.TRIANGLES, 0, buffers.vertexCount)
+    }
+}
+
+// Draws all currently loaded chunks of voxels.
+// See updateChunks() for loading and unloading logic.
+function renderVoxels() {
+    // setup matrices some more
     mat4.identity(mvmat)
     mat4.rotate(mvmat, -attitude, [1,0,0])
     mat4.rotate(mvmat, -dir, [0,1,0])
@@ -605,6 +803,11 @@ function renderFrame(canvas){
 
         gl.drawArrays(gl.TRIANGLES, 0, chunk.gl.vertexCount)
     }
+
+    // clean up
+    gl.disableVertexAttribArray(posVertexPosition)
+    gl.disableVertexAttribArray(posVertexNormal)
+    gl.disableVertexAttribArray(posVertexUV)
 }
 
 function main() {
@@ -613,6 +816,7 @@ function main() {
     canvas.addEventListener('click', input.requestPointerLock.bind(input))
 
     initGL(canvas)
+    createSky()
     blockTexture = loadTexture("blocksets/isabella.png", function(){
         animate(function(){
             handleInput()
