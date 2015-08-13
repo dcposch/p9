@@ -112,7 +112,7 @@
 
     function getAttribute(name) {
         var pos = gl.getAttribLocation(prog, name)
-        if (pos < 0) {
+        if (pos === null || pos < 0) {
             die("Attribute "+name+" not found. " +
               "Maybe stripped out because it's unused in shader code?")
         }
@@ -121,7 +121,7 @@
 
     function getUniform(name) {
         var pos = gl.getUniformLocation(prog, name)
-        if (pos < 0) {
+        if (pos === null || pos < 0) {
             die("Uniform "+name+" not found. " +
               "Maybe stripped out because it's unused in shader code?")
         }

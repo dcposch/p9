@@ -15,7 +15,7 @@ var LOD_CHUNK_RADIUS2 = LOD_CHUNK_RADIUS*LOD_CHUNK_RADIUS
 var LOD_SPIRAL = getCartesianSpiral(LOD_CHUNK_RADIUS2*8) // 4x + some extra
 
 // Terrain gen
-var RAND_SEED = 2892;
+var RAND_SEED = 2892
 var BIOME_ISLANDS = {
     perlinHeightmapAmplitudes: [0, 0.5, 0, 0, 10, 10, 5]
 }
@@ -32,13 +32,24 @@ var BIOMES = [
 var BIOME_WIDTH = 256 // 16x16 chunks
 
 // Skybox
-var SKY_HORIZON_DISTANCE = 1000
-var SKY_COLOR_BOTTOM = [0.3, 0.4, 0.5]
-var SKY_COLOR_HORIZON = [0.3, 0.4, 0.5]
-var SKY_COLOR_TOP = [0.15, 0.2, 0.25]
-var SUN_DISTANCE = 500
-var SUN_DIAMETER = 100
-var SUN_COLOR = [1, 1, 0.9]
+var SKY_HORIZON_DISTANCE = 2000
+var SUN_DISTANCE = 900
+var SUN_DIAMETER = 200
+var DAY = {
+    SKY_COLOR_BOTTOM: [0.9, 0.9, 1.0, 1],
+    SKY_COLOR_HORIZON: [0.9, 0.9, 1.0, 1],
+    SKY_COLOR_TOP: [0.6, 0.7, 0.9, 1],
+    DIFFUSE_COLOR: [1, 1, 0.9],
+    AMBIENT_COLOR: [0.5, 0.5, 0.5]
+}
+var NIGHT = {
+    SKY_COLOR_BOTTOM: [0.3, 0.4, 0.5, 1],
+    SKY_COLOR_HORIZON: [0.3, 0.4, 0.5, 1],
+    SKY_COLOR_TOP: [0.15, 0.2, 0.25, 1],
+    DIFFUSE_COLOR: [0.6, 0.7, 0.7], // moon
+    AMBIENT_COLOR: [0.1, 0.1, 0.1]
+}
+var SECONDS_PER_GAME_DAY = 1200 // one full day + night every 20 minutes
 
 // There are different kinds of blocks
 var VOX_TYPE_AIR = 0
@@ -59,7 +70,10 @@ var input = null
 
 // Voxel world
 var chunks = {}
-var sky = {}
+var sky = {
+    skybox: {gl:{}},
+    sun: {gl:{}}
+}
 
 // Textures for every kind of block, all on one image.
 // See http://dcpos.ch/canvas/dcgl/blocksets/
@@ -141,6 +155,18 @@ function generatePerlinNoise(x, z, lod, width, amplitudes) {
     return ret
 }
 
+// Array linear interpolation
+// If u===0, returns arr0, if u===1, returns arr1
+function tween(arr0, arr1, u) {
+    var n = arr0.length
+    if (arr1.length !== n) die("tween() expects two equal length arrays")
+    var ret = new Array(n)
+    for (var i = 0; i < n; i++) {
+        ret[i] = u*arr1[i] + (1-u)*arr0[i]
+    }
+    return ret
+}
+
 // 2D linear interpolation
 function interpLinear(v00, v01, v10, v11, u, v) {
     var utween = u
@@ -190,7 +216,7 @@ function hashcodeInts(values) {
 
 // Generates a test chunk at the given coords and LOD
 function createChunk(x, z, lod) {
-    var voxsize = 1<<lod;
+    var voxsize = 1<<lod
     var data = new Uint8Array(CHUNK_WIDTH*CHUNK_WIDTH*CHUNK_HEIGHT)
 
     // Terrain generation
@@ -247,24 +273,38 @@ function setVoxel(data, ix, iy, iz, val) {
     data[iy*CHUNK_WIDTH*CHUNK_WIDTH + ix*CHUNK_WIDTH + iz] = val
 }
 
-// Creates the skybox
-function createSky() {
-    sky.skybox = createSkybox()
-    sky.sun = createSun()
+// Creates or updates the skybox
+// Sets colors, sun, moon, day or night lighting depending on current time
+// One 
+function updateSky() {
+    var sunAngle = new Date().getTime() / 1000 / SECONDS_PER_GAME_DAY * 2 * Math.PI
+    var sunDirection = [
+        Math.sin(sunAngle)*Math.sqrt(2),
+        Math.cos(sunAngle),
+        Math.sin(sunAngle)*Math.sqrt(2)
+    ]
+    // Value in [0, 1], 0 means fully night, 1 means fully day
+    var twilight = 0.2
+    var day = clamp(sunDirection[1], -twilight, twilight)/twilight/2 + 0.5
+    if (sunDirection[1] < 0.0) {
+        sunDirection = scale(-1, sunDirection)
+    }
+
+    updateSkybox(day)
+    updateSun(day, sunDirection)
+    sky.sunDirection = sunDirection
+    sky.day = day
 }
 
 // Creates the sun or moon
 // Just a bright square in the sky
 // How it looks depends on the SUN_* constants
-function createSun() {
-    //TODO: travel thru the sky
-    //TODO: send lightDir as a uniform when drawing voxels
-    var dir = [0.8, 0.48, 0.36]
+function updateSun(day, sunDir) {
     var up = [0, 1, 0]
-    var u = cross(dir, up)
-    var v = cross(u, dir)
+    var u = normalize(cross(sunDir, up))
+    var v = normalize(cross(u, sunDir))
 
-    var center = scale(SUN_DISTANCE, dir)
+    var center = scale(SUN_DISTANCE, normalize(sunDir))
     var r = SUN_DIAMETER/2
     var c00 = sum(center, scale(-r, u), scale(-r, v))
     var c01 = sum(center, scale(-r, u), scale(+r, v))
@@ -278,36 +318,87 @@ function createSun() {
         c00[0], c00[1], c00[2],
         c11[0], c11[1], c11[2],
         c10[0], c10[1], c10[2])
-    var col = SUN_COLOR
+    var col = [0.6 + 0.4*day, 1, 1]
     colors.push(
-        col[0], col[1], col[2],
-        col[0], col[1], col[2],
-        col[0], col[1], col[2],
-        col[0], col[1], col[2],
-        col[0], col[1], col[2],
-        col[0], col[1], col[2])
+        col[0], col[1], col[2], col[3],
+        col[0], col[1], col[2], col[3],
+        col[0], col[1], col[2], col[3],
+        col[0], col[1], col[2], col[3],
+        col[0], col[1], col[2], col[3],
+        col[0], col[1], col[2], col[3])
 
     // send it to the GPU
-    return {
-        gl: createVertexColorBuffers(verts, colors)
+    updateVertexColorBuffers(sky.sun.gl, verts, colors)
+}
+
+// Creates the skybox, returns GL buffers {vertexCount, vertexBuffer, colorBuffer}
+// Takes a value between 0 and 1, 0 is fully night, 1 is fully day
+function updateSkybox(day) {
+    var verts = [], colors = []
+
+    // constants
+    var h = SKY_HORIZON_DISTANCE
+    var colorBottom = tween(NIGHT.SKY_COLOR_BOTTOM, DAY.SKY_COLOR_BOTTOM, day)
+    var colorHorizon = tween(NIGHT.SKY_COLOR_HORIZON, DAY.SKY_COLOR_HORIZON, day)
+    var colorTop = tween(NIGHT.SKY_COLOR_TOP, DAY.SKY_COLOR_TOP, day)
+
+    // north, east, south, west
+    for (var i = 0; i < 4; i++)
+    for (var j = 0; j < 2; j++) {
+        var z0 = (i == 0 || i == 1) ? h : -h
+        var x0 = (i == 1 || i == 2) ? h : -h
+        var z1 = (i == 1 || i == 2) ? h : -h
+        var x1 = (i == 2 || i == 3) ? h : -h
+        var h0 = (j == 0) ? -h : 0
+        var h1 = (j == 0) ? 0 : h
+        var c0 = (j == 0) ? colorBottom : colorHorizon
+        var c1 = (j == 0) ? colorHorizon : colorTop
+        verts.push(
+           x0, h0, z0,
+           x0, h1, z0,
+           x1, h1, z1,
+           x0, h0, z0,
+           x1, h1, z1,
+           x1, h0, z1)
+        colors.push(
+           c0[0], c0[1], c0[2], c0[3],
+           c1[0], c1[1], c1[2], c1[3],
+           c1[0], c1[1], c1[2], c1[3],
+           c0[0], c0[1], c0[2], c0[3],
+           c1[0], c1[1], c1[2], c1[3],
+           c0[0], c0[1], c0[2], c0[3])
     }
+    // top
+    var c = colorTop
+    verts.push(
+         h, h,  h,
+         h, h, -h,
+        -h, h, -h,
+         h, h,  h,
+        -h, h, -h,
+        -h, h,  h)
+    colors.push(
+       c[0], c[1], c0[2], c[3],
+       c[0], c[1], c1[2], c[3],
+       c[0], c[1], c1[2], c[3],
+       c[0], c[1], c0[2], c[3],
+       c[0], c[1], c1[2], c[3],
+       c[0], c[1], c0[2], c[3])
+
+    // send it to the GPU
+    updateVertexColorBuffers(sky.skybox.gl, verts, colors)
 }
 
 // Creates buffers, sends data to GPU
 // Returns {vertexCount, vertexBuffer, colorBuffer} 
-function createVertexColorBuffers(verts, colors) {
-    var vertexBuffer = gl.createBuffer()
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW)
-    var colorBuffer = gl.createBuffer()
-    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW)
-    var vertexCount = verts.length / 3
-    return {
-        vertexBuffer: vertexBuffer,
-        vertexCount: vertexCount,
-        colorBuffer: colorBuffer
-    }
+function updateVertexColorBuffers(buffers, verts, colors) {
+    buffers.vertexBuffer = buffers.vertexBuffer || gl.createBuffer()
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.vertexBuffer)
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.DYNAMIC_DRAW)
+    buffers.colorBuffer = buffers.colorBuffer || gl.createBuffer()
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.colorBuffer)
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.DYNAMIC_DRAW)
+    buffers.vertexCount = verts.length / 3
 }
 
 // Scalar multiplication
@@ -339,57 +430,23 @@ function cross(a, b) {
 
 }
 
-function createSkybox() {
-    var verts = [], colors = []
-    var h = SKY_HORIZON_DISTANCE
-    // north, east, south, west
-    for (var i = 0; i < 4; i++)
-    for (var j = 0; j < 2; j++) {
-        var z0 = (i == 0 || i == 1) ? h : -h
-        var x0 = (i == 1 || i == 2) ? h : -h
-        var z1 = (i == 1 || i == 2) ? h : -h
-        var x1 = (i == 2 || i == 3) ? h : -h
-        var h0 = (j == 0) ? -h : 0
-        var h1 = (j == 0) ? 0 : h
-        var c0 = (j == 0) ? SKY_COLOR_BOTTOM : SKY_COLOR_HORIZON
-        var c1 = (j == 0) ? SKY_COLOR_HORIZON : SKY_COLOR_TOP
-        verts.push(
-           x0, h0, z0,
-           x0, h1, z0,
-           x1, h1, z1,
-           x0, h0, z0,
-           x1, h1, z1,
-           x1, h0, z1)
-        colors.push(
-           c0[0], c0[1], c0[2],
-           c1[0], c1[1], c1[2],
-           c1[0], c1[1], c1[2],
-           c0[0], c0[1], c0[2],
-           c1[0], c1[1], c1[2],
-           c0[0], c0[1], c0[2])
-    }
-    // top
-    var c = SKY_COLOR_TOP
-    verts.push(
-         h, h,  h,
-         h, h, -h,
-        -h, h, -h,
-         h, h,  h,
-        -h, h, -h,
-        -h, h,  h)
-    colors.push(
-       c[0], c[1], c[2],
-       c[0], c[1], c[2],
-       c[0], c[1], c[2],
-       c[0], c[1], c[2],
-       c[0], c[1], c[2],
-       c[0], c[1], c[2])
+// Normalize to unit length
+function normalize(v) {
+    return scale(1/norm(v), v)
+}
 
-    // send it to the GPU
-    // send it to the GPU
-    return {
-        gl: createVertexColorBuffers(verts, colors)
-    }
+// Returns the l2 norm (length) of the vector
+function norm(v) {
+    return Math.sqrt(v
+        .map(function(x){return x*x})
+        .reduce(function(a,b){return a+b}))
+}
+
+// Clamps value to a range [min, max]
+function clamp(x, min, max) {
+    if (x < min) return min
+    if (x > max) return max
+    return x
 }
 
 // Meshes a chunk, and sends the mesh (as a vertex buffer + UV buffer)
@@ -721,7 +778,7 @@ function hasBetterChunksLoaded(chunk) {
 // Renders one frame
 // Expects initGL() to already have been called, 
 // and voxel chunks to already be loaded to the GPU
-function renderFrame(canvas){
+function renderFrame(canvas) {
     // scale, clear window
     var width = canvas.clientWidth
     var height = canvas.clientHeight
@@ -731,7 +788,7 @@ function renderFrame(canvas){
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
     // setup camera
-    mat4.perspective(50, width / height, 0.1, 2000.0, pmat)
+    mat4.perspective(50, width / height, 0.2, 4000.0, pmat)
 
     // draw the scene
     renderSky(canvas)
@@ -768,7 +825,7 @@ function renderSky() {
         gl.bindBuffer(gl.ARRAY_BUFFER, buffers.vertexBuffer)
         gl.vertexAttribPointer(posVertexPosition, 3, gl.FLOAT, false, 0, 0)
         gl.bindBuffer(gl.ARRAY_BUFFER, buffers.colorBuffer)
-        gl.vertexAttribPointer(posVertexColor, 3, gl.FLOAT, false, 0, 0)
+        gl.vertexAttribPointer(posVertexColor, 4, gl.FLOAT, false, 0, 0)
         gl.drawArrays(gl.TRIANGLES, 0, buffers.vertexCount)
     }
 }
@@ -782,9 +839,20 @@ function renderVoxels() {
     mat4.rotate(mvmat, -dir, [0,1,0])
     mat4.translate(mvmat, [-loc[0], -loc[1], -loc[2]])
 
-    // draw some voxels
+    // setup uniforms
     setShaders("vert_texture", "frag_voxel")
     setUniforms()
+    var sunDir = sky.sunDirection
+    var diffuse = tween(NIGHT.DIFFUSE_COLOR, DAY.DIFFUSE_COLOR, sky.day)
+    var ambient = tween(NIGHT.AMBIENT_COLOR, DAY.AMBIENT_COLOR, sky.day)
+    var posLightDir = getUniform("uLightDir")
+    var posLightDiffuse = getUniform("uLightDiffuse")
+    var posLightAmbient = getUniform("uLightAmbient")
+    gl.uniform3f(posLightDir, sunDir[0], sunDir[1], sunDir[2])
+    gl.uniform3f(posLightDiffuse, diffuse[0], diffuse[1], diffuse[2])
+    gl.uniform3f(posLightAmbient, ambient[0], ambient[1], ambient[2])
+
+    // draw some voxels
     var posVertexPosition = getAttribute("aVertexPosition")
     var posVertexNormal = getAttribute("aVertexNormal")
     var posVertexUV = getAttribute("aVertexUV")
@@ -828,11 +896,11 @@ function main() {
     canvas.addEventListener('click', input.requestPointerLock.bind(input))
 
     initGL(canvas)
-    createSky()
     blockTexture = loadTexture("blocksets/isabella.png", function(){
         animate(function(){
             handleInput()
             updateChunks()
+            updateSky()
             renderFrame(canvas)
         }, canvas)
     })

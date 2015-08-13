@@ -51,6 +51,9 @@
     varying vec3 vNormal;
 
     uniform sampler2D uSampler;
+    uniform vec3 uLightDir;
+    uniform vec3 uLightDiffuse;
+    uniform vec3 uLightAmbient;
 
     // Algorithm from a sweet blog post
     // http://0fps.net/2013/07/09/texture-atlases-wrapping-and-mip-mapping/
@@ -91,10 +94,11 @@
         vec2 tileUV = fract(vec2(u, v));
         vec4 texColor = sampleTileAtlas(vUV, tileUV, tileSize, uSampler);
 
-        float lightDot = dot(vec3(0.8, 0.48, 0.36), vNormal);
-        vec3 light = vec3(1.0,1.0,1.0) + lightDot * vec3(0.8, 1.0, 1.0);
+        float lightDot = clamp(dot(uLightDir, vNormal), 0.0, 1.0);
+        vec3 light = uLightAmbient + lightDot * uLightDiffuse;
 
-        gl_FragColor = vec4(light * texColor.xyz, 1.0);
+        float alpha = clamp(uLightDir.x+uLightAmbient.x+uLightDiffuse.x, 0.8, 0.9);
+        gl_FragColor = vec4(texColor.xyz,alpha); //light * texColor.xyz, 1.0);
     }
 
 </script>
@@ -120,7 +124,7 @@
 
 <script type="x-shader/x-vertex" id="vert_simple">
     attribute vec3 aVertexPosition;
-    attribute vec3 aVertexColor;
+    attribute vec4 aVertexColor;
 
     uniform mat4 uMatrix;
 
@@ -128,7 +132,7 @@
 
     void main(void) {
         gl_Position = uMatrix * vec4(aVertexPosition, 1.0);
-        vColor = vec4(aVertexColor, 1.0);
+        vColor = aVertexColor;
     }
 </script>
 
