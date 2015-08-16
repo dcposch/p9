@@ -17,19 +17,21 @@ var LOD_SPIRAL = getCartesianSpiral(LOD_CHUNK_RADIUS2*8) // 4x + some extra
 // Terrain gen
 var RAND_SEED = 2892
 var BIOME_ISLANDS = {
+    name: "islands",
     perlinHeightmapAmplitudes: [0, 0.5, 0, 0, 10, 10, 5]
 }
 var BIOME_PLAINS = {
+    name: "plains",
     perlinHeightmapAmplitudes: [0, 0.5, 0, 0, 0, 0, 0, 0, 15, 15, 15, 15]
 }
 var BIOME_MOUNTAINS = {
+    name: "mountains",
     perlinHeightmapAmplitudes: [0, 0.5, 2, 2, 5, 0, 20, 40]
 }
 var BIOMES = [
     BIOME_ISLANDS,
     BIOME_PLAINS,
     BIOME_MOUNTAINS]
-var BIOME_WIDTH = 256 // 16x16 chunks
 
 // Skybox
 var SKY_HORIZON_DISTANCE = 2000
@@ -86,22 +88,20 @@ blockTextureUVs[VOX_TYPE_STONE] = {side:[1,0], top:[1,0], bottom:[1,0]}
 // Generates a biome using deterministic noise
 // Takes the chunk x and z coord, and the chunk size
 function generateChunkBiome(x, z, width) {
-    var fnBiomeIx = function(ix, iz) {
-        return Math.floor(BIOMES.length*hashcodeRand([ix, iz]))
+    var fnBiomeIx = function(x, z) {
+        var u = (Math.cos(x*0.015)+Math.cos(z*0.023))/4.0000001 + 0.5
+        return Math.floor(BIOMES.length*u)
     }
-    var ix = Math.floor(x/BIOME_WIDTH)
-    var iz = Math.floor(z/BIOME_WIDTH)
-    var b00 = BIOMES[fnBiomeIx(ix, iz)]
-    var b01 = BIOMES[fnBiomeIx(ix, iz+1)]
-    var b10 = BIOMES[fnBiomeIx(ix+1, iz)]
-    var b11 = BIOMES[fnBiomeIx(ix+1, iz+1)]
+    var b00 = BIOMES[fnBiomeIx(x, z)]
+    var b01 = BIOMES[fnBiomeIx(x, z+width)]
+    var b10 = BIOMES[fnBiomeIx(x+width, z)]
+    var b11 = BIOMES[fnBiomeIx(x+width, z+width)]
     return {
+        name: b00.name,
         b00: b00,
         b01: b01,
         b10: b10,
-        b11: b11,
-        offsetx: x - ix*BIOME_WIDTH,
-        offsetz: z - iz*BIOME_WIDTH
+        b11: b11
     }
 }
 
@@ -220,21 +220,30 @@ function createChunk(x, z, lod) {
     var data = new Uint8Array(CHUNK_WIDTH*CHUNK_WIDTH*CHUNK_HEIGHT)
 
     // Terrain generation
+    // Compute the biome at each of the four corners of the current chucnk
     var biome = generateChunkBiome(x, z, CHUNK_WIDTH*voxsize)
     var cw = CHUNK_WIDTH
-    var p00 = generatePerlinNoise(x, z, lod, cw, biome.b00.perlinHeightmapAmplitudes)
-    var p01 = generatePerlinNoise(x, z, lod, cw, biome.b01.perlinHeightmapAmplitudes)
-    var p10 = generatePerlinNoise(x, z, lod, cw, biome.b10.perlinHeightmapAmplitudes)
-    var p11 = generatePerlinNoise(x, z, lod, cw, biome.b11.perlinHeightmapAmplitudes)
-    var perlinHeightmap = new Float32Array(cw*CHUNK_WIDTH)
-    for (var i = 0; i < cw; i++)
-    for (var j = 0; j < cw; j++) {
-        var ix = i*cw+j
-        var u = (biome.offsetx+i)/BIOME_WIDTH
-        var v = (biome.offsetz+j)/BIOME_WIDTH
-        perlinHeightmap[ix] = interpCosine(p00[ix], p01[ix], p10[ix], p11[ix], u, v)
+    var perlinHeightmap
+    // If all four corners are the same biome, generate the terrain
+    // Otherwise, generate the terrain four different ways and interpolate
+    if (biome.b00 === biome.b01 && biome.b00 === biome.b10 && biome.b00 === biome.b11) {
+        perlinHeightmap = generatePerlinNoise(x, z, lod, cw, biome.b00.perlinHeightmapAmplitudes)
+    } else {
+        var p00 = generatePerlinNoise(x, z, lod, cw, biome.b00.perlinHeightmapAmplitudes)
+        var p01 = generatePerlinNoise(x, z, lod, cw, biome.b01.perlinHeightmapAmplitudes)
+        var p10 = generatePerlinNoise(x, z, lod, cw, biome.b10.perlinHeightmapAmplitudes)
+        var p11 = generatePerlinNoise(x, z, lod, cw, biome.b11.perlinHeightmapAmplitudes)
+        var perlinHeightmap = new Float32Array(cw*CHUNK_WIDTH)
+        for (var i = 0; i < cw; i++)
+        for (var j = 0; j < cw; j++) {
+            var ix = i*cw+j
+            var u = i/cw
+            var v = j/cw
+            perlinHeightmap[ix] = interpCosine(p00[ix], p01[ix], p10[ix], p11[ix], u, v)
+        }
     }
 
+    // Go from a Perlin heightmap to actual voxels
     for(var iy = 0; iy < CHUNK_HEIGHT; iy++)
     for(var ix = 0; ix < CHUNK_WIDTH; ix++)
     for(var iz = 0; iz < CHUNK_WIDTH; iz++) {
@@ -245,7 +254,9 @@ function createChunk(x, z, lod) {
         var voxPerlinHeight = perlinHeightmap[ix*CHUNK_WIDTH + iz] 
    
         var voxtype
-        if(voxy < voxPerlinHeight) {
+        if(voxy < voxPerlinHeight && voxy > 30) {
+            voxtype = VOX_TYPE_STONE
+        } else if(voxy < voxPerlinHeight) {
             voxtype = VOX_TYPE_GRASS
         } else if (voxy < 15){
             voxtype = VOX_TYPE_WATER
