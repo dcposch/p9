@@ -42,14 +42,14 @@ var DAY = {
     SKY_COLOR_HORIZON: [0.9, 0.9, 1.0, 1],
     SKY_COLOR_TOP: [0.6, 0.7, 0.9, 1],
     DIFFUSE_COLOR: [1, 1, 0.9],
-    AMBIENT_COLOR: [0.5, 0.5, 0.5]
+    AMBIENT_COLOR: [0.6, 0.6, 0.6]
 }
 var NIGHT = {
     SKY_COLOR_BOTTOM: [0.3, 0.4, 0.5, 1],
     SKY_COLOR_HORIZON: [0.3, 0.4, 0.5, 1],
     SKY_COLOR_TOP: [0.15, 0.2, 0.25, 1],
     DIFFUSE_COLOR: [0.6, 0.7, 0.7], // moon
-    AMBIENT_COLOR: [0.1, 0.1, 0.1]
+    AMBIENT_COLOR: [0.2, 0.2, 0.2]
 }
 var SECONDS_PER_GAME_DAY = 1200 // one full day + night every 20 minutes
 
