@@ -52,6 +52,12 @@ var NIGHT = {
     AMBIENT_COLOR: [0.2, 0.2, 0.2]
 }
 var SECONDS_PER_GAME_DAY = 1200 // one full day + night every 20 minutes
+var CLOUD_COLOR = [1, 1, 1, 0.1]
+var CLOUD_WIDTH = 18
+var CLOUD_HEIGHT = 1
+var CLOUD_GRID = 224
+var CLOUD_SPEED = 1.8
+var CLOUD_LEVEL = 125
 
 // There are different kinds of blocks
 var VOX_TYPE_AIR = 0
@@ -74,7 +80,8 @@ var input = null
 var chunks = {}
 var sky = {
     skybox: {gl:{}},
-    sun: {gl:{}}
+    sun: {gl:{}},
+    clouds: {gl:{}}
 }
 
 // Textures for every kind of block, all on one image.
@@ -266,6 +273,7 @@ function createChunk(x, z, lod) {
 
         data[iy*CHUNK_WIDTH*CHUNK_WIDTH + ix*CHUNK_WIDTH + iz] = voxtype
     }
+
     return {
         x: x,
         z: z,
@@ -303,6 +311,7 @@ function updateSky() {
 
     updateSkybox(day)
     updateSun(day, sunDirection)
+    updateClouds()
     sky.sunDirection = sunDirection
     sky.day = day
 }
@@ -329,7 +338,7 @@ function updateSun(day, sunDir) {
         c00[0], c00[1], c00[2],
         c11[0], c11[1], c11[2],
         c10[0], c10[1], c10[2])
-    var col = [0.6 + 0.4*day, 1, 1]
+    var col = [0.6 + 0.4*day, 1, 1, 1]
     colors.push(
         col[0], col[1], col[2], col[3],
         col[0], col[1], col[2], col[3],
@@ -400,6 +409,59 @@ function updateSkybox(day) {
     updateVertexColorBuffers(sky.skybox.gl, verts, colors)
 }
 
+// Translucent clouds float across the sky
+function updateClouds() {
+    var verts = [], colors = []
+
+    var cg = CLOUD_GRID
+    var px = Math.floor(loc[0]/cg)*cg
+    var pz = Math.floor(loc[2]/cg)*cg
+    var tmod = t/CLOUD_GRID*CLOUD_SPEED % 1.0
+    for(var i = -3; i < 3; i++)
+    for(var j = -3; j < 3; j++) {
+        var x0 = px + i*cg + tmod*cg
+        var z0 = pz + j*cg
+        var y0 = CLOUD_LEVEL
+        var x1 = x0 + CLOUD_WIDTH
+        var y1 = y0 + CLOUD_HEIGHT
+        var z1 = z0 + CLOUD_WIDTH
+        for(var fside = 0; fside < 2; fside++) {
+            var xface = fside === 1 ? x1 : x0
+            verts.push(
+                xface, y0, z0,
+                xface, y1, z0,
+                xface, y0, z1,
+                xface, y0, z1,
+                xface, y1, z0,
+                xface, y1, z1)
+            var yface = fside === 1 ? y1 : y0
+            verts.push(
+                x0, yface, z0,
+                x1, yface, z0,
+                x0, yface, z1,
+                x0, yface, z1,
+                x1, yface, z0,
+                x1, yface, z1)
+            var zface = fside === 1 ? z1 : z0
+            verts.push(
+                x0, y0, zface,
+                x1, y0, zface,
+                x0, y1, zface,
+                x0, y1, zface,
+                x1, y0, zface,
+                x1, y1, zface)
+        }
+    }
+
+    var c = CLOUD_COLOR
+    for(var i = 0; i < verts.length; i++) {
+      colors.push(c[0], c[1], c[2], c[3])
+    }
+
+    // send it to the GPU
+    updateVertexColorBuffers(sky.clouds.gl, verts, colors)
+}
+
 // Creates buffers, sends data to GPU
 // Returns {vertexCount, vertexBuffer, colorBuffer} 
 function updateVertexColorBuffers(buffers, verts, colors) {
@@ -461,7 +523,9 @@ function clamp(x, min, max) {
 }
 
 // Meshes a chunk, and sends the mesh (as a vertex buffer + UV buffer)
-// to the GPU
+// to the GPU.
+// 
+// Meshes exposed surfaces only.
 function loadChunkToGPU(chunk) {
     if(chunk.gl) return
 
@@ -804,6 +868,7 @@ function renderFrame(canvas) {
     // draw the scene
     renderSky(canvas)
     renderVoxels(canvas)
+    renderClouds(canvas)
 }
 
 // Renders the skybox and clouds
@@ -812,33 +877,52 @@ function renderSky() {
     mat4.identity(mvmat)
     mat4.rotate(mvmat, -attitude, [1,0,0])
 
-    // draw the sky
+    // setup shaders
     setShaders("vert_simple", "frag_color")
     setUniforms()
+
+    // draw the sky
+    drawColorBuffers(sky.skybox.gl)
+
+    // draw the sun
+    mat4.rotate(mvmat, -dir, [0,1,0])
+    setUniforms()
+    drawColorBuffers(sky.sun.gl)
+}
+
+// Renders a slow-moving layer clouds
+// See updateClouds()
+function renderClouds() {
+    // setup matrixes
+    mat4.identity(mvmat)
+    mat4.rotate(mvmat, -attitude, [1,0,0])
+    mat4.rotate(mvmat, -dir, [0,1,0])
+    mat4.translate(mvmat, [-loc[0], -loc[1], -loc[2]])
+
+    // setup shaders
+    setShaders("vert_simple", "frag_color")
+    setUniforms()
+
+    // draw the clouds
+    drawColorBuffers(sky.clouds.gl)
+}
+
+// helper method to bind and draw a vertex + color buffer
+function drawColorBuffers (buffers) {
     var posVertexPosition = getAttribute("aVertexPosition")
     var posVertexColor = getAttribute("aVertexColor")
     gl.enableVertexAttribArray(posVertexPosition)
     gl.enableVertexAttribArray(posVertexColor)
-    draw(sky.skybox.gl)
 
-    // draw the sun and clouds
-    mat4.rotate(mvmat, -dir, [0,1,0])
-    setUniforms()
-    draw(sky.sun.gl)
-    //TODO: clouds
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.vertexBuffer)
+    gl.vertexAttribPointer(posVertexPosition, 3, gl.FLOAT, false, 0, 0)
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.colorBuffer)
+    gl.vertexAttribPointer(posVertexColor, 4, gl.FLOAT, false, 0, 0)
+    gl.drawArrays(gl.TRIANGLES, 0, buffers.vertexCount)
 
     // clean up
     gl.disableVertexAttribArray(posVertexPosition)
     gl.disableVertexAttribArray(posVertexColor)
-
-    // helper method to bind and draw a vertex + color buffer
-    function draw (buffers) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.vertexBuffer)
-        gl.vertexAttribPointer(posVertexPosition, 3, gl.FLOAT, false, 0, 0)
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.colorBuffer)
-        gl.vertexAttribPointer(posVertexColor, 4, gl.FLOAT, false, 0, 0)
-        gl.drawArrays(gl.TRIANGLES, 0, buffers.vertexCount)
-    }
 }
 
 // Draws all currently loaded chunks of voxels.

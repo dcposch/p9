@@ -98,7 +98,7 @@
         vec3 light = uLightAmbient + lightDot * uLightDiffuse;
 
         float alpha = clamp(uLightDir.x+uLightAmbient.x+uLightDiffuse.x, 0.8, 0.9);
-        gl_FragColor = vec4(light * texColor.xyz, 1.0);
+        gl_FragColor = vec4(light * texColor.xyz, texColor.w);
     }
 
 </script>
