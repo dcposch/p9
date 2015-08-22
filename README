@@ -1,31 +1,19 @@
-Dan Posch
+DC Posch
 dcposch@dcpos.ch
 
-Trying out WebGL
+Trying out WebGL.
 
-Next steps:
-* clean up shaders
-* make a demo game
-* add a server-side component to the game with node and mongo
-* run it on heroku + mongohq
-* keep the webgl backend clean and small
-* ...make it suck less
-* ...add semver
+Making a voxel game. 
 
+I want to test two ideas specifically:
+* Voxel level-of-detail, so you can see to the horizon
+  (Minecraft never lets you see further than ~25 or so 16x16 chunks)
+* Peer-to-peer updates, probably using Webtorrent
 
-Goals for the library:
+I want a single world. Everyone who visits the right URL can play. 
+
+The game will be a collection of npm modules that each does just one thing.
+I want it to be easy to hack, modify, and reuse.
+
+Goals for the modules:
 * lighter than 3js. everything that's memory intensive should be Float32Array, etc, not JS objects.
-* provide shaders for a simple fixed-function pipeline
-* respect opengl's naming conventions
-* provide utils for loading models and textures
-* mipmapping, filtering
-
-
-Not goals. These can be implemented somewhere else, outside of DCGL:
-* scene graph (octree, kdtree)
-* terrain generation
-* jquery-style selectors to address models, find neighbors, modify properties, etc
-* physics
-* animation (dcgl just includes requestAnimFrame())
-* hooks for d3?
-
