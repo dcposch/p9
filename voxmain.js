@@ -311,7 +311,7 @@ function updateSky() {
 
     updateSkybox(day)
     updateSun(day, sunDirection)
-    updateClouds()
+    //updateClouds()
     sky.sunDirection = sunDirection
     sky.day = day
 }
@@ -868,7 +868,7 @@ function renderFrame(canvas) {
     // draw the scene
     renderSky(canvas)
     renderVoxels(canvas)
-    renderClouds(canvas)
+    //renderClouds(canvas)
 }
 
 // Renders the skybox and clouds
