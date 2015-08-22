@@ -1,0 +1,27 @@
+{
+  "name": "vox",
+  "version": "0.0.0",
+  "description": "voxel world",
+  "main": "index.js",
+  "scripts": {
+    "test": "standard",
+    "postinstall": "browserify js/main.js > bundle.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/dcposch/gl.git"
+  },
+  "author": "",
+  "license": "BSD-2-Clause",
+  "bugs": {
+    "url": "https://github.com/dcposch/gl/issues"
+  },
+  "dependencies": {
+    "gl-matrix": "*",
+    "murmurhash": "*"
+  },
+  "devDependencies": {
+    "standard": "*",
+    "browserify": "*"
+  }
+}
