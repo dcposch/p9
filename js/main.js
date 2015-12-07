@@ -3,11 +3,13 @@
  * March 2015
  * Trying out some voxel rendering
  */
-var DCInput = require('./dcinput')
-var murmurhash = require('murmurhash')
 var glMatrix = require('gl-matrix')
 var mat4 = glMatrix.mat4
 var vec3 = glMatrix.vec3
+var DCInput = require('./dcinput')
+var perlin = require('./perlin')
+var interp = require('./interp')
+var {scale, sum, cross, clamp, normalize} = require('./math')
 
 // TODO: either split out the functions for dealing with low-level
 //       WebGL stuff into their own module, or use an existing module
@@ -214,7 +216,6 @@ var LOD_CHUNK_RADIUS2 = LOD_CHUNK_RADIUS * LOD_CHUNK_RADIUS
 var LOD_SPIRAL = getCartesianSpiral(LOD_CHUNK_RADIUS2 * 8) // 4x + some extra
 
 // Terrain gen
-var RAND_SEED = 2892
 var BIOME_ISLANDS = {
   name: 'islands',
   perlinHeightmapAmplitudes: [0, 0.5, 0, 0, 10, 10, 5]
@@ -310,89 +311,6 @@ function generateChunkBiome (x, z, width) {
   }
 }
 
-// Generates a nxn grid of deterministic perlin noise in [0,sum(amps))
-//
-// (x, z) - location of block in world coords
-// lod - (1<<lod) is the size of a single cell in the output grid
-// width - (width x width) are the dimensions of the output grid in cells
-// amplitudes - perlin amplitudes. 0 thru lod-1 are ignored.
-function generatePerlinNoise (x, z, lod, width, amplitudes) {
-  var stride = 1 << lod
-  var ret = new Float32Array(width * width)
-  for (var i = lod; i < amplitudes.length; i++) {
-    if (amplitudes[i] === 0.0) {
-      continue
-    }
-    var istride = 1 << i
-    var ix0 = Math.floor(x / istride) * istride
-    var iz0 = Math.floor(z / istride) * istride
-    var w = Math.max(width >> (i - lod), 1) + 1
-    var perlin = new Float32Array(w * w)
-    for (var iu = 0; iu < w; iu++)
-    for (var iv = 0; iv < w; iv++) {
-      var u = ix0 + iu * istride
-      var v = iz0 + iv * istride
-      var rand = hashcodeRand([RAND_SEED, i, u, v])
-      perlin[w * iu + iv] = rand
-    }
-
-    for (var iu = 0; iu < width; iu++)
-    for (var iv = 0; iv < width; iv++) {
-      var u = x + iu * stride
-      var v = z + iv * stride
-      var u0 = Math.floor((u - ix0) / istride)
-      var v0 = Math.floor((v - iz0) / istride)
-      var u1 = u0 + 1
-      var v1 = v0 + 1
-      var rand00 = perlin[u0 * w + v0]
-      var rand01 = perlin[u0 * w + v1]
-      var rand10 = perlin[u1 * w + v0]
-      var rand11 = perlin[u1 * w + v1]
-
-      // Interpolate and sum
-      var tweenX = u / istride - Math.floor(u / istride)
-      var tweenZ = v / istride - Math.floor(v / istride)
-      var rand = interpCosine(rand00, rand01, rand10, rand11, tweenX, tweenZ)
-      ret[iu * width + iv] += rand * amplitudes[i]
-    }
-  }
-  return ret
-}
-
-// Array linear interpolation
-// If u===0, returns arr0, if u===1, returns arr1
-function tween (arr0, arr1, u) {
-  var n = arr0.length
-  if (arr1.length !== n) die('tween() expects two equal length arrays')
-  var ret = new Array(n)
-  for (var i = 0; i < n; i++) {
-    ret[i] = u * arr1[i] + (1 - u) * arr0[i]
-  }
-  return ret
-}
-
-// 2D Cosine interpolation
-function interpCosine (v00, v01, v10, v11, u, v) {
-  if (u < 0 || u >= 1 || v < 0 || v >= 1) die('Cosine interp out of bounds')
-  var utween = 0.5 - 0.5 * Math.cos(u * Math.PI)
-  var vtween = 0.5 - 0.5 * Math.cos(v * Math.PI)
-  return (v00 * (1 - utween) * (1 - vtween) +
-    v01 * (1 - utween) * (vtween) +
-    v10 * (utween) * (1 - vtween) +
-    v11 * (utween) * (vtween))
-}
-
-// Returns a hash code random value in [0.0, 1.0)
-function hashcodeRand (values) {
-  var hc = hashcodeInts(values)
-  return (hc & 0x7fffffff) / 0x7fffffff
-}
-
-// Returns a hash code in [0, 1<<30)
-function hashcodeInts (values) {
-  var str = values.join('')
-  return murmurhash.v2(str)
-}
 
 // Generates a test chunk at the given coords and LOD
 function createChunk (x, z, lod) {
@@ -407,19 +325,19 @@ function createChunk (x, z, lod) {
   // If all four corners are the same biome, generate the terrain
   // Otherwise, generate the terrain four different ways and interpolate
   if (biome.b00 === biome.b01 && biome.b00 === biome.b10 && biome.b00 === biome.b11) {
-    perlinHeightmap = generatePerlinNoise(x, z, lod, cw, biome.b00.perlinHeightmapAmplitudes)
+    perlinHeightmap = perlin.generate(x, z, lod, cw, biome.b00.perlinHeightmapAmplitudes)
   } else {
-    var p00 = generatePerlinNoise(x, z, lod, cw, biome.b00.perlinHeightmapAmplitudes)
-    var p01 = generatePerlinNoise(x, z, lod, cw, biome.b01.perlinHeightmapAmplitudes)
-    var p10 = generatePerlinNoise(x, z, lod, cw, biome.b10.perlinHeightmapAmplitudes)
-    var p11 = generatePerlinNoise(x, z, lod, cw, biome.b11.perlinHeightmapAmplitudes)
+    var p00 = perlin.generate(x, z, lod, cw, biome.b00.perlinHeightmapAmplitudes)
+    var p01 = perlin.generate(x, z, lod, cw, biome.b01.perlinHeightmapAmplitudes)
+    var p10 = perlin.generate(x, z, lod, cw, biome.b10.perlinHeightmapAmplitudes)
+    var p11 = perlin.generate(x, z, lod, cw, biome.b11.perlinHeightmapAmplitudes)
     var perlinHeightmap = new Float32Array(cw * CHUNK_WIDTH)
     for (var i = 0; i < cw; i++)
     for (var j = 0; j < cw; j++) {
       var ix = i * cw + j
       var u = i / cw
       var v = j / cw
-      perlinHeightmap[ix] = interpCosine(p00[ix], p01[ix], p10[ix], p11[ix], u, v)
+      perlinHeightmap[ix] = interp.cosine2D(p00[ix], p01[ix], p10[ix], p11[ix], u, v)
     }
   }
 
@@ -530,9 +448,9 @@ function updateSkybox (day) {
 
   // constants
   var h = SKY_HORIZON_DISTANCE
-  var colorBottom = tween(NIGHT.SKY_COLOR_BOTTOM, DAY.SKY_COLOR_BOTTOM, day)
-  var colorHorizon = tween(NIGHT.SKY_COLOR_HORIZON, DAY.SKY_COLOR_HORIZON, day)
-  var colorTop = tween(NIGHT.SKY_COLOR_TOP, DAY.SKY_COLOR_TOP, day)
+  var colorBottom = interp.tween(NIGHT.SKY_COLOR_BOTTOM, DAY.SKY_COLOR_BOTTOM, day)
+  var colorHorizon = interp.tween(NIGHT.SKY_COLOR_HORIZON, DAY.SKY_COLOR_HORIZON, day)
+  var colorTop = interp.tween(NIGHT.SKY_COLOR_TOP, DAY.SKY_COLOR_TOP, day)
 
   // north, east, south, west
   for (var i = 0; i < 4; i++)
@@ -645,53 +563,6 @@ function updateVertexColorBuffers (buffers, verts, colors) {
   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.colorBuffer)
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.DYNAMIC_DRAW)
   buffers.vertexCount = verts.length / 3
-}
-
-// Scalar multiplication
-function scale (a, vec) {
-  return vec.map(function (x) { return a * x })
-}
-
-// Vector addition
-function sum (vec0) {
-  var ret = vec0.slice()
-  for (var i = 0; i < arguments.length; i++) {
-    var veci = arguments[i]
-    if (veci.length !== ret.length) {
-      throw new Error('Tried to sum vectors of unequal length')
-    }
-    for (var j = 0; j < ret.length; j++) {
-      ret[j] += veci[j]
-    }
-  }
-  return ret
-}
-
-// Cross product
-function cross (a, b) {
-  return [
-    a[1] * b[2] - a[2] * b[1],
-    a[2] * b[0] - a[0] * b[2],
-    a[0] * b[1] - a[1] * b[0]]
-}
-
-// Normalize to unit length
-function normalize (v) {
-  return scale(1 / norm(v), v)
-}
-
-// Returns the l2 norm (length) of the vector
-function norm (v) {
-  return Math.sqrt(v
-    .map(function (x) {return x * x})
-    .reduce(function (a, b) {return a + b}))
-}
-
-// Clamps value to a range [min, max]
-function clamp (x, min, max) {
-  if (x < min) return min
-  if (x > max) return max
-  return x
 }
 
 // Meshes a chunk, and sends the mesh (as a vertex buffer + UV buffer)
@@ -1111,8 +982,8 @@ function renderVoxels () {
   setShaders('vert_texture', 'frag_voxel')
   setUniforms()
   var sunDir = sky.sunDirection
-  var diffuse = tween(NIGHT.DIFFUSE_COLOR, DAY.DIFFUSE_COLOR, sky.day)
-  var ambient = tween(NIGHT.AMBIENT_COLOR, DAY.AMBIENT_COLOR, sky.day)
+  var diffuse = interp.tween(NIGHT.DIFFUSE_COLOR, DAY.DIFFUSE_COLOR, sky.day)
+  var ambient = interp.tween(NIGHT.AMBIENT_COLOR, DAY.AMBIENT_COLOR, sky.day)
   var posLightDir = getUniform('uLightDir')
   var posLightDiffuse = getUniform('uLightDiffuse')
   var posLightAmbient = getUniform('uLightAmbient')
