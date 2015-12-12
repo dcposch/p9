@@ -7,203 +7,19 @@ var glMatrix = require('gl-matrix')
 var mat4 = glMatrix.mat4
 var vec3 = glMatrix.vec3
 var DCInput = require('./dcinput')
+var DCGL = require('./dcgl')
 var perlin = require('./perlin')
 var interp = require('./interp')
-var {scale, sum, cross, clamp, normalize} = require('./math')
 
-// TODO: either split out the functions for dealing with low-level
-//       WebGL stuff into their own module, or use an existing module
-
-var gl, prog
-
-// uniforms
-var pmat = mat4.create()
-var mvmat = mat4.create()
-
-// anim
-var t = 0.0
-var dt = (1 / 60.0)
-
-// camera
-var loc = vec3.clone([0, 50, 150])
-var dir = 0
-var attitude = 0
-
-// shaders
-var shader_cache = {}
-var shader_prog_cache = {}
-var shaders = shaders || {}
-
-function die (msg) {
-  throw msg
-}
-
-function log (msg) {
-  console.log(msg)
-}
-
-function initGL (canvas) {
-  gl = canvas.getContext('webgl', {antialias: true}) || die('could not initialise WebGL')
-  console.log('GL attributes: ' + JSON.stringify(gl.getContextAttributes()))
-  console.log('GL antialiasing level: ' + gl.getParameter(gl.SAMPLES))
-  gl.viewportWidth = canvas.width
-  gl.viewportHeight = canvas.height
-
-  gl.clearColor(1.0, 1.0, 1.0, 1.0)
-  gl.enable(gl.DEPTH_TEST)
-
-  gl.enable(gl.BLEND)
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-}
-
-function shader (id) {
-  // memoize
-  if (shader_cache[id]) {
-    return shader_cache[id]
-  }
-
-  // get the source
-  log('finding and compiling shader ' + id)
-  var source, type
-  if (typeof (shaders[id]) === 'undefined') {
-    var shaderScript = document.getElementById(id) || die("can't find " + id)
-    source = shaderScript.firstChild.textContent
-    type = shaderScript.type
-    if (shaderScript.type === 'x-shader/x-fragment') {
-      type = gl.FRAGMENT_SHADER
-    } else if (type === 'x-shader/x-vertex') {
-      type = gl.VERTEX_SHADER
-    } else {
-      die('unrecognized shader type ' + type)
-    }
-  } else {
-    source = shaders[id]
-    if (id.indexOf('vert') === 0) {
-      type = gl.VERTEX_SHADER
-    } else {
-      type = gl.FRAGMENT_SHADER
-    }
-  }
-
-  // create the shader
-  var shader = gl.createShader(type)
-  gl.shaderSource(shader, source)
-
-  // compile
-  gl.compileShader(shader)
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    die(gl.getShaderInfoLog(shader))
-  }
-
-  shader_cache[id] = shader
-  return shader
-}
-
-function setShaders (vertexShader, fragmentShader) {
-  // memoize
-  var key = vertexShader + '_' + fragmentShader
-  if (shader_prog_cache[key]) {
-    prog = shader_prog_cache[key]
-  } else {
-    // link them
-    log('linking shader program ' + key)
-    prog = gl.createProgram()
-    gl.attachShader(prog, shader(vertexShader))
-    gl.attachShader(prog, shader(fragmentShader))
-    gl.linkProgram(prog)
-    gl.getProgramParameter(prog, gl.LINK_STATUS) ||
-    die('could not link shaders')
-
-    shader_prog_cache[key] = prog
-  }
-  gl.useProgram(prog)
-}
-
-function getAttribute (name) {
-  var pos = gl.getAttribLocation(prog, name)
-  if (pos === null || pos < 0) {
-    die('Attribute ' + name + ' not found. ' +
-      "Maybe stripped out because it's unused in shader code?")
-  }
-  return pos
-}
-
-function getUniform (name) {
-  var pos = gl.getUniformLocation(prog, name)
-  if (pos === null || pos < 0) {
-    die('Uniform ' + name + ' not found. ' +
-      "Maybe stripped out because it's unused in shader code?")
-  }
-  return pos
-}
-
-// Starts loading a texture from a given image URL
-// Returns the texture ID immediately
-// Calls an optional callback once the texture is copied to the GPU
-function loadTexture (url, cb) {
-  var tex = gl.createTexture()
-  var texImg = new window.Image()
-  texImg.onload = function () {
-    gl.bindTexture(gl.TEXTURE_2D, tex)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texImg)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR)
-    gl.generateMipmap(gl.TEXTURE_2D)
-    gl.bindTexture(gl.TEXTURE_2D, null)
-
-    if (cb) cb()
-  }
-  texImg.src = url
-  return tex
-}
-
-/* MATRIX STACK + UNIFORMS */
-
-function setUniforms () {
-  var mat = mat4.create()
-  mat4.multiply(mat, pmat, mvmat)
-  var matPos = gl.getUniformLocation(prog, 'uMatrix')
-  gl.uniformMatrix4fv(matPos, false, mat)
-
-  var camPos = gl.getUniformLocation(prog, 'uCameraLoc')
-  gl.uniform3f(camPos, loc[0], loc[1], loc[2])
-}
-
-// Starts the animation loop
-// Calls renderFunction() 60x per second... hopefully
-// Updates t (total seconds since start) and dt (time since last render)
-function animate (renderFunction, element) {
-  // via http://paulirish.com/2011/requestanimationframe-for-smart-animating/
-  // shim layer with setTimeout fallback
-  var requestAnimFrame = window.requestAnimationFrame ||
-    window.webkitRequestAnimationFrame ||
-    window.mozRequestAnimationFrame ||
-    window.oRequestAnimationFrame ||
-    window.msRequestAnimationFrame ||
-    function (callback, element) {
-      window.setTimeout(callback, 1000 / 60)
-    }
-
-  var startTime = new Date().getTime() / 1000.0
-  var lastTime = 0
-
-  function animationLoop () {
-    // update time
-    t = (new Date().getTime()) / 1000.0 - startTime
-    dt = t - lastTime
-    lastTime = t
-
-    // render frame
-    renderFunction()
-
-    // wait
-    requestAnimFrame(animationLoop, element)
-  }
-
-  animationLoop()
-}
-
-// Actual voxel game starts here
+// TODO: nuke this part
+var dcgl = null
+var gl = null
+var math = require('./math')
+var scale = math.scale
+var sum = math.sum
+var cross = math.cross
+var clamp = math.clamp
+var normalize = math.normalize
 
 // Constants
 // Each chunk is 16x16 voxels wide (X, Z) and 64 voxels high (Y)
@@ -272,8 +88,11 @@ var INPUT_SENSITIVITY = 0.01 // radians per pixel
 
 var MAX_CHUNK_LOADS_PER_FRAME = 20
 
-// The DCInput object. See dcinput.js
-var input = null
+// Keyboard and mouse input
+var dcinput = null
+
+// WebGL output
+var dcgl = null
 
 // Voxel world
 var chunks = {}
@@ -382,8 +201,7 @@ function setVoxel (data, ix, iy, iz, val) {
 
 // Creates or updates the skybox
 // Sets colors, sun, moon, day or night lighting depending on current time
-// One
-function updateSky () {
+function updateSky (t) {
   var sunAngle = new Date().getTime() / 1000 / SECONDS_PER_GAME_DAY * 2 * Math.PI
   var sunDirection = [
     Math.sin(sunAngle) * Math.sqrt(2),
@@ -399,7 +217,7 @@ function updateSky () {
 
   updateSkybox(day)
   updateSun(day, sunDirection)
-  if (ENABLE_CLOUDS) updateClouds()
+  if (ENABLE_CLOUDS) updateClouds(t)
   sky.sunDirection = sunDirection
   sky.day = day
 }
@@ -500,13 +318,14 @@ function updateSkybox (day) {
 }
 
 // Translucent clouds float across the sky
-function updateClouds () {
+function updateClouds (t) {
   var verts = []
   var colors = []
 
+  var camera = dcgl.getCamera()
   var cg = CLOUD_GRID
-  var px = Math.floor(loc[0] / cg) * cg
-  var pz = Math.floor(loc[2] / cg) * cg
+  var px = Math.floor(camera.loc[0] / cg) * cg
+  var pz = Math.floor(camera.loc[2] / cg) * cg
   var tmod = t / CLOUD_GRID * CLOUD_SPEED % 1.0
   for (var i = -3; i < 3; i++)
   for (var j = -3; j < 3; j++) {
@@ -736,26 +555,29 @@ function unloadChunkFromGPU (chunk) {
 
 // Handles all keyboard and mouse input
 // Lets you move and look around
-function handleInput () {
+function handleInput (dt) {
+  var camera = dcgl.getCamera()
   var speed = INPUT_SPEED
-  if (input.keys.shift) speed *= 3
-  if (input.keys.up) move(dt * speed, dir + Math.PI, attitude)
-  if (input.keys.down) move(dt * speed, dir, -attitude)
-  if (input.keys.left) move(dt * speed, dir + Math.PI * 0.5, 0)
-  if (input.keys.right) move(dt * speed, dir + Math.PI * 1.5, 0)
+  if (dcinput.keys.shift) speed *= 3
+  var dir = camera.dir
+  if (dcinput.keys.up) move(dt * speed, dir + Math.PI, camera.attitude)
+  if (dcinput.keys.down) move(dt * speed, dir, -camera.attitude)
+  if (dcinput.keys.left) move(dt * speed, dir + Math.PI * 0.5, 0)
+  if (dcinput.keys.right) move(dt * speed, dir + Math.PI * 1.5, 0)
 
-  var movePx = input.getAndClearMouseMove()
-  if (!input.mouse.drag && !input.mouse.pointerLock) return
-  attitude -= movePx.y * INPUT_SENSITIVITY
-  attitude = Math.min(0.4 * Math.PI, Math.max(-0.4 * Math.PI, attitude))
-  dir -= movePx.x * INPUT_SENSITIVITY
+  var movePx = dcinput.getAndClearMouseMove()
+  if (!dcinput.mouse.drag && !dcinput.mouse.pointerLock) return
+  camera.attitude -= movePx.y * INPUT_SENSITIVITY
+  camera.attitude = Math.min(0.4 * Math.PI, Math.max(-0.4 * Math.PI, camera.attitude))
+  camera.dir -= movePx.x * INPUT_SENSITIVITY
 }
 
 // Moves you (the camera) in any direction by any distance
 function move (r, theta, attitude) {
-  loc[0] += Math.sin(theta) * Math.cos(attitude) * r
-  loc[1] += Math.sin(attitude) * r
-  loc[2] += Math.cos(theta) * Math.cos(attitude) * r
+  var camera = dcgl.getCamera()
+  camera.loc[0] += Math.sin(theta) * Math.cos(attitude) * r
+  camera.loc[1] += Math.sin(attitude) * r
+  camera.loc[2] += Math.cos(theta) * Math.cos(attitude) * r
 }
 
 function getCartesianSpiral (n) {
@@ -786,10 +608,11 @@ function getCartesianSpiral (n) {
 // Unloads *all* chunks that are out of range
 function updateChunks () {
   var chunksLoaded = 0
+  var camera = dcgl.getCamera()
   for (var lod = 0; lod < LOD_MAX; lod++) {
     var lodChunkWidth = CHUNK_WIDTH << lod
-    var chunkx = Math.round(loc[0] / lodChunkWidth) * lodChunkWidth
-    var chunkz = Math.round(loc[2] / lodChunkWidth) * lodChunkWidth
+    var chunkx = Math.round(camera.loc[0] / lodChunkWidth) * lodChunkWidth
+    var chunkz = Math.round(camera.loc[2] / lodChunkWidth) * lodChunkWidth
 
     // load one chunk, if needed, to fill an 2*radius by 2*radius
     // neighborhood of chunks around where you're standing
@@ -907,7 +730,7 @@ function renderFrame (canvas) {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
   // setup camera
-  mat4.perspective(pmat, 1, width / height, 0.2, 4000.0)
+  mat4.perspective(dcgl.getProjectionMatrix(), 1, width / height, 0.2, 4000.0)
 
   // draw the scene
   renderSky(canvas)
@@ -918,19 +741,21 @@ function renderFrame (canvas) {
 // Renders the skybox and clouds
 function renderSky () {
   // setup matrixes
+  var camera = dcgl.getCamera()
+  var mvmat = dcgl.getModelViewMatrix()
   mat4.identity(mvmat)
-  mat4.rotate(mvmat, mvmat, -attitude, [1, 0, 0])
+  mat4.rotate(mvmat, mvmat, -camera.attitude, [1, 0, 0])
 
   // setup shaders
-  setShaders('vert_simple', 'frag_color')
-  setUniforms()
+  dcgl.setShaders('vert_simple', 'frag_color')
+  dcgl.setCameraUniforms()
 
   // draw the sky
   drawColorBuffers(sky.skybox.gl)
 
   // draw the sun
-  mat4.rotate(mvmat, mvmat, -dir, [0, 1, 0])
-  setUniforms()
+  mat4.rotate(mvmat, mvmat, -camera.dir, [0, 1, 0])
+  dcgl.setCameraUniforms()
   drawColorBuffers(sky.sun.gl)
 }
 
@@ -938,23 +763,25 @@ function renderSky () {
 // See updateClouds()
 function renderClouds () {
   // setup matrixes
+  var camera = dcgl.getCamera()
+  var mvmat = dcgl.getModelViewMatrix()
   mat4.identity(mvmat)
-  mat4.rotate(mvmat, mvmat, -attitude, [1, 0, 0])
-  mat4.rotate(mvmat, mvmat, -dir, [0, 1, 0])
-  mat4.translate(mvmat, mvmat, [-loc[0], -loc[1], -loc[2]])
+  mat4.rotate(mvmat, mvmat, -camera.attitude, [1, 0, 0])
+  mat4.rotate(mvmat, mvmat, -camera.dir, [0, 1, 0])
+  mat4.translate(mvmat, mvmat, [-camera.loc[0], -camera.loc[1], -camera.loc[2]])
 
   // setup shaders
-  setShaders('vert_simple', 'frag_color')
-  setUniforms()
+  dcgl.setShaders('vert_simple', 'frag_color')
+  dcgl.setCameraUniforms()
 
   // draw the clouds
   drawColorBuffers(sky.clouds.gl)
 }
 
-// helper method to bind and draw a vertex + color buffer
+// Helper method to bind and draw a vertex + color buffer
 function drawColorBuffers (buffers) {
-  var posVertexPosition = getAttribute('aVertexPosition')
-  var posVertexColor = getAttribute('aVertexColor')
+  var posVertexPosition = dcgl.getAttributeLocation('aVertexPosition')
+  var posVertexColor = dcgl.getAttributeLocation('aVertexColor')
   gl.enableVertexAttribArray(posVertexPosition)
   gl.enableVertexAttribArray(posVertexColor)
 
@@ -972,30 +799,32 @@ function drawColorBuffers (buffers) {
 // Draws all currently loaded chunks of voxels.
 // See updateChunks() for loading and unloading logic.
 function renderVoxels () {
-  // setup matrices some more
+  // setup matrices
+  var camera = dcgl.getCamera()
+  var mvmat = dcgl.getModelViewMatrix()
   mat4.identity(mvmat)
-  mat4.rotate(mvmat, mvmat, -attitude, [1, 0, 0])
-  mat4.rotate(mvmat, mvmat, -dir, [0, 1, 0])
-  mat4.translate(mvmat, mvmat, [-loc[0], -loc[1], -loc[2]])
+  mat4.rotate(mvmat, mvmat, -camera.attitude, [1, 0, 0])
+  mat4.rotate(mvmat, mvmat, -camera.dir, [0, 1, 0])
+  mat4.translate(mvmat, mvmat, [-camera.loc[0], -camera.loc[1], -camera.loc[2]])
 
   // setup uniforms
-  setShaders('vert_texture', 'frag_voxel')
-  setUniforms()
+  dcgl.setShaders('vert_texture', 'frag_voxel')
+  dcgl.setCameraUniforms()
   var sunDir = sky.sunDirection
   var diffuse = interp.tween(NIGHT.DIFFUSE_COLOR, DAY.DIFFUSE_COLOR, sky.day)
   var ambient = interp.tween(NIGHT.AMBIENT_COLOR, DAY.AMBIENT_COLOR, sky.day)
-  var posLightDir = getUniform('uLightDir')
-  var posLightDiffuse = getUniform('uLightDiffuse')
-  var posLightAmbient = getUniform('uLightAmbient')
+  var posLightDir = dcgl.getUniformLocation('uLightDir')
+  var posLightDiffuse = dcgl.getUniformLocation('uLightDiffuse')
+  var posLightAmbient = dcgl.getUniformLocation('uLightAmbient')
   gl.uniform3f(posLightDir, sunDir[0], sunDir[1], sunDir[2])
   gl.uniform3f(posLightDiffuse, diffuse[0], diffuse[1], diffuse[2])
   gl.uniform3f(posLightAmbient, ambient[0], ambient[1], ambient[2])
 
   // draw some voxels
-  var posVertexPosition = getAttribute('aVertexPosition')
-  var posVertexNormal = getAttribute('aVertexNormal')
-  var posVertexUV = getAttribute('aVertexUV')
-  var posSampler = getUniform('uSampler')
+  var posVertexPosition = dcgl.getAttributeLocation('aVertexPosition')
+  var posVertexNormal = dcgl.getAttributeLocation('aVertexNormal')
+  var posVertexUV = dcgl.getAttributeLocation('aVertexUV')
+  var posSampler = dcgl.getUniformLocation('uSampler')
   gl.enableVertexAttribArray(posVertexPosition)
   gl.enableVertexAttribArray(posVertexNormal)
   gl.enableVertexAttribArray(posVertexUV)
@@ -1031,18 +860,35 @@ function renderVoxels () {
 
 function main () {
   var canvas = document.getElementById('gl')
-  input = new DCInput(canvas)
-  canvas.addEventListener('click', input.requestPointerLock.bind(input))
 
-  initGL(canvas)
-  blockTexture = loadTexture('textures/isabella.png', function () {
-    animate(function () {
-      handleInput()
-      updateChunks()
-      updateSky()
-      renderFrame(canvas)
-    }, canvas)
+  // initialize input
+  dcinput = new DCInput(canvas)
+  canvas.addEventListener('click', function () { dcinput.requestPointerLock() })
+
+  // initialize webgl
+  dcgl = new DCGL(canvas)
+  gl = dcgl.getWebGLContext()
+
+  // load resources. once that's done, start the render loop
+  blockTexture = dcgl.loadTexture('textures/isabella.png', function () {
+    dcgl.requestAnimationFrame(frame, canvas)
   })
+
+  // render loop
+  var startTime = new Date().getTime() / 1000
+  var lastTime = startTime
+  function frame() {
+    var now = new Date().getTime() / 1000
+    var t = now - startTime
+    var dt = now - lastTime
+    lastTime = now
+
+    handleInput(dt)
+    updateChunks()
+    updateSky(t)
+    renderFrame(canvas)
+    dcgl.requestAnimationFrame(frame, canvas)
+  }
 }
 
 main()
