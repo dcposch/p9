@@ -1,19 +1,25 @@
+# voxel wave
+
 DC Posch
 dcposch@dcpos.ch
 
-Trying out WebGL.
+Making a voxel game.
 
-Making a voxel game. 
+## art
 
-I want to test two ideas specifically:
+![voxel wave tumblr](https://voxelwave.tumblr.com)
+
+## tech
+
+I want to test out some ideas:
+
 * Voxel level-of-detail, so you can see to the horizon
   (Minecraft never lets you see further than ~25 or so 16x16 chunks)
-* Peer-to-peer updates, probably using Webtorrent
+* Browser based. Straight JS + WebGL, no emscripten, no WebAssembly, no Three.js, no voxel.js
+* Single  world. Everyone who visits the right URL can play.
 
-I want a single world. Everyone who visits the right URL can play. 
+The game will be built on a collection of npm modules that each does just one thing.
 
-The game will be a collection of npm modules that each does just one thing.
-I want it to be easy to hack, modify, and reuse.
+I want it to be easy to hack, modify, and reuse. Unclear whether it will be open source.
 
-Goals for the modules:
-* lighter than 3js. everything that's memory intensive should be Float32Array, etc, not JS objects.
+I want the modules to be lighter than 3js. Everything that's memory intensive should use typed arrays.
