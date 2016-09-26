@@ -7,17 +7,19 @@ var vec3 = glMatrix.vec3
  * Compiles and links shaders.
  * Keeps track of some state, like where the camera is and where it's pointing.
  */
-module.exports = function DCGL(canvas) {
+module.exports = function DCGL (canvas) {
   // STATE
   // webgl context
   var gl = null
+
+  // current shader program
+  var prog = null
 
   // uniforms
   var pmat = mat4.create()
   var mvmat = mat4.create()
 
   // camera
-  // TOO: nuke this part
   var camera = {
     loc: vec3.clone([0, 50, 150]),
     dir: 0, // radians, counterclockwise, 0 faces in the +X direction
@@ -29,14 +31,14 @@ module.exports = function DCGL(canvas) {
   var shaderProgramCache = {}
 
   // logging
-  var log = function(message) { console.log(message) }
-  var die = function(errorMessage) { throw new Error(errorMessage) }
+  var log = function (message) { console.log(message) }
+  var die = function (errorMessage) { throw new Error(errorMessage) }
 
   // PUBLIC INTERFACE
   this.getWebGLContext = function () { return gl }
   this.getModelViewMatrix = function () { return mvmat }
   this.getProjectionMatrix = function () { return pmat }
-  this.getCamera = function() { return camera }
+  this.getCamera = function () { return camera }
   this.setShaders = setShaders
   this.getShaderProgram = getShaderProgram
   this.getAttributeLocation = getAttributeLocation
@@ -45,7 +47,7 @@ module.exports = function DCGL(canvas) {
   this.setCameraUniforms = setCameraUniforms
   // via http://paulirish.com/2011/requestanimationframe-for-smart-animating/
   // shim layer with setTimeout fallback
-  this.requestAnimationFrame = function(callback, elem) {
+  this.requestAnimationFrame = function (callback, elem) {
     var fn = window.requestAnimationFrame ||
       window.webkitRequestAnimationFrame ||
       window.mozRequestAnimationFrame ||
@@ -60,7 +62,7 @@ module.exports = function DCGL(canvas) {
   // INITIALIZATION
   gl = canvas.getContext('webgl', {antialias: true})
   if (!gl) {
-    throw 'Sorry, looks like your browser doesn\'t support WebGL'
+    throw new Error('Sorry, looks like your browser doesn\'t support WebGL')
   }
   console.log('GL attributes: ' + JSON.stringify(gl.getContextAttributes()))
   console.log('GL antialiasing level: ' + gl.getParameter(gl.SAMPLES))
@@ -72,7 +74,6 @@ module.exports = function DCGL(canvas) {
 
   gl.enable(gl.BLEND)
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-
 
   /*
    * Gets a WebGL shader program, (vertex + fragment shader),
@@ -108,7 +109,7 @@ module.exports = function DCGL(canvas) {
    * <script id="foo" type="x-shader/x-fragment"> or
    * <script id="foo" type="x-shader/x-vertex">
    */
-  function getShaderProgram (id, source) {
+  function getShaderProgram (id) {
     // memoize
     if (shaderCache[id]) {
       return shaderCache[id]

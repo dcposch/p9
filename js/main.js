@@ -5,15 +5,11 @@
  */
 var glMatrix = require('gl-matrix')
 var mat4 = glMatrix.mat4
-var vec3 = glMatrix.vec3
 var DCInput = require('./dcinput')
 var DCGL = require('./dcgl')
 var perlin = require('./perlin')
 var interp = require('./interp')
 
-// TODO: nuke this part
-var dcgl = null
-var gl = null
 var math = require('./math')
 var scale = math.scale
 var sum = math.sum
@@ -47,7 +43,8 @@ var BIOME_MOUNTAINS = {
 var BIOMES = [
   BIOME_ISLANDS,
   BIOME_PLAINS,
-  BIOME_MOUNTAINS]
+  BIOME_MOUNTAINS
+]
 
 // Skybox
 var SKY_HORIZON_DISTANCE = 2000
@@ -93,6 +90,7 @@ var dcinput = null
 
 // WebGL output
 var dcgl = null
+var gl = null
 
 // Voxel world
 var chunks = {}
@@ -130,7 +128,6 @@ function generateChunkBiome (x, z, width) {
   }
 }
 
-
 // Generates a test chunk at the given coords and LOD
 function createChunk (x, z, lod) {
   var voxsize = 1 << lod
@@ -150,35 +147,38 @@ function createChunk (x, z, lod) {
     var p01 = perlin.generate(x, z, lod, cw, biome.b01.perlinHeightmapAmplitudes)
     var p10 = perlin.generate(x, z, lod, cw, biome.b10.perlinHeightmapAmplitudes)
     var p11 = perlin.generate(x, z, lod, cw, biome.b11.perlinHeightmapAmplitudes)
-    var perlinHeightmap = new Float32Array(cw * CHUNK_WIDTH)
-    for (var i = 0; i < cw; i++)
-    for (var j = 0; j < cw; j++) {
-      var ix = i * cw + j
-      var u = i / cw
-      var v = j / cw
-      perlinHeightmap[ix] = interp.cosine2D(p00[ix], p01[ix], p10[ix], p11[ix], u, v)
+    perlinHeightmap = new Float32Array(cw * CHUNK_WIDTH)
+    for (var i = 0; i < cw; i++) {
+      for (var j = 0; j < cw; j++) {
+        var index = i * cw + j
+        var u = i / cw
+        var v = j / cw
+        perlinHeightmap[index] = interp.cosine2D(p00[ix], p01[ix], p10[ix], p11[ix], u, v)
+      }
     }
   }
 
   // Go from a Perlin heightmap to actual voxels
-  for (var iy = 0; iy < CHUNK_HEIGHT; iy++)
-  for (var ix = 0; ix < CHUNK_WIDTH; ix++)
-  for (var iz = 0; iz < CHUNK_WIDTH; iz++) {
-    var voxy = iy * voxsize
-    var voxPerlinHeight = perlinHeightmap[ix * CHUNK_WIDTH + iz]
+  for (var iy = 0; iy < CHUNK_HEIGHT; iy++) {
+    for (var ix = 0; ix < CHUNK_WIDTH; ix++) {
+      for (var iz = 0; iz < CHUNK_WIDTH; iz++) {
+        var voxy = iy * voxsize
+        var voxPerlinHeight = perlinHeightmap[ix * CHUNK_WIDTH + iz]
 
-    var voxtype
-    if (voxy < voxPerlinHeight && voxy > 30) {
-      voxtype = VOX_TYPE_STONE
-    } else if (voxy < voxPerlinHeight) {
-      voxtype = VOX_TYPE_GRASS
-    } else if (voxy < 15) {
-      voxtype = VOX_TYPE_WATER
-    } else {
-      voxtype = VOX_TYPE_AIR
+        var voxtype
+        if (voxy < voxPerlinHeight && voxy > 30) {
+          voxtype = VOX_TYPE_STONE
+        } else if (voxy < voxPerlinHeight) {
+          voxtype = VOX_TYPE_GRASS
+        } else if (voxy < 15) {
+          voxtype = VOX_TYPE_WATER
+        } else {
+          voxtype = VOX_TYPE_AIR
+        }
+
+        data[iy * CHUNK_WIDTH * CHUNK_WIDTH + ix * CHUNK_WIDTH + iz] = voxtype
+      }
     }
-
-    data[iy * CHUNK_WIDTH * CHUNK_WIDTH + ix * CHUNK_WIDTH + iz] = voxtype
   }
 
   return {
@@ -244,7 +244,8 @@ function updateSun (day, sunDir) {
     c11[0], c11[1], c11[2],
     c00[0], c00[1], c00[2],
     c11[0], c11[1], c11[2],
-    c10[0], c10[1], c10[2])
+    c10[0], c10[1], c10[2]
+  )
   var col = [0.6 + 0.4 * day, 1, 1, 1]
   colors.push(
     col[0], col[1], col[2], col[3],
@@ -252,7 +253,8 @@ function updateSun (day, sunDir) {
     col[0], col[1], col[2], col[3],
     col[0], col[1], col[2], col[3],
     col[0], col[1], col[2], col[3],
-    col[0], col[1], col[2], col[3])
+    col[0], col[1], col[2], col[3]
+  )
 
   // send it to the GPU
   updateVertexColorBuffers(sky.sun.gl, verts, colors)
@@ -271,31 +273,34 @@ function updateSkybox (day) {
   var colorTop = interp.tween(NIGHT.SKY_COLOR_TOP, DAY.SKY_COLOR_TOP, day)
 
   // north, east, south, west
-  for (var i = 0; i < 4; i++)
-  for (var j = 0; j < 2; j++) {
-    var z0 = (i === 0 || i === 1) ? h : -h
-    var x0 = (i === 1 || i === 2) ? h : -h
-    var z1 = (i === 1 || i === 2) ? h : -h
-    var x1 = (i === 2 || i === 3) ? h : -h
-    var h0 = (j === 0) ? -h : 0
-    var h1 = (j === 0) ? 0 : h
-    var c0 = (j === 0) ? colorBottom : colorHorizon
-    var c1 = (j === 0) ? colorHorizon : colorTop
-    verts.push(
+  for (var i = 0; i < 4; i++) {
+    for (var j = 0; j < 2; j++) {
+      var z0 = (i === 0 || i === 1) ? h : -h
+      var x0 = (i === 1 || i === 2) ? h : -h
+      var z1 = (i === 1 || i === 2) ? h : -h
+      var x1 = (i === 2 || i === 3) ? h : -h
+      var h0 = (j === 0) ? -h : 0
+      var h1 = (j === 0) ? 0 : h
+      var c0 = (j === 0) ? colorBottom : colorHorizon
+      var c1 = (j === 0) ? colorHorizon : colorTop
+      verts.push(
       x0, h0, z0,
       x0, h1, z0,
       x1, h1, z1,
       x0, h0, z0,
       x1, h1, z1,
       x1, h0, z1)
-    colors.push(
-      c0[0], c0[1], c0[2], c0[3],
-      c1[0], c1[1], c1[2], c1[3],
-      c1[0], c1[1], c1[2], c1[3],
-      c0[0], c0[1], c0[2], c0[3],
-      c1[0], c1[1], c1[2], c1[3],
-      c0[0], c0[1], c0[2], c0[3])
+      colors.push(
+        c0[0], c0[1], c0[2], c0[3],
+        c1[0], c1[1], c1[2], c1[3],
+        c1[0], c1[1], c1[2], c1[3],
+        c0[0], c0[1], c0[2], c0[3],
+        c1[0], c1[1], c1[2], c1[3],
+        c0[0], c0[1], c0[2], c0[3]
+      )
+    }
   }
+
   // top
   var c = colorTop
   verts.push(
@@ -311,7 +316,8 @@ function updateSkybox (day) {
     c[0], c[1], c1[2], c[3],
     c[0], c[1], c0[2], c[3],
     c[0], c[1], c1[2], c[3],
-    c[0], c[1], c0[2], c[3])
+    c[0], c[1], c0[2], c[3]
+  )
 
   // send it to the GPU
   updateVertexColorBuffers(sky.skybox.gl, verts, colors)
@@ -327,44 +333,49 @@ function updateClouds (t) {
   var px = Math.floor(camera.loc[0] / cg) * cg
   var pz = Math.floor(camera.loc[2] / cg) * cg
   var tmod = t / CLOUD_GRID * CLOUD_SPEED % 1.0
-  for (var i = -3; i < 3; i++)
-  for (var j = -3; j < 3; j++) {
-    var x0 = px + i * cg + tmod * cg
-    var z0 = pz + j * cg
-    var y0 = CLOUD_LEVEL
-    var x1 = x0 + CLOUD_WIDTH
-    var y1 = y0 + CLOUD_HEIGHT
-    var z1 = z0 + CLOUD_WIDTH
-    for (var fside = 0; fside < 2; fside++) {
-      var xface = fside === 1 ? x1 : x0
-      verts.push(
-        xface, y0, z0,
-        xface, y1, z0,
-        xface, y0, z1,
-        xface, y0, z1,
-        xface, y1, z0,
-        xface, y1, z1)
-      var yface = fside === 1 ? y1 : y0
-      verts.push(
-        x0, yface, z0,
-        x1, yface, z0,
-        x0, yface, z1,
-        x0, yface, z1,
-        x1, yface, z0,
-        x1, yface, z1)
-      var zface = fside === 1 ? z1 : z0
-      verts.push(
-        x0, y0, zface,
-        x1, y0, zface,
-        x0, y1, zface,
-        x0, y1, zface,
-        x1, y0, zface,
-        x1, y1, zface)
+
+  for (var i = -3; i < 3; i++) {
+    for (var j = -3; j < 3; j++) {
+      var x0 = px + i * cg + tmod * cg
+      var z0 = pz + j * cg
+      var y0 = CLOUD_LEVEL
+      var x1 = x0 + CLOUD_WIDTH
+      var y1 = y0 + CLOUD_HEIGHT
+      var z1 = z0 + CLOUD_WIDTH
+      for (var fside = 0; fside < 2; fside++) {
+        var xface = fside === 1 ? x1 : x0
+        verts.push(
+          xface, y0, z0,
+          xface, y1, z0,
+          xface, y0, z1,
+          xface, y0, z1,
+          xface, y1, z0,
+          xface, y1, z1
+        )
+        var yface = fside === 1 ? y1 : y0
+        verts.push(
+          x0, yface, z0,
+          x1, yface, z0,
+          x0, yface, z1,
+          x0, yface, z1,
+          x1, yface, z0,
+          x1, yface, z1
+        )
+        var zface = fside === 1 ? z1 : z0
+        verts.push(
+          x0, y0, zface,
+          x1, y0, zface,
+          x0, y1, zface,
+          x0, y1, zface,
+          x1, y0, zface,
+          x1, y1, zface
+        )
+      }
     }
   }
 
   var c = CLOUD_COLOR
-  for (var i = 0; i < verts.length; i++) {
+  for (i = 0; i < verts.length; i++) {
     colors.push(c[0], c[1], c[2], c[3])
   }
 
@@ -397,132 +408,144 @@ function loadChunkToGPU (chunk) {
   var uvs = []
   var normals = []
   var meshed = new Uint8Array(chunk.data.length)
-  for (var iy = 0; iy < CHUNK_HEIGHT; iy++)
-  for (var ix = 0; ix < CHUNK_WIDTH; ix++)
-  for (var iz = 0; iz < CHUNK_WIDTH; iz++) {
-    var voxtype = getVoxel(chunk.data, ix, iy, iz)
-    if (voxtype === VOX_TYPE_AIR) continue
-    var isMeshed = getVoxel(meshed, ix, iy, iz)
-    if (isMeshed > 0) continue
+  for (var iy = 0; iy < CHUNK_HEIGHT; iy++) {
+    for (var ix = 0; ix < CHUNK_WIDTH; ix++) {
+      for (var iz = 0; iz < CHUNK_WIDTH; iz++) {
+        var voxtype = getVoxel(chunk.data, ix, iy, iz)
+        if (voxtype === VOX_TYPE_AIR) continue
+        var isMeshed = getVoxel(meshed, ix, iy, iz)
+        if (isMeshed > 0) continue
 
-    // expand to largest possible quad
-    var jy = iy
-    var jx = ix
-    var jz = iz
-    for (; jy < CHUNK_HEIGHT; jy++) {
-      var jvoxtype = getVoxel(chunk.data, jx, jy, jz)
-      if (jvoxtype !== voxtype) break
-    }
-    for (; jx < CHUNK_WIDTH; jx++) {
-      var hasGaps = false
-      for (var ky = iy; ky < jy; ky++) {
-        hasGaps |= getVoxel(chunk.data, jx, ky, jz) !== voxtype
+        // expand to largest possible quad
+        var jy = iy
+        var jx = ix
+        var jz = iz
+        for (; jy < CHUNK_HEIGHT; jy++) {
+          var jvoxtype = getVoxel(chunk.data, jx, jy, jz)
+          if (jvoxtype !== voxtype) break
+        }
+        for (; jx < CHUNK_WIDTH; jx++) {
+          var hasGaps = false
+          for (var ky = iy; ky < jy; ky++) {
+            hasGaps |= getVoxel(chunk.data, jx, ky, jz) !== voxtype
+          }
+          if (hasGaps) break
+        }
+        for (; jz < CHUNK_WIDTH; jz++) {
+          hasGaps = false
+          for (ky = iy; ky < jy; ky++) {
+            for (var kx = ix; kx < jx; kx++) {
+              hasGaps |= getVoxel(chunk.data, kx, ky, jz) !== voxtype
+            }
+          }
+          if (hasGaps) break
+        }
+
+        // mark quad as done
+        for (ky = iy; ky < jy; ky++) {
+          for (kx = ix; kx < jx; kx++) {
+            for (var kz = iz; kz < jz; kz++) {
+              setVoxel(meshed, kx, ky, kz, 1)
+            }
+          }
+        }
+
+        // add the six faces (12 tris total) for the quad
+        var eps = 0.001
+        var voxsize = 1 << chunk.lod
+        var voxx = chunk.x + ix * voxsize
+        var voxy = iy * voxsize
+        var voxz = chunk.z + iz * voxsize
+        var voxx2 = chunk.x + jx * voxsize - eps
+        var voxy2 = jy * voxsize - eps
+        var voxz2 = chunk.z + jz * voxsize - eps
+        for (var fside = 0; fside < 2; fside++) {
+          var xface = fside === 1 ? voxx2 : voxx
+          verts.push(
+            xface, voxy, voxz,
+            xface, voxy2, voxz,
+            xface, voxy, voxz2,
+            xface, voxy, voxz2,
+            xface, voxy2, voxz,
+            xface, voxy2, voxz2
+          )
+          var yface = fside === 1 ? voxy2 : voxy
+          verts.push(
+            voxx, yface, voxz,
+            voxx2, yface, voxz,
+            voxx, yface, voxz2,
+            voxx, yface, voxz2,
+            voxx2, yface, voxz,
+            voxx2, yface, voxz2
+          )
+          var zface = fside === 1 ? voxz2 : voxz
+          verts.push(
+            voxx, voxy, zface,
+            voxx2, voxy, zface,
+            voxx, voxy2, zface,
+            voxx, voxy2, zface,
+            voxx2, voxy, zface,
+            voxx2, voxy2, zface
+          )
+
+          var dir = fside * 2 - 1 // -1 or 1
+          normals.push(
+            dir, 0, 0,
+            dir, 0, 0,
+            dir, 0, 0,
+            dir, 0, 0,
+            dir, 0, 0,
+            dir, 0, 0
+          )
+          normals.push(
+            0, dir, 0,
+            0, dir, 0,
+            0, dir, 0,
+            0, dir, 0,
+            0, dir, 0,
+            0, dir, 0
+          )
+          normals.push(
+            0, 0, dir,
+            0, 0, dir,
+            0, 0, dir,
+            0, 0, dir,
+            0, 0, dir,
+            0, 0, dir
+          )
+
+          var uvVox = blockTextureUVs[voxtype]
+          var uvVoxXZ = uvVox.side
+          var uvVoxY = fside === 1 ? uvVox.top : uvVox.bottom
+          var uvVoxXZ0 = uvVoxXZ[0] / 16
+          var uvVoxXZ1 = uvVoxXZ[1] / 16
+          var uvVoxY0 = uvVoxY[0] / 16
+          var uvVoxY1 = uvVoxY[1] / 16
+          var uvW = 0 // 1/16
+          uvs.push(
+            uvVoxXZ0, uvVoxXZ1,
+            uvVoxXZ0 + uvW, uvVoxXZ1,
+            uvVoxXZ0, uvVoxXZ1 + uvW,
+            uvVoxXZ0, uvVoxXZ1 + uvW,
+            uvVoxXZ0 + uvW, uvVoxXZ1,
+            uvVoxXZ0 + uvW, uvVoxXZ1 + uvW,
+
+            uvVoxY0, uvVoxY1,
+            uvVoxY0 + uvW, uvVoxY1,
+            uvVoxY0, uvVoxY1 + uvW,
+            uvVoxY0, uvVoxY1 + uvW,
+            uvVoxY0 + uvW, uvVoxY1,
+            uvVoxY0 + uvW, uvVoxY1 + uvW,
+
+            uvVoxXZ0, uvVoxXZ1,
+            uvVoxXZ0 + uvW, uvVoxXZ1,
+            uvVoxXZ0, uvVoxXZ1 + uvW,
+            uvVoxXZ0, uvVoxXZ1 + uvW,
+            uvVoxXZ0 + uvW, uvVoxXZ1,
+            uvVoxXZ0 + uvW, uvVoxXZ1 + uvW
+          )
+        }
       }
-      if (hasGaps) break
-    }
-    for (; jz < CHUNK_WIDTH; jz++) {
-      var hasGaps = false
-      for (var ky = iy; ky < jy; ky++)
-      for (var kx = ix; kx < jx; kx++) {
-        hasGaps |= getVoxel(chunk.data, kx, ky, jz) !== voxtype
-      }
-      if (hasGaps) break
-    }
-
-    // mark quad as done
-    for (var ky = iy; ky < jy; ky++)
-    for (var kx = ix; kx < jx; kx++)
-    for (var kz = iz; kz < jz; kz++) {
-      setVoxel(meshed, kx, ky, kz, 1)
-    }
-
-    // add the six faces (12 tris total) for the quad
-    var eps = 0.001
-    var voxsize = 1 << chunk.lod
-    var voxx = chunk.x + ix * voxsize
-    var voxy = iy * voxsize
-    var voxz = chunk.z + iz * voxsize
-    var voxx2 = chunk.x + jx * voxsize - eps
-    var voxy2 = jy * voxsize - eps
-    var voxz2 = chunk.z + jz * voxsize - eps
-    for (var fside = 0; fside < 2; fside++) {
-      var xface = fside === 1 ? voxx2 : voxx
-      verts.push(
-        xface, voxy, voxz,
-        xface, voxy2, voxz,
-        xface, voxy, voxz2,
-        xface, voxy, voxz2,
-        xface, voxy2, voxz,
-        xface, voxy2, voxz2)
-      var yface = fside === 1 ? voxy2 : voxy
-      verts.push(
-        voxx, yface, voxz,
-        voxx2, yface, voxz,
-        voxx, yface, voxz2,
-        voxx, yface, voxz2,
-        voxx2, yface, voxz,
-        voxx2, yface, voxz2)
-      var zface = fside === 1 ? voxz2 : voxz
-      verts.push(
-        voxx, voxy, zface,
-        voxx2, voxy, zface,
-        voxx, voxy2, zface,
-        voxx, voxy2, zface,
-        voxx2, voxy, zface,
-        voxx2, voxy2, zface)
-
-      var dir = fside * 2 - 1 // -1 or 1
-      normals.push(
-        dir, 0, 0,
-        dir, 0, 0,
-        dir, 0, 0,
-        dir, 0, 0,
-        dir, 0, 0,
-        dir, 0, 0)
-      normals.push(
-        0, dir, 0,
-        0, dir, 0,
-        0, dir, 0,
-        0, dir, 0,
-        0, dir, 0,
-        0, dir, 0)
-      normals.push(
-        0, 0, dir,
-        0, 0, dir,
-        0, 0, dir,
-        0, 0, dir,
-        0, 0, dir,
-        0, 0, dir)
-
-      var uvVox = blockTextureUVs[voxtype]
-      var uvVoxXZ = uvVox.side
-      var uvVoxY = fside === 1 ? uvVox.top : uvVox.bottom
-      var uvVoxXZ0 = uvVoxXZ[0] / 16
-      var uvVoxXZ1 = uvVoxXZ[1] / 16
-      var uvVoxY0 = uvVoxY[0] / 16
-      var uvVoxY1 = uvVoxY[1] / 16
-      var uvW = 0 // 1/16
-      uvs.push(
-        uvVoxXZ0, uvVoxXZ1,
-        uvVoxXZ0 + uvW, uvVoxXZ1,
-        uvVoxXZ0, uvVoxXZ1 + uvW,
-        uvVoxXZ0, uvVoxXZ1 + uvW,
-        uvVoxXZ0 + uvW, uvVoxXZ1,
-        uvVoxXZ0 + uvW, uvVoxXZ1 + uvW,
-
-        uvVoxY0, uvVoxY1,
-        uvVoxY0 + uvW, uvVoxY1,
-        uvVoxY0, uvVoxY1 + uvW,
-        uvVoxY0, uvVoxY1 + uvW,
-        uvVoxY0 + uvW, uvVoxY1,
-        uvVoxY0 + uvW, uvVoxY1 + uvW,
-
-        uvVoxXZ0, uvVoxXZ1,
-        uvVoxXZ0 + uvW, uvVoxXZ1,
-        uvVoxXZ0, uvVoxXZ1 + uvW,
-        uvVoxXZ0, uvVoxXZ1 + uvW,
-        uvVoxXZ0 + uvW, uvVoxXZ1,
-        uvVoxXZ0 + uvW, uvVoxXZ1 + uvW)
     }
   }
 
@@ -536,6 +559,7 @@ function loadChunkToGPU (chunk) {
   gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer)
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW)
   var vertexCount = verts.length / 3
+
   chunk.gl = {
     vertexBuffer: vertexBuffer,
     vertexCount: vertexCount,
@@ -583,7 +607,7 @@ function move (r, theta, attitude) {
 function getCartesianSpiral (n) {
   var ret = [[0, 0]]
   if (ret.length >= n) return ret
-  for (var dist = 1;; dist++) {
+  for (var dist = 1; ; dist++) {
     for (var x = -dist; x < dist; x++) {
       ret.push([x, dist])
       if (ret.length >= n) return ret
@@ -592,11 +616,11 @@ function getCartesianSpiral (n) {
       ret.push([dist, y])
       if (ret.length >= n) return ret
     }
-    for (var x = dist; x > -dist; x--) {
+    for (x = dist; x > -dist; x--) {
       ret.push([x, -dist])
       if (ret.length >= n) return ret
     }
-    for (var y = -dist; y < dist; y++) {
+    for (y = -dist; y < dist; y++) {
       ret.push([-dist, y])
       if (ret.length >= n) return ret
     }
@@ -645,7 +669,7 @@ function updateChunks () {
 
     // unload all chunks outside the neighborhood
     for (key in chunks) {
-      var chunk = chunks[key]
+      chunk = chunks[key]
       if (chunk.lod !== lod) continue
       if (chunk.x < minX ||
         chunk.x >= maxX ||
@@ -672,15 +696,18 @@ function linkChunkIntoChunkTree (chunk) {
   chunk.children = []
   if (chunk.lod > 0) {
     var halfWidth = CHUNK_WIDTH << (chunk.lod - 1)
-    for (var ix = 0; ix <= 1; ix++)
-    for (var iz = 0; iz <= 1; iz++) {
-      var x = chunk.x + halfWidth * ix
-      var z = chunk.z + halfWidth * iz
-      var child = chunks[x + '_' + z + '_' + (chunk.lod - 1)]
-      if (child) {
-        chunk.children.push(child)
-        if (child.parent && child.parent.gl) die('Invalid state: two identical parent chunks')
-        child.parent = chunk
+    for (var ix = 0; ix <= 1; ix++) {
+      for (var iz = 0; iz <= 1; iz++) {
+        var x = chunk.x + halfWidth * ix
+        var z = chunk.z + halfWidth * iz
+        var child = chunks[x + '_' + z + '_' + (chunk.lod - 1)]
+        if (child) {
+          chunk.children.push(child)
+          if (child.parent && child.parent.gl) {
+            throw new Error('Invalid state: two identical parent chunks')
+          }
+          child.parent = chunk
+        }
       }
     }
   }
@@ -693,7 +720,9 @@ function linkChunkIntoChunkTree (chunk) {
     for (; sibIx < chunk.parent.children.length; sibIx++) {
       var sibling = chunk.parent.children[sibIx]
       if (sibling.x === chunk.x && sibling.z === chunk.z) {
-        if (sibling.gl) die('Invalid state: two identical child chunks loaded')
+        if (sibling.gl) {
+          throw new Error('Invalid state: two identical child chunks loaded')
+        }
         break
       }
     }
@@ -877,7 +906,7 @@ function main () {
   // render loop
   var startTime = new Date().getTime() / 1000
   var lastTime = startTime
-  function frame() {
+  function frame () {
     var now = new Date().getTime() / 1000
     var t = now - startTime
     var dt = now - lastTime

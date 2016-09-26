@@ -5,7 +5,7 @@ var RAND_SEED = 2892
 
 // Generates deterministic 2D Perlin noise
 module.exports = {
-    generate: generatePerlinNoise
+  generate: generatePerlinNoise
 }
 
 // Generates a nxn grid of deterministic perlin noise in [0,sum(amps))
@@ -26,32 +26,34 @@ function generatePerlinNoise (x, z, lod, width, amplitudes) {
     var iz0 = Math.floor(z / istride) * istride
     var w = Math.max(width >> (i - lod), 1) + 1
     var perlin = new Float32Array(w * w)
-    for (var iu = 0; iu < w; iu++)
-    for (var iv = 0; iv < w; iv++) {
-      var u = ix0 + iu * istride
-      var v = iz0 + iv * istride
-      var rand = hashcodeRand([RAND_SEED, i, u, v])
-      perlin[w * iu + iv] = rand
+    for (var iu = 0; iu < w; iu++) {
+      for (var iv = 0; iv < w; iv++) {
+        var u = ix0 + iu * istride
+        var v = iz0 + iv * istride
+        var rand = hashcodeRand([RAND_SEED, i, u, v])
+        perlin[w * iu + iv] = rand
+      }
     }
 
-    for (var iu = 0; iu < width; iu++)
-    for (var iv = 0; iv < width; iv++) {
-      var u = x + iu * stride
-      var v = z + iv * stride
-      var u0 = Math.floor((u - ix0) / istride)
-      var v0 = Math.floor((v - iz0) / istride)
-      var u1 = u0 + 1
-      var v1 = v0 + 1
-      var rand00 = perlin[u0 * w + v0]
-      var rand01 = perlin[u0 * w + v1]
-      var rand10 = perlin[u1 * w + v0]
-      var rand11 = perlin[u1 * w + v1]
+    for (iu = 0; iu < width; iu++) {
+      for (iv = 0; iv < width; iv++) {
+        u = x + iu * stride
+        v = z + iv * stride
+        var u0 = Math.floor((u - ix0) / istride)
+        var v0 = Math.floor((v - iz0) / istride)
+        var u1 = u0 + 1
+        var v1 = v0 + 1
+        var rand00 = perlin[u0 * w + v0]
+        var rand01 = perlin[u0 * w + v1]
+        var rand10 = perlin[u1 * w + v0]
+        var rand11 = perlin[u1 * w + v1]
 
-      // Interpolate and sum
-      var tweenX = u / istride - Math.floor(u / istride)
-      var tweenZ = v / istride - Math.floor(v / istride)
-      var rand = interp.cosine2D(rand00, rand01, rand10, rand11, tweenX, tweenZ)
-      ret[iu * width + iv] += rand * amplitudes[i]
+        // Interpolate and sum
+        var tweenX = u / istride - Math.floor(u / istride)
+        var tweenZ = v / istride - Math.floor(v / istride)
+        rand = interp.cosine2D(rand00, rand01, rand10, rand11, tweenX, tweenZ)
+        ret[iu * width + iv] += rand * amplitudes[i]
+      }
     }
   }
   return ret

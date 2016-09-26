@@ -45,8 +45,8 @@ function normalize (v) {
 // Returns the L2 norm (length) of the vector
 function norm (v) {
   return Math.sqrt(v
-    .map(function (x) {return x * x})
-    .reduce(function (a, b) {return a + b}))
+    .map(function (x) { return x * x })
+    .reduce(function (a, b) { return a + b }))
 }
 
 // Clamps value to a range [min, max]
