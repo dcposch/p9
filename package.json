@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "standard",
-    "postinstall": "browserify js/main.js > bundle.js"
+    "build": "browserify js/main.js > bundle.js",
+    "start": "npm run build && http-server"
   },
   "repository": {
     "type": "git",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "standard": "*",
-    "browserify": "*"
+    "browserify": "*",
+    "http-server": "*"
   }
 }
