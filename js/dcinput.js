@@ -5,10 +5,22 @@ module.exports = function (canvas) {
   // Map key codes to clean event names
   // Defaults below, can be modified as needed
   this.keyMap = {
-    38: 'up', 40: 'down', 37: 'right', 39: 'left', // arrow keys
-    87: 'up', 83: 'down', 65: 'right', 68: 'left', // wasd
-    81: 'strafeleft', 69: 'straferight', // qe
-    16: 'shift', 17: 'control'
+    // arrow keys
+    38: 'up',
+    40: 'down',
+    39: 'left',
+    37: 'right',
+    // wasd
+    87: 'up',
+    83: 'down',
+    68: 'left',
+    65: 'right',
+    // qe
+    81: 'strafeleft',
+    69: 'straferight',
+    // modifiers
+    16: 'shift',
+    17: 'control'
   }
 
   // Currently pressed keys, eg {'up':true} if up is currently pressed
