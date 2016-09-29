@@ -61,6 +61,7 @@ module.exports = function (canvas) {
       this.keys[mapped] = false
     }
   }
+
   function onKeyDown (ev) {
     var key = ev.keyCode
     if (this.keyMap[key]) {
@@ -97,9 +98,6 @@ module.exports = function (canvas) {
     this.mouse.last.y = ev.screenY
   }
 
-  function onMouseEnter (ev) {
-  }
-
   function onMouseLeave (ev) {
     this.mouse.drag = false
   }
@@ -114,7 +112,6 @@ module.exports = function (canvas) {
   canvas.addEventListener('mousedown', onMouseDown.bind(this), false)
   canvas.addEventListener('mouseup', onMouseUp.bind(this), false)
   canvas.addEventListener('mousemove', onMouseMove.bind(this), false)
-  canvas.addEventListener('mouseenter', onMouseEnter.bind(this), false)
   canvas.addEventListener('mouseleave', onMouseLeave.bind(this), false)
   document.addEventListener('pointerlockchange', onPointerLock.bind(this), false)
   document.addEventListener('mozpointerlockchange', onPointerLock.bind(this), false)

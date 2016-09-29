@@ -153,7 +153,9 @@ function createChunk (x, z, lod) {
         var index = i * cw + j
         var u = i / cw
         var v = j / cw
-        perlinHeightmap[index] = interp.cosine2D(p00[ix], p01[ix], p10[ix], p11[ix], u, v)
+        perlinHeightmap[index] = interp.cosine2D(
+          p00[index], p01[index], p10[index], p11[index],
+          u, v)
       }
     }
   }
