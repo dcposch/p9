@@ -1,0 +1,10 @@
+body {
+  font-family: helvetica, sans-serif;
+  padding: 40px;
+  margin: 0;
+  background: #eee;
+}
+
+h1 {
+  font-size: 24px;
+}

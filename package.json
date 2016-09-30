@@ -4,9 +4,12 @@
   "description": "voxel world",
   "main": "index.js",
   "scripts": {
-    "test": "standard",
-    "build": "browserify js/main.js > bundle.js",
-    "start": "npm run build && http-server"
+    "clean": "rimraf build",
+    "lint-js": "standard",
+    "lint-css": "stylelint **/*.css --config node_modules/stylelint-config-standard/index.js",
+    "test": "npm run lint-js && npm run lint-css",
+    "build": "mkdirp build && browserify -t brfs src/ > build/bundle.js && cp static/* build/",
+    "start": "npm run build && http-server build"
   },
   "repository": {
     "type": "git",
@@ -18,12 +21,16 @@
     "url": "https://github.com/dcposch/gl/issues"
   },
   "dependencies": {
-    "gl-matrix": "*",
-    "murmurhash": "*"
+    "regl": "^1.2.1"
   },
   "devDependencies": {
-    "standard": "*",
-    "browserify": "*",
-    "http-server": "*"
+    "brfs": "^1.4.3",
+    "browserify": "^13.1.0",
+    "http-server": "^0.9.0",
+    "mkdirp": "^0.5.1",
+    "rimraf": "^2.5.4",
+    "standard": "^8.3.0",
+    "stylelint": "^7.3.1",
+    "stylelint-config-standard": "^13.0.2"
   }
 }
