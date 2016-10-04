@@ -797,7 +797,7 @@ function renderClouds () {
   var camera = dcgl.getCamera()
   var mvmat = dcgl.getModelViewMatrix()
   mat4.identity(mvmat)
-  mat4.rotate(mvmat, mvmat, -camera.attitude, [1, 0, 0])
+  mat4.rotate(mvmat, mvmat, -camera.attitude, [0, 0, 1])
   mat4.rotate(mvmat, mvmat, -camera.dir, [0, 1, 0])
   mat4.translate(mvmat, mvmat, [-camera.loc[0], -camera.loc[1], -camera.loc[2]])
 

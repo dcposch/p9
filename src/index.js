@@ -7,6 +7,7 @@ var env = require('./env')
 
 // Precompile regl commands
 var drawTriangle = require('./draw-triangle')
+var drawDebug = require('./draw-debug')
 
 // All game state lives here
 var state = window.state = {
@@ -50,4 +51,5 @@ env.shell.on('tick', function () {
 env.regl.frame(function (context) {
   env.regl.clear({ color: [0, 0, 0, 1], depth: 1 })
   drawTriangle(state)
+  drawDebug(state)
 })

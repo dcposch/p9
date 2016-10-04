@@ -29,5 +29,10 @@ function move (location, r, azimuth, altitude) {
 
 // Let the player look around
 function look (player) {
-  // TODO
+  var dx = shell.mouseX - shell.prevMouseX
+  var dy = shell.mouseY - shell.prevMouseY
+  var dir = player.direction
+  dir.azimuth -= dx * config.MOUSE_SENSITIVITY
+  dir.altitude -= dy * config.MOUSE_SENSITIVITY
+  dir.altitude = Math.min(0.4 * Math.PI, Math.max(-0.4 * Math.PI, dir.altitude))
 }
