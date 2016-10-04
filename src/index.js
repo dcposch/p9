@@ -8,6 +8,7 @@ var env = require('./env')
 // Precompile regl commands
 var drawTriangle = require('./draw-triangle')
 var drawDebug = require('./draw-debug')
+var drawHitMarker = require('./draw-hit-marker')
 
 // All game state lives here
 var state = window.state = {
@@ -52,4 +53,5 @@ env.regl.frame(function (context) {
   env.regl.clear({ color: [0, 0, 0, 1], depth: 1 })
   drawTriangle(state)
   drawDebug(state)
+  drawHitMarker({ color: [1, 1, 1, 0.5] })
 })

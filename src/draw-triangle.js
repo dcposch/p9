@@ -3,11 +3,14 @@ var env = require('./env')
 var mat4 = require('gl-mat4')
 
 // Model-view, projection, and combined matrices
+// Do all allocations upfront. There should be no dynamic memory allocations during rendering.
 var mvmat = mat4.create()
 var pmat = mat4.create()
 var mat = mat4.create()
 
-// Hello world. Draws a single colorful triangle.
+// Hello world.
+// Draws pure R, G, and B triangles on the +X, +Y, and +Z axes
+// Draws lighter red, green, and blue triangles on -X, -Y, and -Z
 module.exports = env.regl({
   vert: shaders.vert.simple,
   frag: shaders.frag.color,
@@ -21,11 +24,11 @@ module.exports = env.regl({
       [0, 0, -10], [1, 0, -10], [0, 1, -10]
     ],
     aVertexColor: [
-      [1, 0, 0, 0], [1, 0, 0, 1], [1, 0, 0, 1],
+      [1, 0, 0, 0], [1, 0, 0, 1], [1, 0, 0, 1], // Red
       [1, 0.5, 0.5, 0], [1, 0.5, 0.5, 1], [1, 0.5, 0.5, 1],
-      [0, 1, 0, 1], [0, 1, 0, 1], [0, 1, 0, 1],
+      [0, 1, 0, 1], [0, 1, 0, 1], [0, 1, 0, 1], // Green
       [0.5, 1, 0.5, 1], [0.5, 1, 0.5, 1], [0.5, 1, 0.5, 1],
-      [0, 0, 1, 1], [0, 0, 1, 1], [0, 0, 1, 1],
+      [0, 0, 1, 1], [0, 0, 1, 1], [0, 0, 1, 1], // Blue
       [0.5, 0.5, 1, 1], [0.5, 0.5, 1, 1], [0.5, 0.5, 1, 1]
     ]
   },
@@ -37,6 +40,8 @@ module.exports = env.regl({
 
 // Calculates the combined projection and model-view matrix
 function computeMatrix (context, props) {
+  // First, make the model-view matrix.
+  // Model is already in world coordinates, so just do the view:
   var dir = props.player.direction
   var loc = props.player.location
   mat4.identity(mvmat)
@@ -44,6 +49,7 @@ function computeMatrix (context, props) {
   mat4.rotate(mvmat, mvmat, -dir.azimuth, [0, 0, 1])
   mat4.translate(mvmat, mvmat, [-loc.x, -loc.y, -loc.z])
 
+  // Then, make the projection matrix
   var width = context.viewportWidth
   var height = context.viewportHeight
   mat4.perspective(pmat, 1, width / height, 0.2, 4000.0)
@@ -55,6 +61,7 @@ function computeMatrix (context, props) {
     pmat[i] = -tmp
   }
 
+  // Multiply them together
   mat4.multiply(mat, pmat, mvmat)
 
   return mat

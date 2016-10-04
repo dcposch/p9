@@ -14,5 +14,8 @@ module.exports = {
   })
 }
 
+// Don't intercept standard browser keyboard shortcuts
+module.exports.shell.preventDefaults = false
+
 // For easier debugging
 window.env = module.exports
