@@ -8,7 +8,8 @@ module.exports = {
   generate: generatePerlinNoise
 }
 
-// Generates a nxn grid of deterministic perlin noise in [0,sum(amps))
+// Generates a n-by-n grid of deterministic perlin noise in [0, sum(amplitudes))
+// Returns a row-major Float32Array
 //
 // (x, z) - location of block in world coords
 // lod - (1<<lod) is the size of a single cell in the output grid

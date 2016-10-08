@@ -4,6 +4,8 @@ var playerControls = require('./player-controls')
 
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
+var INITIAL_W = env.canvas.width
+var INITIAL_H = env.canvas.height
 
 // Precompile regl commands
 var drawTriangle = require('./draw-triangle')
@@ -14,12 +16,10 @@ var drawHitMarker = require('./draw-hit-marker')
 var state = window.state = {
   started: false,
   player: {
-    // Block coordinates of the player's head (the camera). +Z is up.
+    // Block coordinates of the player's head (the camera). +Z is up. When facing +X, +Y is left.
     location: { x: 0, y: 0, z: config.PLAYER_HEIGHT },
-    // Spherical coordinates
-    // Azimuth ranges from 0 (looking down the +X axis) to 2*PI. Azimuth PI/2 looks at +Y.
-    // Altitude ranges from PI/2 (looking straight up) to -PI/2 (looking down).
-    // Altitude 0 looks straight ahead.
+    // Azimuth ranges from 0 (looking down the +X axis) to 2*pi. Azimuth pi/2 looks at +Y.
+    // Altitude ranges from -pi/2 (looking straight down) to pi/2 (up). 0 looks straight ahead.
     direction: { azimuth: 0, altitude: 0 }
   }
 }
@@ -40,11 +40,15 @@ env.canvas.addEventListener('click', function () {
 
 // Runs regularly, independent of frame rate
 env.shell.on('tick', function () {
-  var enableControls = env.shell.fullscreen
-  if (enableControls) {
+  if (env.shell.fullscreen) {
     playerControls.navigate(state.player)
     playerControls.look(state.player)
   }
+  // Resize the canvas when going into or out of fullscreen
+  var w = env.shell.fullscreen ? window.innerWidth : INITIAL_W
+  var h = env.shell.fullscreen ? window.innerHeight : INITIAL_H
+  if (env.canvas.width !== w) env.canvas.width = w
+  if (env.canvas.height !== h) env.canvas.height = h
 })
 
 // Renders each frame. Should run at 60Hz.

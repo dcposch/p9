@@ -32,7 +32,9 @@ function look (player) {
   var dx = shell.mouseX - shell.prevMouseX
   var dy = shell.mouseY - shell.prevMouseY
   var dir = player.direction
+  var pi = Math.PI
   dir.azimuth -= dx * config.MOUSE_SENSITIVITY
+  dir.azimuth = (dir.azimuth + 2 * pi) % (2 * pi) // Wrap to [0, 2pi)
   dir.altitude -= dy * config.MOUSE_SENSITIVITY
-  dir.altitude = Math.min(0.4 * Math.PI, Math.max(-0.4 * Math.PI, dir.altitude))
+  dir.altitude = Math.min(0.5 * pi, Math.max(-0.5 * pi, dir.altitude)) // Clamp to [-pi/2, pi/2]
 }
