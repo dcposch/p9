@@ -54,10 +54,12 @@ function createContext2D (canvas) {
 function createDebugText (state) {
   var loc = state.player.location
   var dir = state.player.direction
-  return [
+  var ret = [
     'Location: ' + loc.x.toFixed(1) + ', ' + loc.y.toFixed(1) + ', ' + loc.z.toFixed(1),
     'Azimuth: ' + toDeg(dir.azimuth) + ' deg, altitude: ' + toDeg(dir.altitude)
   ]
+  if (!state.started || !env.shell.fullscreen) ret.push('Click to start')
+  return ret
 }
 
 // Radians to degrees, rounded to the nearest integer
