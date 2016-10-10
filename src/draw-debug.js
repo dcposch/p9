@@ -1,5 +1,6 @@
 var env = require('./env')
 var shaders = require('./shaders')
+var version = require('../package.json').version
 
 var canvas = createHiddenCanvas()
 var context2D = createContext2D(canvas)
@@ -52,13 +53,24 @@ function createContext2D (canvas) {
 }
 
 function createDebugText (state) {
+  var ret = ['Version: ' + version]
+
   var loc = state.player.location
   var dir = state.player.direction
-  var ret = [
-    'Location: ' + loc.x.toFixed(1) + ', ' + loc.y.toFixed(1) + ', ' + loc.z.toFixed(1),
-    'Azimuth: ' + toDeg(dir.azimuth) + ' deg, altitude: ' + toDeg(dir.altitude)
-  ]
-  if (!state.started || !env.shell.fullscreen) ret.push('Click to start')
+  ret.push(
+    'Location: ' + loc.x.toFixed(1) + ', ' + loc.y.toFixed(1) + ', ' + loc.z.toFixed(1) + ',  ' +
+    'azimuth: ' + toDeg(dir.azimuth) + ' deg, altitude: ' + toDeg(dir.altitude) + 'deg'
+  )
+
+  var mem = window.performance.memory
+  if (mem) {
+    ret.push('JS Heap: ' + (mem.usedJSHeapSize >> 20) + ' / ' + (mem.totalJSHeapSize >> 20) + ' MB')
+  }
+
+  if (!state.started || !env.shell.fullscreen) {
+    ret.push('Click to start')
+  }
+
   return ret
 }
 
