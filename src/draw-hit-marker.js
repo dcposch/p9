@@ -6,8 +6,8 @@ var CROSSHAIR_WIDTH = 1
 
 // Draws a crosshair in the middle of the screen.
 module.exports = env.regl({
-  vert: shaders.vert.line,
-  frag: shaders.frag.line,
+  vert: shaders.vert.colorClip,
+  frag: shaders.frag.color,
   attributes: {
     aVertexPosition: function (context, props) {
       var w = CROSSHAIR_RADIUS / context.viewportWidth * 2

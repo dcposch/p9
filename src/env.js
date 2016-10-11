@@ -6,7 +6,10 @@ var canvas = document.querySelector('#gl')
 
 module.exports = {
   canvas: canvas,
-  regl: regl(canvas),
+  regl: regl({
+    canvas: canvas,
+    optionalExtensions: ['EXT_texture_filter_anisotropic']
+  }),
   shell: shell({
     element: canvas,
     bindings: config.KEYBINDINGS,

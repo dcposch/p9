@@ -33,13 +33,15 @@ function generatePerlinNoise (ret, x, y, width, amplitudes) {
     var ix0 = Math.floor(x / istride) * istride
     var iy0 = Math.floor(y / istride) * istride
     var w = Math.max(width >> i, 1) + 1
+    if (w > MAX_WIDTH) throw new Error('perlin max width exceeded: ' + w)
+    console.log(JSON.stringify({x, y, ix0, iy0, istride, w}))
 
     for (var iu = 0; iu < w; iu++) {
       for (var iv = 0; iv < w; iv++) {
         var u = ix0 + iu * istride
         var v = iy0 + iv * istride
         var rand = hashRand([RAND_SEED, i, u, v])
-        perlin[w * iu + iv] = rand
+        perlin[iu * w + iv] = rand
       }
     }
 

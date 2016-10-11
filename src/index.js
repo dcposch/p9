@@ -9,7 +9,7 @@ var INITIAL_W = env.canvas.width
 var INITIAL_H = env.canvas.height
 
 // Precompile regl commands
-var drawTriangle = require('./draw-triangle')
+var drawAxes = require('./draw-axes')
 var drawDebug = require('./draw-debug')
 var drawHitMarker = require('./draw-hit-marker')
 var meshChunk = require('./mesh-chunk')
@@ -19,7 +19,7 @@ var state = window.state = {
   started: false,
   player: {
     // Block coordinates of the player's head (the camera). +Z is up. When facing +X, +Y is left.
-    location: { x: 0, y: 0, z: config.PLAYER_HEIGHT },
+    location: { x: -3, y: -1, z: config.PLAYER_HEIGHT },
     // Azimuth ranges from 0 (looking down the +X axis) to 2*pi. Azimuth pi/2 looks at +Y.
     // Altitude ranges from -pi/2 (looking straight down) to pi/2 (up). 0 looks straight ahead.
     direction: { azimuth: 0, altitude: 0 }
@@ -27,17 +27,24 @@ var state = window.state = {
   chunks: []
 }
 
-// Generate a test world and just mesh them all immediately
+// Generate a test world
 // TODO: move this to the server
-for (var x = -256; x < 256; x += config.CHUNK_SIZE) {
-  for (var y = -256; y < 256; y += config.CHUNK_SIZE) {
-    for (var z = 0; z < 128; z += config.CHUNK_SIZE) {
-      var chunk = gen.generateChunk(x, y, z)
-      meshChunk(chunk)
-      state.chunks.push(chunk)
+console.time('generate')
+for (var x = 0; x < 32; x += config.CHUNK_SIZE) {
+  for (var y = 0; y < 32; y += config.CHUNK_SIZE) {
+    for (var z = 0; z < 32; z += config.CHUNK_SIZE) {
+      state.chunks.push(gen.generateChunk(x, y, z))
     }
   }
 }
+console.timeEnd('generate')
+
+// ...just mesh all the chunks as soon as resources load
+meshChunk.loadResources(function () {
+  console.time('mesh')
+  state.chunks.forEach(meshChunk.mesh)
+  console.timeEnd('mesh')
+})
 
 // Runs once
 env.shell.on('init', function () {
@@ -86,10 +93,8 @@ env.regl.frame(function (context) {
   // TODO: draw all objects
   // TODO: draw HUD (inventory, hotbar, health bar, etc)
   env.regl.clear({ color: [0, 0, 0, 1], depth: 1 })
-  drawTriangle(state)
-  state.chunks.forEach(function (chunk) {
-    chunk.draw(state)
-  })
+  if (config.DEBUG.AXES) drawAxes(state)
+  else state.chunks.forEach(function (chunk) { chunk.draw && chunk.draw(state) })
   drawDebug(state)
   drawHitMarker({ color: [1, 1, 1, 0.5] })
 })
