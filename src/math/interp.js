@@ -21,7 +21,7 @@ function tween (arr, arr0, arr1, u) {
 // Returns an interpolated value.
 function cosine2D (v00, v01, v10, v11, u, v) {
   if (u < 0 || u >= 1 || v < 0 || v >= 1) {
-    throw new Error('cosine interpolation expects (u, v) in the range [0, 1]')
+    throw new Error('cosine interpolation expects (u, v) in the range [0, 1)')
   }
   var utween = 0.5 - 0.5 * Math.cos(u * Math.PI)
   var vtween = 0.5 - 0.5 * Math.cos(v * Math.PI)

@@ -30,9 +30,9 @@ var state = window.state = {
 // Generate a test world
 // TODO: move this to the server
 console.time('generate')
-for (var x = 0; x < 32; x += config.CHUNK_SIZE) {
-  for (var y = 0; y < 32; y += config.CHUNK_SIZE) {
-    for (var z = 0; z < 32; z += config.CHUNK_SIZE) {
+for (var x = -128; x < 128; x += config.CHUNK_SIZE) {
+  for (var y = -128; y < 128; y += config.CHUNK_SIZE) {
+    for (var z = 0; z < 64; z += config.CHUNK_SIZE) {
       state.chunks.push(gen.generateChunk(x, y, z))
     }
   }

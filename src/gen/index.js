@@ -14,7 +14,8 @@ var heightmap = new Float32Array(cs * cs)
 // Returns a newly allocated Chunk: { x, y, z, data: UInt8Array }
 function generateChunk (x, y, z) {
   var data = new Uint8Array(cs * cs * cs)
-  var perlinHeightmapAmplitudes = [0, 0.5, 2, 2, 5, 0, 20, 40]
+  var splash = 0.5 - 0.5 * Math.cos(Math.sqrt(x * x + y * y) / 100)
+  var perlinHeightmapAmplitudes = [0, 0, 0, 0, 5, 0, 10, 0, 0, 0, 40]
   perlin.generate(heightmap, x, y, cs, perlinHeightmapAmplitudes)
 
   // Go from a Perlin heightmap to actual voxels

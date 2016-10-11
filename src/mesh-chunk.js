@@ -123,7 +123,7 @@ function mesh (chunk) {
           var pz3 = [x1, y1, zface]
           verts.push(pz0, pz2, pz1, pz1, pz2, pz3)
 
-          var dir = fside ? 1 : - 1
+          var dir = fside ? 1 : -1
           var i
           for (i = 0; i < 6; i++) normals.push(dir, 0, 0)
           for (i = 0; i < 6; i++) normals.push(0, dir, 0)
