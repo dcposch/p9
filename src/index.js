@@ -2,7 +2,6 @@ var config = require('./config')
 var sound = require('./sound')
 var playerControls = require('./player-controls')
 var gen = require('./gen')
-var physics = require('./physics')
 
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
@@ -23,7 +22,10 @@ var state = window.state = {
     location: { x: 0, y: 0, z: 20 },
     // Azimuth ranges from 0 (looking down the +X axis) to 2*pi. Azimuth pi/2 looks at +Y.
     // Altitude ranges from -pi/2 (looking straight down) to pi/2 (up). 0 looks straight ahead.
-    direction: { azimuth: 0, altitude: 0 }
+    direction: { azimuth: 0, altitude: 0 },
+    // Physics
+    dzdt: 0,
+    situation: 'airborne' // Can also be 'on-ground', 'suffocating'
   },
   perf: {
     lastFrameTime: new Date().getTime(),
@@ -70,9 +72,8 @@ env.shell.on('tick', function () {
   resizeCanvasIfNeeded()
   if (!env.shell.fullscreen) return // The game is paused when not in fullscreen
 
-  // Handle player input, update player position and orientation
-  playerControls.navigate(state.player)
-  playerControls.look(state.player)
+  // Handle player input, physics, update player position, direction, and velocity
+  playerControls.tick(state)
   // TODO: handle additional player actions (break block, place block, etc)
 
   // Client / server
@@ -87,7 +88,6 @@ env.shell.on('tick', function () {
 
   // Physics
   // TODO: update all active chunks
-  // physics.simulatePlayer(state)
 })
 
 // Renders each frame. Should run at 60Hz.

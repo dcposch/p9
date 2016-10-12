@@ -1,6 +1,7 @@
 var env = require('./env')
 var shaders = require('./shaders')
 var version = require('../package.json').version
+var config = require('./config')
 
 var canvas = createHiddenCanvas()
 var context2D = createContext2D(canvas)
@@ -45,7 +46,7 @@ module.exports = env.regl({
 
 function createHiddenCanvas () {
   var canvas = document.createElement('canvas')
-  canvas.width = 400
+  canvas.width = 450
   canvas.height = 200
   return canvas
 }
@@ -59,12 +60,15 @@ function createContext2D (canvas) {
 
 function createDebugText (state) {
   var ret = []
-  ret.push('Version: ' + version)
+  var debugMode = Object.keys(config.DEBUG).filter(function (key) { return config.DEBUG[key] })
+  ret.push('VW ' + version + (debugMode.length ? ', debug mode: ' + debugMode.join(', ') : ''))
 
   var loc = state.player.location
   var dir = state.player.direction
-  ret.push('Location: ' + loc.x.toFixed(1) + ', ' + loc.y.toFixed(1) + ', ' + loc.z.toFixed(1))
-  ret.push('Azimuth: ' + toDeg(dir.azimuth) + ' deg, altitude: ' + toDeg(dir.altitude) + ' deg')
+  ret.push('Location: ' + loc.x.toFixed(1) + ', ' + loc.y.toFixed(1) + ', ' + loc.z.toFixed(1) +
+    ', ' + state.player.situation)
+  ret.push('Azith: ' + toDeg(dir.azimuth) + '°, alt: ' + toDeg(dir.altitude) + '°, ' +
+    'dzdt: ' + state.player.dzdt.toFixed(1))
 
   var mem = window.performance.memory
   if (mem) {
