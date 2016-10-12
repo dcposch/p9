@@ -2,6 +2,7 @@ var config = require('./config')
 var sound = require('./sound')
 var playerControls = require('./player-controls')
 var gen = require('./gen')
+var physics = require('./physics')
 
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
@@ -19,7 +20,7 @@ var state = window.state = {
   started: false,
   player: {
     // Block coordinates of the player's head (the camera). +Z is up. When facing +X, +Y is left.
-    location: { x: -3, y: -1, z: config.PLAYER_HEIGHT },
+    location: { x: 0, y: 0, z: 20 },
     // Azimuth ranges from 0 (looking down the +X axis) to 2*pi. Azimuth pi/2 looks at +Y.
     // Altitude ranges from -pi/2 (looking straight down) to pi/2 (up). 0 looks straight ahead.
     direction: { azimuth: 0, altitude: 0 }
@@ -86,6 +87,7 @@ env.shell.on('tick', function () {
 
   // Physics
   // TODO: update all active chunks
+  physics.simulatePlayer(state)
 })
 
 // Renders each frame. Should run at 60Hz.
