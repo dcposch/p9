@@ -35,7 +35,8 @@ function generatePerlinNoise (ret, x, y, width, amplitudes) {
   }
 
   for (var i = 0; i < amplitudes.length; i++) {
-    if (amplitudes[i] === 0.0) continue
+    var amp = amplitudes[i]
+    if (amp === 0.0) continue
 
     // Stride is the `wavelength` of the noise we're generating on this interpolation
     // Perlin noise works by adding up noise of different frequencies
@@ -55,7 +56,10 @@ function generatePerlinNoise (ret, x, y, width, amplitudes) {
         var sx = xs + su * stride
         var sy = ys + sv * stride
         var rand = hashRand([RAND_SEED, i, sx, sy])
-        perlin[su * w + sv] = rand
+        var sample
+        if (typeof amp === 'function') sample = amp(rand, sx, sy, i)
+        else sample = rand * amp
+        perlin[su * w + sv] = sample
       }
     }
 
@@ -82,7 +86,7 @@ function generatePerlinNoise (ret, x, y, width, amplitudes) {
         rand = interp.cosine2D(rand00, rand01, rand10, rand11, tweenU, tweenV)
 
         // Sum. Add the current noise on top the higher-frequency noise we already have
-        ret[ou * width + ov] += rand * amplitudes[i]
+        ret[ou * width + ov] += rand
       }
     }
   }
