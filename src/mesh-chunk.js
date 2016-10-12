@@ -22,7 +22,7 @@ function loadResources (cb) {
   image.onload = function () {
     console.log('Loaded ' + image.src)
     textureAtlas = env.regl.texture({
-      min: 'mipmap',
+      min: 'nearest',
       aniso: aniso,
       mag: 'nearest',
       data: image
@@ -46,9 +46,12 @@ function mesh (chunk) {
   var uvs = []
   var normals = []
   var meshed = new Uint8Array(chunk.data.length) // TODO: preallocate and clear
-  for (var ix = 0; ix < CS; ix++) {
-    for (var iy = 0; iy < CS; iy++) {
-      for (var iz = 0; iz < CS; iz++) {
+  var ix, iy, iz
+
+  // Then, mesh using the greedy quad algorithm
+  for (ix = 0; ix < CS; ix++) {
+    for (iy = 0; iy < CS; iy++) {
+      for (iz = 0; iz < CS; iz++) {
         var isMeshed = getVoxel(meshed, ix, iy, iz)
         if (isMeshed > 0) continue
         var v = getVoxel(chunk.data, ix, iy, iz)
@@ -64,19 +67,19 @@ function mesh (chunk) {
         var kx, ky, kz
         var match = true
         for (; match && jx < CS; match && jx++) {
-          match = getVoxel(chunk.data, jx, iy, iz) === v
+          match = getVoxel(chunk.data, jx, iy, iz) === v && !getVoxel(meshed, jx, iy, iz)
         }
         match = true
         for (; match && jy < CS; match && jy++) {
           for (kx = ix; match && kx < jx; kx++) {
-            match = getVoxel(chunk.data, kx, jy, iz) === v
+            match = getVoxel(chunk.data, kx, jy, iz) === v && !getVoxel(meshed, kx, jy, iz)
           }
         }
         match = true
         for (; match && jz < CS; match && jz++) {
           for (kx = ix; match && kx < jx; kx++) {
             for (ky = iy; match && ky < jy; match && ky++) {
-              match = getVoxel(chunk.data, kx, ky, jz) === v
+              match = getVoxel(chunk.data, kx, ky, jz) === v && !getVoxel(meshed, kx, ky, jz)
             }
           }
         }

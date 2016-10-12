@@ -47,7 +47,6 @@ function generatePerlinNoise (ret, x, y, width, amplitudes) {
     // We'll take a w x w grid of noise samples at (xs, ys), (xs + stride, ys), ...
     var w = Math.max(width >> i, 1) + 1
     if (w > MAX_WIDTH) throw new Error('perlin max width exceeded: ' + w)
-    if (i === 4) console.log(JSON.stringify({x, y, xs, ys, stride, w}))
 
     // (su, sv) is an index into the grid of noise samples
     for (var su = 0; su < w; su++) {
@@ -63,7 +62,6 @@ function generatePerlinNoise (ret, x, y, width, amplitudes) {
     // (ou, ov) is an index into the output 2D array
     for (ou = 0; ou < width; ou++) {
       for (ov = 0; ov < width; ov++) {
-
         // (px, py) are the world coordinates of this output
         var px = x + ou
         var py = y + ov
@@ -82,9 +80,6 @@ function generatePerlinNoise (ret, x, y, width, amplitudes) {
         var tweenU = px / stride - Math.floor(px / stride)
         var tweenV = py / stride - Math.floor(py / stride)
         rand = interp.cosine2D(rand00, rand01, rand10, rand11, tweenU, tweenV)
-        if (i === 4 && (ou === 0 || ou === 31) && (ov === 0 || ov === 31)) {
-          console.log(JSON.stringify({x, y, ou, ov, xs, ys, tweenU, tweenV, rand00, rand11}))
-        }
 
         // Sum. Add the current noise on top the higher-frequency noise we already have
         ret[ou * width + ov] += rand * amplitudes[i]

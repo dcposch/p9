@@ -14,7 +14,6 @@ var heightmap = new Float32Array(cs * cs)
 // Returns a newly allocated Chunk: { x, y, z, data: UInt8Array }
 function generateChunk (x, y, z) {
   var data = new Uint8Array(cs * cs * cs)
-  var splash = 0.5 - 0.5 * Math.cos(Math.sqrt(x * x + y * y) / 100)
   var perlinHeightmapAmplitudes = [0, 0, 0, 0, 5, 0, 10, 0, 0, 0, 40]
   perlin.generate(heightmap, x, y, cs, perlinHeightmapAmplitudes)
 
@@ -25,10 +24,10 @@ function generateChunk (x, y, z) {
       for (var iz = 0; iz < cs; iz++) {
         var voxz = z + iz
         var voxtype
-        if (voxz < height && voxz > 30) {
+        if (voxz < height && voxz > 20) {
           voxtype = vox.INDEX.STONE
         } else if (voxz < height) {
-          voxtype = vox.INDEX.GRASS
+          voxtype = vox.INDEX.PURPLE
         } else if (voxz < 15) {
           voxtype = vox.INDEX.WATER
         } else {

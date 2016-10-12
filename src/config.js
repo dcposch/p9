@@ -14,7 +14,7 @@ module.exports = {
     'nav-sprint': ['shift']
   },
   DEBUG: {
-    WIREFRAME: false, // Draw lines around each tri emitted by the chunk renderer
+    WIREFRAME: true, // Draw lines around each tri emitted by the chunk renderer
     AXES: false // Don't draw chunks at all, just RGB XYZ axis markers
   }
 }

@@ -22,6 +22,10 @@ VOX.TYPES = [
   {
     name: 'STONE',
     uv: {side: [1, 0], top: [1, 0], bottom: [1, 0]}
+  },
+  {
+    name: 'PURPLE',
+    uv: {side: [2, 8], top: [2, 8], bottom: [2, 8]}
   }
 ]
 
