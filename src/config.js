@@ -20,7 +20,7 @@ module.exports = {
     GRAVITY: 30 // Twice Earth gravity, 20ms^-2, each voxel is 1 m^3
   },
   DEBUG: {
-    WIREFRAME: true, // Draw lines around each tri emitted by the chunk renderer
+    WIREFRAME: false, // Draw lines around each tri emitted by the chunk renderer
     AXES: false // Don't draw chunks at all, just RGB XYZ axis markers
   }
 }

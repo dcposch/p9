@@ -13,6 +13,7 @@ var drawAxes = require('./draw-axes')
 var drawDebug = require('./draw-debug')
 var drawHitMarker = require('./draw-hit-marker')
 var meshChunk = require('./mesh-chunk')
+var drawChunksScope
 
 // All game state lives here
 var state = window.state = {
@@ -34,6 +35,15 @@ var state = window.state = {
   chunks: []
 }
 
+// Runs once: initialization
+env.shell.on('init', function () {
+  console.log('WELCOME ~ VOXEL WORLD')
+})
+
+meshChunk.loadResources(function () {
+  drawChunksScope = meshChunk.drawChunksScope()
+})
+
 // Generate a test world
 // TODO: move this to the server
 console.time('generate')
@@ -46,17 +56,10 @@ for (var x = -192; x < 192; x += config.CHUNK_SIZE) {
 }
 console.timeEnd('generate')
 
-// ...just mesh all the chunks as soon as resources load
-meshChunk.loadResources(function () {
-  console.time('mesh')
-  state.chunks.forEach(meshChunk.mesh)
-  console.timeEnd('mesh')
-})
-
-// Runs once
-env.shell.on('init', function () {
-  console.log('WELCOME ~ VOXEL WORLD')
-})
+// ...just mesh all the chunks immediately
+console.time('mesh')
+state.chunks.forEach(meshChunk.mesh)
+console.timeEnd('mesh')
 
 // Click to start
 env.canvas.addEventListener('click', function () {
@@ -103,14 +106,22 @@ env.regl.frame(function (context) {
   state.perf.lastFrameTime = now
 
   env.regl.clear({ color: [0, 0, 0, 1], depth: 1 })
-  if (config.DEBUG.AXES) drawAxes(state)
-  else state.chunks.forEach(function (chunk) { chunk.draw && chunk.draw(state) })
+  if (config.DEBUG.AXES) {
+    drawAxes(state)
+  } else if (drawChunksScope) {
+    drawChunksScope(state, function () {
+      state.chunks.forEach(function (chunk) {
+        if (chunk.draw) chunk.draw(state)
+      })
+    })
+  }
   drawDebug(state)
   drawHitMarker({ color: [1, 1, 1, 0.5] })
 })
 
 // Resize the canvas when going into or out of fullscreen
 function resizeCanvasIfNeeded () {
+  console.log(env.shell.fullscreen)
   var w = env.shell.fullscreen ? window.innerWidth : INITIAL_W
   var h = env.shell.fullscreen ? window.innerHeight : INITIAL_H
   if (env.canvas.width !== w) env.canvas.width = w

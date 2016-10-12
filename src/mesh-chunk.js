@@ -7,7 +7,8 @@ var camera = require('./camera')
 // Meshes and renders voxels chunks
 module.exports = {
   loadResources: loadResources,
-  mesh: mesh
+  mesh: mesh,
+  drawChunksScope: drawChunksScope
 }
 
 var CS = config.CHUNK_SIZE
@@ -169,18 +170,24 @@ function bump (points, vec) {
   })
 }
 
-// Creates a regl command that draws a voxel chunk
-function createChunkCommand (verts, normals, uvs) {
+// Draw all loaded chunks efficiently
+function drawChunksScope () {
   return env.regl({
-    vert: shaders.vert.uvWorld,
-    frag: shaders.frag.voxel,
     uniforms: {
       uMatrix: camera.updateMatrix,
       uAtlas: textureAtlas,
       uLightDir: [0.6, 0.48, 0.64],
       uLightDiffuse: [1, 1, 0.9],
       uLightAmbient: [0.6, 0.6, 0.6]
-    },
+    }
+  })
+}
+
+// Creates a regl command that draws a voxel chunk
+function createChunkCommand (verts, normals, uvs) {
+  return env.regl({
+    vert: shaders.vert.uvWorld,
+    frag: shaders.frag.voxel,
     attributes: {
       aVertexPosition: verts,
       aVertexNormal: normals,
