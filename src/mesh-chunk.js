@@ -192,7 +192,6 @@ function createChunkCommand (verts, normals, uvs) {
 
 // Creates a regl command that draws a yellow wireframe
 function createWireframeCommand (verts, colors) {
-  console.log('Drawing wireframe, %d verts, %d colors', verts.length, colors.length)
   return env.regl({
     vert: shaders.vert.colorWorld,
     frag: shaders.frag.color,

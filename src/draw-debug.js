@@ -68,7 +68,8 @@ function createDebugText (state) {
 
   var mem = window.performance.memory
   if (mem) {
-    ret.push('JS Heap: ' + (mem.usedJSHeapSize >> 20) + ' / ' + (mem.totalJSHeapSize >> 20) + ' MB')
+    ret.push('JS Heap: ' + (mem.usedJSHeapSize >> 20) + ' / ' + (mem.totalJSHeapSize >> 20) +
+      ' MB, FPS: ' + Math.round(state.perf.fps))
   }
 
   var totalVerts = 0

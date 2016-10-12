@@ -24,15 +24,19 @@ var state = window.state = {
     // Altitude ranges from -pi/2 (looking straight down) to pi/2 (up). 0 looks straight ahead.
     direction: { azimuth: 0, altitude: 0 }
   },
+  perf: {
+    lastFrameTime: new Date().getTime(),
+    fps: 0
+  },
   chunks: []
 }
 
 // Generate a test world
 // TODO: move this to the server
 console.time('generate')
-for (var x = -256; x < 256; x += config.CHUNK_SIZE) {
-  for (var y = -256; y < 256; y += config.CHUNK_SIZE) {
-    for (var z = 0; z < 64; z += config.CHUNK_SIZE) {
+for (var x = -128; x < 128; x += config.CHUNK_SIZE) {
+  for (var y = -128; y < 128; y += config.CHUNK_SIZE) {
+    for (var z = 0; z < 32; z += config.CHUNK_SIZE) {
       state.chunks.push(gen.generateChunk(x, y, z))
     }
   }
@@ -92,6 +96,10 @@ env.regl.frame(function (context) {
   // TODO: draw all visible chunks
   // TODO: draw all objects
   // TODO: draw HUD (inventory, hotbar, health bar, etc)
+  var now = new Date().getTime()
+  state.perf.fps = 0.95 * state.perf.fps + 0.05 * 1000 / (now - state.perf.lastFrameTime) // EMA
+  state.perf.lastFrameTime = now
+
   env.regl.clear({ color: [0, 0, 0, 1], depth: 1 })
   if (config.DEBUG.AXES) drawAxes(state)
   else state.chunks.forEach(function (chunk) { chunk.draw && chunk.draw(state) })
