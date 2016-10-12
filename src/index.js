@@ -87,7 +87,7 @@ env.shell.on('tick', function () {
 
   // Physics
   // TODO: update all active chunks
-  physics.simulatePlayer(state)
+  // physics.simulatePlayer(state)
 })
 
 // Renders each frame. Should run at 60Hz.
