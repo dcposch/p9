@@ -8,7 +8,9 @@ var camera = require('./camera')
 module.exports = {
   loadResources: loadResources,
   mesh: mesh,
-  drawChunksScope: drawChunksScope
+  drawChunk: drawChunk,
+  drawChunksScope: drawChunksScope,
+  createWireframeCommand: createWireframeCommand
 }
 
 var CS = config.CHUNK_SIZE
@@ -108,6 +110,7 @@ function mesh (chunk) {
         var z1 = chunk.z + jz - eps
 
         for (var fside = 0; fside <= 1; fside++) {
+          // add vertices
           var xface = fside ? x1 : x0
           var px0 = [xface, y0, z0]
           var px1 = [xface, y0, z1]
@@ -127,17 +130,20 @@ function mesh (chunk) {
           var pz3 = [x1, y1, zface]
           verts.push(pz0, pz2, pz1, pz1, pz2, pz3)
 
+          // add normals
           var dir = fside ? 1 : -1
           var i
           for (i = 0; i < 6; i++) normals.push(dir, 0, 0)
           for (i = 0; i < 6; i++) normals.push(0, dir, 0)
           for (i = 0; i < 6; i++) normals.push(0, 0, dir)
 
+          // add texture atlas UVs
           var uvxy = voxType.uv.side
           var uvz = fside === 1 ? voxType.uv.top : voxType.uv.bottom
           for (i = 0; i < 12; i++) uvs.push(uvxy)
           for (i = 0; i < 6; i++) uvs.push(uvz)
 
+          // finally, optionally add a wireframe for debugging
           if (!config.DEBUG.WIREFRAME) continue
 
           var rand = Math.random
@@ -154,13 +160,46 @@ function mesh (chunk) {
     }
   }
 
-  var drawChunk = createChunkCommand(verts, normals, uvs)
+  chunk.mesh = {
+    verts: flatten(verts),
+    normals: flatten(normals),
+    uvs: flatten(uvs),
+    count: verts.length
+  }
+
+  /* var drawChunk = createChunkCommand(verts, normals, uvs)
   var drawWireframe = config.DEBUG.WIREFRAME && createWireframeCommand(vertsWire, colorsWire)
   chunk.draw = function (props) {
     drawChunk(props)
     if (drawWireframe) drawWireframe(props)
   }
-  chunk.draw.count = verts.length / 3
+  chunk.draw.count = verts.length / 3 */
+}
+
+function flatten (arr) {
+  var n = count(arr)
+  var ret = new Float32Array(n)
+  flattenInto(ret, arr, 0)
+  return ret
+}
+
+function count (arr) {
+  if (arr.length === 0) return 0
+  if (typeof arr[0] === 'number') return arr.length
+  var sum = 0
+  for (var i = 0; i < arr.length; i++) sum += count(arr[i])
+  return sum
+}
+
+function flattenInto (ret, arr, offset) {
+  if (arr.length === 0) return 0
+  var isNumbers = typeof arr[0] === 'number'
+  var n = isNumbers ? arr.length : 0
+  for (var i = 0; i < arr.length; i++) {
+    if (isNumbers) ret[offset + i] = arr[i]
+    else n += flattenInto(ret, arr[i], offset + n)
+  }
+  return n
 }
 
 // Returns a new array that moves each of `points` by `vec`
@@ -184,16 +223,16 @@ function drawChunksScope () {
 }
 
 // Creates a regl command that draws a voxel chunk
-function createChunkCommand (verts, normals, uvs) {
+function drawChunk () {
   return env.regl({
     vert: shaders.vert.uvWorld,
     frag: shaders.frag.voxel,
     attributes: {
-      aVertexPosition: verts,
-      aVertexNormal: normals,
-      aVertexUV: uvs
+      aVertexPosition: function (context, props) { return props.mesh.verts },
+      aVertexNormal: function (context, props) { return props.mesh.normals },
+      aVertexUV: function (context, props) { return props.mesh.uvs }
     },
-    count: verts.length
+    count: function (context, props) { return props.mesh.count }
   })
 }
 

@@ -79,7 +79,7 @@ function createDebugText (state) {
   var totalVerts = 0
   for (var i = 0; i < state.chunks.length; i++) {
     var chunk = state.chunks[i]
-    totalVerts += chunk.draw ? chunk.draw.count : 0
+    totalVerts += chunk.mesh ? chunk.mesh.count : 0
   }
   ret.push('Chunks: ' + state.chunks.length + ', verts: ' + totalVerts)
 

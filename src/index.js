@@ -14,6 +14,7 @@ var drawDebug = require('./draw-debug')
 var drawHitMarker = require('./draw-hit-marker')
 var meshChunk = require('./mesh-chunk')
 var drawChunksScope
+var drawChunk = meshChunk.drawChunk()
 
 // All game state lives here
 var state = window.state = {
@@ -111,7 +112,7 @@ env.regl.frame(function (context) {
   } else if (drawChunksScope) {
     drawChunksScope(state, function () {
       state.chunks.forEach(function (chunk) {
-        if (chunk.draw) chunk.draw(state)
+        if (chunk.mesh) drawChunk(chunk)
       })
     })
   }
@@ -121,7 +122,6 @@ env.regl.frame(function (context) {
 
 // Resize the canvas when going into or out of fullscreen
 function resizeCanvasIfNeeded () {
-  console.log(env.shell.fullscreen)
   var w = env.shell.fullscreen ? window.innerWidth : INITIAL_W
   var h = env.shell.fullscreen ? window.innerHeight : INITIAL_H
   if (env.canvas.width !== w) env.canvas.width = w
