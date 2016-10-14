@@ -161,19 +161,11 @@ function mesh (chunk) {
   }
 
   chunk.mesh = {
-    verts: flatten(verts),
-    normals: flatten(normals),
-    uvs: flatten(uvs),
+    verts: env.regl.buffer(flatten(verts)),
+    normals: env.regl.buffer(flatten(normals)),
+    uvs: env.regl.buffer(flatten(uvs)),
     count: verts.length
   }
-
-  /* var drawChunk = createChunkCommand(verts, normals, uvs)
-  var drawWireframe = config.DEBUG.WIREFRAME && createWireframeCommand(vertsWire, colorsWire)
-  chunk.draw = function (props) {
-    drawChunk(props)
-    if (drawWireframe) drawWireframe(props)
-  }
-  chunk.draw.count = verts.length / 3 */
 }
 
 function flatten (arr) {
@@ -225,6 +217,9 @@ function drawChunksScope () {
 // Creates a regl command that draws a voxel chunk
 function drawChunk () {
   return env.regl({
+    // To profile, use this property, then add the following line to the render loop:
+    // if (context.tick % 100 === 0) console.log(JSON.stringify(drawChunk.stats))
+    // profile: true,
     vert: shaders.vert.uvWorld,
     frag: shaders.frag.voxel,
     attributes: {

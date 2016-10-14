@@ -8,7 +8,10 @@ module.exports = {
   canvas: canvas,
   regl: regl({
     canvas: canvas,
-    optionalExtensions: ['EXT_texture_filter_anisotropic']
+    optionalExtensions: [
+      'EXT_texture_filter_anisotropic',
+      'EXT_disjoint_timer_query'
+    ]
   }),
   shell: shell({
     element: canvas,

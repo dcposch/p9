@@ -103,17 +103,16 @@ env.regl.frame(function (context) {
   // TODO: draw all objects
   // TODO: draw HUD (inventory, hotbar, health bar, etc)
   var now = new Date().getTime()
-  state.perf.fps = 0.95 * state.perf.fps + 0.05 * 1000 / (now - state.perf.lastFrameTime) // EMA
+  state.perf.fps = 0.99 * state.perf.fps + 0.01 * 1000 / (now - state.perf.lastFrameTime) // EMA
   state.perf.lastFrameTime = now
 
   env.regl.clear({ color: [0, 0, 0, 1], depth: 1 })
   if (config.DEBUG.AXES) {
     drawAxes(state)
   } else if (drawChunksScope) {
+    for (var i = 0; i < state.chunks.length; i++) if (!state.chunks[i].mesh) return
     drawChunksScope(state, function () {
-      state.chunks.forEach(function (chunk) {
-        if (chunk.mesh) drawChunk(chunk)
-      })
+      drawChunk(state.chunks)
     })
   }
   drawDebug(state)
@@ -124,6 +123,9 @@ env.regl.frame(function (context) {
 function resizeCanvasIfNeeded () {
   var w = env.shell.fullscreen ? window.innerWidth : INITIAL_W
   var h = env.shell.fullscreen ? window.innerHeight : INITIAL_H
-  if (env.canvas.width !== w) env.canvas.width = w
-  if (env.canvas.height !== h) env.canvas.height = h
+  if (env.canvas.width !== w || env.canvas.height !== h) {
+    env.canvas.width = w
+    env.canvas.height = h
+    console.log('Set canvas size %d x %d', w, h)
+  }
 }
