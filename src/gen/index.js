@@ -11,26 +11,21 @@ module.exports = {
 var CS = config.CHUNK_SIZE
 var CB = config.CHUNK_BITS
 var heightmap = new Float32Array(CS * CS)
-var last = {}
+var MAX_NEW_CHUNKS = 10
 
 // Generate chunks in a radius around the player
 function generateWorld (state) {
   var loc = state.player.location
   var radius = config.GRAPHICS.CHUNK_DRAW_RADIUS
-
-  // Don't do the same work twice
   var cx = loc.x >> CB
   var cy = loc.y >> CB
   var cz = loc.z >> CB
-  if (last.cx === cx && last.cy === cy && last.cz === cz) return
-  last.cx = cx
-  last.cy = cy
-  last.cz = cz
 
   // Fill in any missing chunks
-  for (var dx = -radius; dx < radius; dx++) {
-    for (var dy = -radius; dy < radius; dy++) {
-      for (var dz = -radius; dz < radius; dz++) {
+  var newChunks = 0
+  for (var dx = -radius; dx < radius && newChunks < MAX_NEW_CHUNKS; dx++) {
+    for (var dy = -radius; dy < radius && newChunks < MAX_NEW_CHUNKS; dy++) {
+      for (var dz = -radius; dz < radius && newChunks < MAX_NEW_CHUNKS; dz++) {
         if (dx * dx + dy * dy + dz * dz > radius * radius) continue
         var ix = (cx + dx) << CB
         var iy = (cy + dy) << CB
@@ -40,9 +35,12 @@ function generateWorld (state) {
         chunk = generateChunk(ix, iy, iz)
         if (!chunk) continue
         state.world.addChunk(chunk)
+        newChunks++
       }
     }
   }
+  if (newChunks === 0) return
+  console.log('Generated %d chunks', newChunks)
 
   // Mesh
   state.world.chunks.forEach(function (chunk) {

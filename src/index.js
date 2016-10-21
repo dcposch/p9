@@ -2,6 +2,7 @@ var sound = require('./sound')
 var playerControls = require('./player-controls')
 var gen = require('./gen')
 var World = require('./world')
+var config = require('./config')
 
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
@@ -48,6 +49,7 @@ env.canvas.addEventListener('click', function () {
 
 // Runs regularly, independent of frame rate
 env.shell.on('tick', function () {
+  var startMs = new Date().getTime()
   env.resizeCanvasIfNeeded()
 
   // Handle player input, physics, update player position, direction, and velocity
@@ -68,6 +70,8 @@ env.shell.on('tick', function () {
 
   // Physics
   // TODO: update all active chunks
+  var elapsedMs = Math.round(new Date().getTime() - startMs)
+  if (elapsedMs > 1000 * config.TICK_INTERVAL)  console.log('SLOW TICK: %d ms', elapsedMs)
 })
 
 // Renders each frame. Should run at 60Hz.
