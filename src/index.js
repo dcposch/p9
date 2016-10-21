@@ -2,19 +2,16 @@ var config = require('./config')
 var sound = require('./sound')
 var playerControls = require('./player-controls')
 var gen = require('./gen')
+var World = require('./world')
 
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
-var INITIAL_W = env.canvas.width
-var INITIAL_H = env.canvas.height
 
 // Precompile regl commands
 var drawAxes = require('./draw-axes')
 var drawDebug = require('./draw-debug')
 var drawHitMarker = require('./draw-hit-marker')
-var meshChunk = require('./mesh-chunk')
-var drawChunksScope
-var drawChunk = meshChunk.drawChunk()
+var drawWorld = require('./draw-world')
 
 // All game state lives here
 var state = window.state = {
@@ -27,40 +24,24 @@ var state = window.state = {
     direction: { azimuth: 0, altitude: 0 },
     // Physics
     dzdt: 0,
-    situation: 'airborne' // Can also be 'on-ground', 'suffocating'
+    // Situation can also be 'on-ground', 'suffocating'
+    situation: 'airborne'
   },
   perf: {
     lastFrameTime: new Date().getTime(),
-    fps: 0
+    fps: 0,
+    gen: {
+      numChunks: 0,
+      totalMillis: 0
+    }
   },
-  chunks: []
+  world: new World()
 }
 
 // Runs once: initialization
 env.shell.on('init', function () {
   console.log('WELCOME ~ VOXEL WORLD')
 })
-
-meshChunk.loadResources(function () {
-  drawChunksScope = meshChunk.drawChunksScope()
-})
-
-// Generate a test world
-// TODO: move this to the server
-console.time('generate')
-for (var x = -512; x < 512; x += config.CHUNK_SIZE) {
-  for (var y = -512; y < 512; y += config.CHUNK_SIZE) {
-    for (var z = 0; z < 128; z += config.CHUNK_SIZE) {
-      state.chunks.push(gen.generateChunk(x, y, z))
-    }
-  }
-}
-console.timeEnd('generate')
-
-// ...just mesh all the chunks immediately
-console.time('mesh')
-state.chunks.forEach(meshChunk.mesh)
-console.timeEnd('mesh')
 
 // Click to start
 env.canvas.addEventListener('click', function () {
@@ -73,12 +54,12 @@ env.canvas.addEventListener('click', function () {
 
 // Runs regularly, independent of frame rate
 env.shell.on('tick', function () {
-  resizeCanvasIfNeeded()
-  if (!env.shell.fullscreen) return // The game is paused when not in fullscreen
+  env.resizeCanvasIfNeeded()
 
   // Handle player input, physics, update player position, direction, and velocity
-  playerControls.tick(state)
   // TODO: handle additional player actions (break block, place block, etc)
+  // The game is paused when not in fullscreen
+  if (env.shell.fullscreen) playerControls.tick(state)
 
   // Client / server
   // TODO: enqueue actions to send to the server
@@ -89,6 +70,7 @@ env.shell.on('tick', function () {
   // Apply actions to world
   // (This should be done by both the client and the server. If they disagree, the server wins.)
   // TODO: place and break blocks
+  gen.generateWorld(state)
 
   // Physics
   // TODO: update all active chunks
@@ -102,30 +84,19 @@ env.regl.frame(function (context) {
   // TODO: draw all visible chunks
   // TODO: draw all objects
   // TODO: draw HUD (inventory, hotbar, health bar, etc)
+
+  // Track FPS
   var now = new Date().getTime()
   state.perf.fps = 0.99 * state.perf.fps + 0.01 * 1000 / (now - state.perf.lastFrameTime) // EMA
   state.perf.lastFrameTime = now
 
+  // Redraw the frame
   env.regl.clear({ color: [0, 0, 0, 1], depth: 1 })
   if (config.DEBUG.AXES) {
     drawAxes(state)
-  } else if (drawChunksScope) {
-    for (var i = 0; i < state.chunks.length; i++) if (!state.chunks[i].mesh) return
-    drawChunksScope(state, function () {
-      drawChunk(state.chunks)
-    })
+  } else {
+    drawWorld(state)
   }
   drawDebug(state)
   drawHitMarker({ color: [1, 1, 1, 0.5] })
 })
-
-// Resize the canvas when going into or out of fullscreen
-function resizeCanvasIfNeeded () {
-  var w = env.shell.fullscreen ? window.innerWidth : INITIAL_W
-  var h = env.shell.fullscreen ? window.innerHeight : INITIAL_H
-  if (env.canvas.width !== w || env.canvas.height !== h) {
-    env.canvas.width = w
-    env.canvas.height = h
-    console.log('Set canvas size %d x %d', w, h)
-  }
-}

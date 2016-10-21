@@ -76,12 +76,10 @@ function createDebugText (state) {
       ' MB, FPS: ' + Math.round(state.perf.fps))
   }
 
-  var totalVerts = 0
-  for (var i = 0; i < state.chunks.length; i++) {
-    var chunk = state.chunks[i]
-    totalVerts += chunk.mesh ? chunk.mesh.count : 0
-  }
-  ret.push('Chunks: ' + state.chunks.length + ', verts: ' + totalVerts)
+  var totalVerts = state.world.chunks.map(function (chunk) {
+    return chunk.mesh ? chunk.mesh.count : 0
+  }).reduce(function (a, b) { return a + b }, 0)
+  ret.push('Chunks: ' + state.world.chunks.length + ', verts: ' + totalVerts)
 
   if (!state.started || !env.shell.fullscreen) {
     ret.push('Click to start')

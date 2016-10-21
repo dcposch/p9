@@ -1,39 +1,13 @@
 var env = require('./env')
 var config = require('./config')
 var vox = require('./vox')
-var shaders = require('./shaders')
-var camera = require('./camera')
 
 // Meshes and renders voxels chunks
 module.exports = {
-  loadResources: loadResources,
-  mesh: mesh,
-  drawChunk: drawChunk,
-  drawChunksScope: drawChunksScope,
-  createWireframeCommand: createWireframeCommand
+  mesh: mesh
 }
 
 var CS = config.CHUNK_SIZE
-var textureAtlas
-var aniso = Math.min(env.regl.limits.maxAnisotropic, config.MAX_ANISOTROPIC)
-
-// Loads textures. Calls back when done.
-// This must finish before mesh() can be called
-function loadResources (cb) {
-  var image = new window.Image()
-  image.src = 'textures/isabella.png'
-  image.onload = function () {
-    console.log('Loaded ' + image.src)
-    textureAtlas = env.regl.texture({
-      min: 'nearest',
-      aniso: aniso,
-      mag: 'nearest',
-      data: image
-    })
-    cb()
-  }
-  console.log('Voxel texture: %s, aniso: %d', image.src, aniso)
-}
 
 // Meshes a chunk, creating a regl object.
 // (That means position, UV VBOs are sent to the GPU.)
@@ -43,8 +17,6 @@ function loadResources (cb) {
 function mesh (chunk) {
   if (chunk.draw) return
 
-  var vertsWire = []
-  var colorsWire = []
   var verts = []
   var uvs = []
   var normals = []
@@ -142,19 +114,6 @@ function mesh (chunk) {
           var uvz = fside === 1 ? voxType.uv.top : voxType.uv.bottom
           for (i = 0; i < 12; i++) uvs.push(uvxy)
           for (i = 0; i < 6; i++) uvs.push(uvz)
-
-          // finally, optionally add a wireframe for debugging
-          if (!config.DEBUG.WIREFRAME) continue
-
-          var rand = Math.random
-          var push = Array.prototype.push
-          var leps = rand() * 0.05
-          push.apply(vertsWire, bump([px0, px1, px1, px3, px3, px2, px2, px0], [dir * leps, 0, 0]))
-          push.apply(vertsWire, bump([py0, py1, py1, py3, py3, py2, py2, py0], [0, dir * leps, 0]))
-          push.apply(vertsWire, bump([pz0, pz1, pz1, pz3, pz3, pz2, pz2, pz0], [0, 0, dir * leps]))
-
-          var lcolor = [0.5 * rand() + 0.5, 0.5 * rand() + 0.5, 0.5 * rand() + 0.5, 1]
-          for (i = 0; i < 24; i++) colorsWire.push(lcolor)
         }
       }
     }
@@ -192,60 +151,6 @@ function flattenInto (ret, arr, offset) {
     else n += flattenInto(ret, arr[i], offset + n)
   }
   return n
-}
-
-// Returns a new array that moves each of `points` by `vec`
-function bump (points, vec) {
-  return points.map(function (point) {
-    return point.map(function (p, i) { return p + vec[i] })
-  })
-}
-
-// Draw all loaded chunks efficiently
-function drawChunksScope () {
-  return env.regl({
-    uniforms: {
-      uMatrix: camera.updateMatrix,
-      uAtlas: textureAtlas,
-      uLightDir: [0.6, 0.48, 0.64],
-      uLightDiffuse: [1, 1, 0.9],
-      uLightAmbient: [0.6, 0.6, 0.6]
-    }
-  })
-}
-
-// Creates a regl command that draws a voxel chunk
-function drawChunk () {
-  return env.regl({
-    // To profile, use this property, then add the following line to the render loop:
-    // if (context.tick % 100 === 0) console.log(JSON.stringify(drawChunk.stats))
-    // profile: true,
-    vert: shaders.vert.uvWorld,
-    frag: shaders.frag.voxel,
-    attributes: {
-      aVertexPosition: function (context, props) { return props.mesh.verts },
-      aVertexNormal: function (context, props) { return props.mesh.normals },
-      aVertexUV: function (context, props) { return props.mesh.uvs }
-    },
-    count: function (context, props) { return props.mesh.count }
-  })
-}
-
-// Creates a regl command that draws a yellow wireframe
-function createWireframeCommand (verts, colors) {
-  return env.regl({
-    vert: shaders.vert.colorWorld,
-    frag: shaders.frag.color,
-    uniforms: {
-      uMatrix: camera.updateMatrix
-    },
-    attributes: {
-      aVertexPosition: verts,
-      aVertexColor: colors
-    },
-    primitive: 'lines',
-    count: verts.length
-  })
 }
 
 // Helper method for looking up a value from a packed voxel array (XYZ layout)

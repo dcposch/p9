@@ -111,8 +111,9 @@ function simulate (state) {
 }
 
 function collide (state, x, y, z) {
-  for (var i = 0; i < state.chunks.length; i++) {
-    var chunk = state.chunks[i]
+  var chunks = state.world.chunks
+  for (var i = 0; i < chunks.length; i++) {
+    var chunk = chunks[i]
     if (chunk.x > x || chunk.y > y || chunk.z > z) continue
     if (chunk.x + CS <= x || chunk.y + CS <= y || chunk.z + CS <= z) continue
     var ix = Math.floor(x - chunk.x)
