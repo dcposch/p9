@@ -8,6 +8,13 @@ module.exports = {
 }
 
 var CS = config.CHUNK_SIZE
+var CS3 = CS * CS * CS
+
+var MAX_N = 1e4
+var verts = new Float32Array(MAX_N * 3)
+var normals = new Float32Array(MAX_N * 3)
+var uvs = new Float32Array(MAX_N * 2)
+var meshed = new Uint8Array(CS3)
 
 // Meshes a chunk, creating a regl object.
 // (That means position, UV VBOs are sent to the GPU.)
@@ -18,13 +25,14 @@ function mesh (chunk) {
   if (!chunk.data) return
   if (chunk.mesh) return
 
-  var verts = []
-  var uvs = []
-  var normals = []
-  var meshed = new Uint8Array(chunk.data.length) // TODO: preallocate and clear
-  var ix, iy, iz
+  // Clear progress buffer
+  for (var i = 0; i < CS3; i++) meshed[i] = 0
 
   // Then, mesh using the greedy quad algorithm
+  var ivert = 0
+  var inormal = 0
+  var iuv = 0
+  var ix, iy, iz
   for (ix = 0; ix < CS; ix++) {
     for (iy = 0; iy < CS; iy++) {
       for (iz = 0; iz < CS; iz++) {
@@ -85,80 +93,69 @@ function mesh (chunk) {
         for (var fside = 0; fside <= 1; fside++) {
           // add vertices
           var xface = fside ? x1 : x0
-          var px0 = [xface, y0, z0]
-          var px1 = [xface, y0, z1]
-          var px2 = [xface, y1, z0]
-          var px3 = [xface, y1, z1]
-          verts.push(px0, px2, px1, px1, px2, px3)
+          ivert += addXYZ(verts, ivert, xface, y0, z0)
+          ivert += addXYZ(verts, ivert, xface, y1, z0)
+          ivert += addXYZ(verts, ivert, xface, y0, z1)
+          ivert += addXYZ(verts, ivert, xface, y0, z1)
+          ivert += addXYZ(verts, ivert, xface, y1, z0)
+          ivert += addXYZ(verts, ivert, xface, y1, z1)
           var yface = fside ? y1 : y0
-          var py0 = [x0, yface, z0]
-          var py1 = [x0, yface, z1]
-          var py2 = [x1, yface, z0]
-          var py3 = [x1, yface, z1]
-          verts.push(py0, py2, py1, py1, py2, py3)
+          ivert += addXYZ(verts, ivert, x0, yface, z0)
+          ivert += addXYZ(verts, ivert, x1, yface, z0)
+          ivert += addXYZ(verts, ivert, x0, yface, z1)
+          ivert += addXYZ(verts, ivert, x0, yface, z1)
+          ivert += addXYZ(verts, ivert, x1, yface, z0)
+          ivert += addXYZ(verts, ivert, x1, yface, z1)
           var zface = fside ? z1 : z0
-          var pz0 = [x0, y0, zface]
-          var pz1 = [x0, y1, zface]
-          var pz2 = [x1, y0, zface]
-          var pz3 = [x1, y1, zface]
-          verts.push(pz0, pz2, pz1, pz1, pz2, pz3)
+          ivert += addXYZ(verts, ivert, x0, y0, zface)
+          ivert += addXYZ(verts, ivert, x1, y0, zface)
+          ivert += addXYZ(verts, ivert, x0, y1, zface)
+          ivert += addXYZ(verts, ivert, x0, y1, zface)
+          ivert += addXYZ(verts, ivert, x1, y0, zface)
+          ivert += addXYZ(verts, ivert, x1, y1, zface)
 
           // add normals
           var dir = fside ? 1 : -1
-          var i
-          for (i = 0; i < 6; i++) normals.push(dir, 0, 0)
-          for (i = 0; i < 6; i++) normals.push(0, dir, 0)
-          for (i = 0; i < 6; i++) normals.push(0, 0, dir)
+          for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, dir, 0, 0)
+          for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, 0, dir, 0)
+          for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, 0, 0, dir)
 
           // add texture atlas UVs
           var uvxy = voxType.uv.side
           var uvz = fside === 1 ? voxType.uv.top : voxType.uv.bottom
-          for (i = 0; i < 12; i++) uvs.push(uvxy)
-          for (i = 0; i < 6; i++) uvs.push(uvz)
+          for (i = 0; i < 12; i++) iuv += addUV(uvs, iuv, uvxy)
+          for (i = 0; i < 6; i++) iuv += addUV(uvs, iuv, uvz)
         }
       }
     }
   }
 
   chunk.mesh = {
-    verts: env.regl.buffer(flatten(verts)),
-    normals: env.regl.buffer(flatten(normals)),
-    uvs: env.regl.buffer(flatten(uvs)),
-    count: verts.length,
+    verts: env.regl.buffer(verts, ivert),
+    normals: env.regl.buffer(normals, inormal),
+    uvs: env.regl.buffer(uvs, iuv),
+    count: ivert / 3,
     destroy: destroy
   }
+}
+
+function addXYZ (arr, i, a, b, c) {
+  arr[i] = a
+  arr[i + 1] = b
+  arr[i + 2] = c
+  return 3
+}
+
+function addUV (arr, i, uv) {
+  arr[i] = uv[0]
+  arr[i + 1] = uv[1]
+  return 2
 }
 
 function destroy () {
   this.verts.destroy()
   this.normals.destroy()
   this.uvs.destroy()
-}
-
-function flatten (arr) {
-  var n = count(arr)
-  var ret = new Float32Array(n)
-  flattenInto(ret, arr, 0)
-  return ret
-}
-
-function count (arr) {
-  if (arr.length === 0) return 0
-  if (typeof arr[0] === 'number') return arr.length
-  var sum = 0
-  for (var i = 0; i < arr.length; i++) sum += count(arr[i])
-  return sum
-}
-
-function flattenInto (ret, arr, offset) {
-  if (arr.length === 0) return 0
-  var isNumbers = typeof arr[0] === 'number'
-  var n = isNumbers ? arr.length : 0
-  for (var i = 0; i < arr.length; i++) {
-    if (isNumbers) ret[offset + i] = arr[i]
-    else n += flattenInto(ret, arr[i], offset + n)
-  }
-  return n
 }
 
 // Helper method for looking up a value from a packed voxel array (XYZ layout)
