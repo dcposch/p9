@@ -39,11 +39,15 @@ function generateWorld (state) {
         if (chunk) continue
         chunk = generateChunk(ix, iy, iz)
         if (!chunk) continue
-        meshChunk.mesh(chunk)
         state.world.addChunk(chunk)
       }
     }
   }
+
+  // Mesh
+  state.world.chunks.forEach(function (chunk) {
+    if (!chunk.mesh) meshChunk.mesh(chunk, state.world)
+  })
 
   // Delete any no longer needed chunks
   state.world.removeChunks(function (chunk) {

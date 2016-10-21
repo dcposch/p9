@@ -19,9 +19,8 @@ var meshed = new Uint8Array(CS3)
 //
 // Meshes exposed surfaces only. Uses the greedy algorithm.
 // http://0fps.net/2012/06/30/meshing-in-a-minecraft-game/
-function mesh (chunk) {
+function mesh (chunk, world) {
   if (!chunk.data) return
-  if (chunk.mesh) return
 
   // Clear progress buffer
   for (var i = 0; i < CS3; i++) meshed[i] = 0
@@ -80,49 +79,62 @@ function mesh (chunk) {
         }
 
         // add the six faces (12 tris total) for the quad
-        var eps = 0.001
         var x0 = chunk.x + ix
         var y0 = chunk.y + iy
         var z0 = chunk.z + iz
-        var x1 = chunk.x + jx - eps
-        var y1 = chunk.y + jy - eps
-        var z1 = chunk.z + jz - eps
+        var x1 = chunk.x + jx
+        var y1 = chunk.y + jy
+        var z1 = chunk.z + jz
 
         for (var fside = 0; fside <= 1; fside++) {
-          // add vertices
+          // figure out which faces we need to draw
+          var dir = fside ? 1 : -1
           var xface = fside ? x1 : x0
-          ivert += addXYZ(verts, ivert, xface, y0, z0)
-          ivert += addXYZ(verts, ivert, xface, y1, z0)
-          ivert += addXYZ(verts, ivert, xface, y0, z1)
-          ivert += addXYZ(verts, ivert, xface, y0, z1)
-          ivert += addXYZ(verts, ivert, xface, y1, z0)
-          ivert += addXYZ(verts, ivert, xface, y1, z1)
           var yface = fside ? y1 : y0
-          ivert += addXYZ(verts, ivert, x0, yface, z0)
-          ivert += addXYZ(verts, ivert, x1, yface, z0)
-          ivert += addXYZ(verts, ivert, x0, yface, z1)
-          ivert += addXYZ(verts, ivert, x0, yface, z1)
-          ivert += addXYZ(verts, ivert, x1, yface, z0)
-          ivert += addXYZ(verts, ivert, x1, yface, z1)
           var zface = fside ? z1 : z0
-          ivert += addXYZ(verts, ivert, x0, y0, zface)
-          ivert += addXYZ(verts, ivert, x1, y0, zface)
-          ivert += addXYZ(verts, ivert, x0, y1, zface)
-          ivert += addXYZ(verts, ivert, x0, y1, zface)
-          ivert += addXYZ(verts, ivert, x1, y0, zface)
-          ivert += addXYZ(verts, ivert, x1, y1, zface)
+          var drawX = check(world, [fside ? x1 : (x0 - 1), y0, z0], [fside ? (x1 + 1) : x0, y1, z1])
+          var drawY = check(world, [x0, fside ? y1 : (y0 - 1), z0], [x1, fside ? (y1 + 1) : y0, z1])
+          var drawZ = check(world, [x0, y0, fside ? z1 : (z0 - 1)], [x1, y1, fside ? (z1 + 1) : z0])
+
+          // add vertices
+          if (drawX) {
+            ivert += addXYZ(verts, ivert, xface, y0, z0)
+            ivert += addXYZ(verts, ivert, xface, y1, z0)
+            ivert += addXYZ(verts, ivert, xface, y0, z1)
+            ivert += addXYZ(verts, ivert, xface, y0, z1)
+            ivert += addXYZ(verts, ivert, xface, y1, z0)
+            ivert += addXYZ(verts, ivert, xface, y1, z1)
+          }
+
+          if (drawY) {
+            ivert += addXYZ(verts, ivert, x0, yface, z0)
+            ivert += addXYZ(verts, ivert, x1, yface, z0)
+            ivert += addXYZ(verts, ivert, x0, yface, z1)
+            ivert += addXYZ(verts, ivert, x0, yface, z1)
+            ivert += addXYZ(verts, ivert, x1, yface, z0)
+            ivert += addXYZ(verts, ivert, x1, yface, z1)
+          }
+
+          if (drawZ) {
+            ivert += addXYZ(verts, ivert, x0, y0, zface)
+            ivert += addXYZ(verts, ivert, x1, y0, zface)
+            ivert += addXYZ(verts, ivert, x0, y1, zface)
+            ivert += addXYZ(verts, ivert, x0, y1, zface)
+            ivert += addXYZ(verts, ivert, x1, y0, zface)
+            ivert += addXYZ(verts, ivert, x1, y1, zface)
+          }
 
           // add normals
-          var dir = fside ? 1 : -1
-          for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, dir, 0, 0)
-          for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, 0, dir, 0)
-          for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, 0, 0, dir)
+          if (drawX) for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, dir, 0, 0)
+          if (drawY) for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, 0, dir, 0)
+          if (drawZ) for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, 0, 0, dir)
 
           // add texture atlas UVs
           var uvxy = voxType.uv.side
           var uvz = fside === 1 ? voxType.uv.top : voxType.uv.bottom
-          for (i = 0; i < 12; i++) iuv += addUV(uvs, iuv, uvxy)
-          for (i = 0; i < 6; i++) iuv += addUV(uvs, iuv, uvz)
+          if (drawX) for (i = 0; i < 6; i++) iuv += addUV(uvs, iuv, uvxy)
+          if (drawY) for (i = 0; i < 6; i++) iuv += addUV(uvs, iuv, uvxy)
+          if (drawZ) for (i = 0; i < 6; i++) iuv += addUV(uvs, iuv, uvz)
         }
       }
     }
@@ -135,6 +147,18 @@ function mesh (chunk) {
     count: ivert / 3,
     destroy: destroy
   }
+}
+
+// Checks whether there are any AIR blocks in a given 3D quad
+function check (world, v0, v1) {
+  for (var x = v0[0]; x < v1[0]; x++) {
+    for (var y = v0[1]; y < v1[1]; y++) {
+      for (var z = v0[2]; z < v1[2]; z++) {
+        if (world.getVox(x, y, z) === vox.INDEX.AIR) return true
+      }
+    }
+  }
+  return false
 }
 
 function addXYZ (arr, i, a, b, c) {

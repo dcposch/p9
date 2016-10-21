@@ -73,7 +73,7 @@ function getVox (x, y, z) {
   var cz = z >> CB << CB
   var key = cx + ',' + cy + ',' + cz
   var chunk = this.chunkTable[key]
-  if (!chunk) return -1
+  if (!chunk || !chunk.data) return -1
   return chunk.data[(x - cx) * CS * CS + (y - cy) * CS + (z - cz)]
 }
 
