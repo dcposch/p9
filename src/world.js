@@ -52,15 +52,17 @@ function removeChunks (predicate) {
   var offset = 0
   for (var i = 0; i < this.chunks.length; i++) {
     var chunk = this.chunks[i]
-    if (offset > 0) this.chunks[i - offset] = chunk
-    if (!predicate(chunk)) continue
-    // Nuke `chunk`
-    offset++
-    var key = chunk.x + ',' + chunk.y + ',' + chunk.z
-    delete this.chunkTable[key]
-    // TODO: Chunk.prototype.destroy
+    if (predicate(chunk)) {
+      // Nuke `chunk`
+      offset++
+      var key = chunk.x + ',' + chunk.y + ',' + chunk.z
+      delete this.chunkTable[key]
+      if (chunk.mesh) chunk.mesh.destroy()
+    } else if (offset > 0) {
+      // Move `chunk` to the correct slot
+      this.chunks[i - offset] = chunk
+    }
   }
-  console.log(this.chunks.length + ', removing ' + offset)
   if (offset > 0) this.chunks.length = this.chunks.length - offset
 }
 

@@ -30,7 +30,7 @@ function navigate (player) {
 
   // Jumping (space) only works if we're on solid ground
   if (shell.wasDown('nav-jump') && player.situation === 'on-ground') {
-    player.dzdt = config.SPEED_JUMP
+    player.dzdt = shell.wasDown('nav-sprint') ? config.SPEED_SPRINT_JUMP : config.SPEED_JUMP
     player.situation = 'airborne'
   }
 }
@@ -116,6 +116,7 @@ function collide (state, x, y, z) {
     var chunk = chunks[i]
     if (chunk.x > x || chunk.y > y || chunk.z > z) continue
     if (chunk.x + CS <= x || chunk.y + CS <= y || chunk.z + CS <= z) continue
+    if (!chunk.data) return false // Empty chunk
     var ix = Math.floor(x - chunk.x)
     var iy = Math.floor(y - chunk.y)
     var iz = Math.floor(z - chunk.z)

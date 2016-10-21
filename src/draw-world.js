@@ -10,13 +10,21 @@ module.exports = drawWorld
 // Start loading resources immediately
 var chunkScopeCommand, chunkCommand
 var textureAtlas
+var meshes = []
 loadResources(createCommands)
 
 // Draw all voxel chunks, once resources are loaded.
 function drawWorld (state) {
   if (!chunkScopeCommand) return
+  var chunks = state.world.chunks
+  var j = 0
+  for (var i = 0; i < chunks.length; i++) {
+    var mesh = chunks[i].mesh
+    if (mesh) meshes[j++] = mesh
+  }
+  meshes.length = j
   chunkScopeCommand(state, function () {
-    chunkCommand(state.world.chunks)
+    chunkCommand(meshes)
   })
 }
 
@@ -66,10 +74,10 @@ function drawChunk () {
     vert: shaders.vert.uvWorld,
     frag: shaders.frag.voxel,
     attributes: {
-      aVertexPosition: function (context, props) { return props.mesh.verts },
-      aVertexNormal: function (context, props) { return props.mesh.normals },
-      aVertexUV: function (context, props) { return props.mesh.uvs }
+      aVertexPosition: env.regl.prop('verts'),
+      aVertexNormal: env.regl.prop('normals'),
+      aVertexUV: env.regl.prop('uvs')
     },
-    count: function (context, props) { return props.mesh.count }
+    count: env.regl.prop('count')
   })
 }

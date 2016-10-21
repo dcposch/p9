@@ -15,7 +15,8 @@ var CS = config.CHUNK_SIZE
 // Meshes exposed surfaces only. Uses the greedy algorithm.
 // http://0fps.net/2012/06/30/meshing-in-a-minecraft-game/
 function mesh (chunk) {
-  if (chunk.draw) return
+  if (!chunk.data) return
+  if (chunk.mesh) return
 
   var verts = []
   var uvs = []
@@ -123,8 +124,15 @@ function mesh (chunk) {
     verts: env.regl.buffer(flatten(verts)),
     normals: env.regl.buffer(flatten(normals)),
     uvs: env.regl.buffer(flatten(uvs)),
-    count: verts.length
+    count: verts.length,
+    destroy: destroy
   }
+}
+
+function destroy () {
+  this.verts.destroy()
+  this.normals.destroy()
+  this.uvs.destroy()
 }
 
 function flatten (arr) {
