@@ -1,4 +1,3 @@
-var config = require('./config')
 var sound = require('./sound')
 var playerControls = require('./player-controls')
 var gen = require('./gen')
@@ -7,8 +6,7 @@ var World = require('./world')
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
 
-// Precompile regl commands
-var drawAxes = require('./draw-axes')
+// Precompile regl commands, start loading resources
 var drawDebug = require('./draw-debug')
 var drawHitMarker = require('./draw-hit-marker')
 var drawWorld = require('./draw-world')
@@ -29,11 +27,7 @@ var state = window.state = {
   },
   perf: {
     lastFrameTime: new Date().getTime(),
-    fps: 0,
-    gen: {
-      numChunks: 0,
-      totalMillis: 0
-    }
+    fps: 0
   },
   world: new World()
 }
@@ -92,11 +86,7 @@ env.regl.frame(function (context) {
 
   // Redraw the frame
   env.regl.clear({ color: [0, 0, 0, 1], depth: 1 })
-  if (config.DEBUG.AXES) {
-    drawAxes(state)
-  } else {
-    drawWorld(state)
-  }
+  drawWorld(state)
   drawDebug(state)
   drawHitMarker({ color: [1, 1, 1, 0.5] })
 })

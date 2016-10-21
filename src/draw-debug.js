@@ -1,7 +1,6 @@
 var env = require('./env')
 var shaders = require('./shaders')
 var version = require('../package.json').version
-var config = require('./config')
 
 var canvas = createHiddenCanvas()
 var context2D = createContext2D(canvas)
@@ -60,8 +59,7 @@ function createContext2D (canvas) {
 
 function createDebugText (state) {
   var ret = []
-  var debugMode = Object.keys(config.DEBUG).filter(function (key) { return config.DEBUG[key] })
-  ret.push('VW ' + version + (debugMode.length ? ', debug mode: ' + debugMode.join(', ') : ''))
+  ret.push('VW ' + version)
 
   var loc = state.player.location
   var dir = state.player.direction

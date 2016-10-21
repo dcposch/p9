@@ -9,11 +9,9 @@ module.exports = {
 
 var CS = config.CHUNK_SIZE
 var CS3 = CS * CS * CS
-
-var MAX_N = 1e4
-var verts = new Float32Array(MAX_N * 3)
-var normals = new Float32Array(MAX_N * 3)
-var uvs = new Float32Array(MAX_N * 2)
+var verts = new Float32Array(CS3 * 3)
+var normals = new Float32Array(CS3 * 3)
+var uvs = new Float32Array(CS3 * 2)
 var meshed = new Uint8Array(CS3)
 
 // Meshes a chunk, creating a regl object.
