@@ -2,7 +2,7 @@ var CHUNK_BITS = 5
 
 // Configuration, game settings, physics constants
 module.exports = {
-  TICK_INTERVAL: 0.01, // Seconds
+  TICK_INTERVAL: 0.05, // Seconds
   CHUNK_SIZE: 1 << CHUNK_BITS, // The world is divided into 32x32x32-block chunks
   CHUNK_BITS: CHUNK_BITS,
   PLAYER_WIDTH: 0.5, // You can't get closer than 0.5 meters (blocks) from a block
