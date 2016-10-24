@@ -41,7 +41,8 @@ function generateWorld (state) {
   // Only generate up to MAX_NEW_CHUNKS chunks, starting with the ones closest to the player
   chunksToGenerate.sort(function (a, b) { return a.d2 - b.d2 })
   var newChunks = []
-  for (var i = 0; i < chunksToGenerate.length && newChunks.length < MAX_NEW_CHUNKS; i++) {
+  var maxNew = state.world.chunks.length === 0 ? 1e6 : MAX_NEW_CHUNKS
+  for (var i = 0; i < chunksToGenerate.length && newChunks.length < maxNew; i++) {
     var c = chunksToGenerate[i]
     chunk = generateChunk(c.ix, c.iy, c.iz)
     if (!chunk) continue
@@ -52,7 +53,22 @@ function generateWorld (state) {
   console.log('Generated %d chunks', newChunks.length)
 
   // Mesh
-  newChunks.forEach(function (chunk) {
+  var chunksToMeshMap = {}
+  newChunks.forEach(function (c) {
+    chunksToMeshMap[[c.x, c.y, c.z].join(',')] = true
+    // Remesh adjacent chunks
+    chunksToMeshMap[[c.x + CS, c.y, c.z].join(',')] = true
+    chunksToMeshMap[[c.x - CS, c.y, c.z].join(',')] = true
+    chunksToMeshMap[[c.x, c.y + CS, c.z].join(',')] = true
+    chunksToMeshMap[[c.x, c.y - CS, c.z].join(',')] = true
+    chunksToMeshMap[[c.x, c.y, c.z + CS].join(',')] = true
+    chunksToMeshMap[[c.x, c.y, c.z - CS].join(',')] = true
+  })
+  var chunksToMesh = Object.keys(chunksToMeshMap).map(function (key) {
+    var coords = key.split(',').map(Number)
+    return state.world.getChunk(coords[0], coords[1], coords[2])
+  }).filter(function (chunk) { return chunk })
+  chunksToMesh.forEach(function (chunk) {
     meshChunk.mesh(chunk, state.world)
   })
 
