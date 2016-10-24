@@ -154,7 +154,8 @@ function check (world, v0, v1) {
   for (var x = v0[0]; x < v1[0]; x++) {
     for (var y = v0[1]; y < v1[1]; y++) {
       for (var z = v0[2]; z < v1[2]; z++) {
-        if (world.getVox(x, y, z) === vox.INDEX.AIR) return true
+        var v = world.getVox(x, y, z)
+        if (v === vox.INDEX.AIR || v < 0) return true
       }
     }
   }
