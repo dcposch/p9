@@ -71,7 +71,7 @@ env.shell.on('tick', function () {
   // Physics
   // TODO: update all active chunks
   var elapsedMs = Math.round(new Date().getTime() - startMs)
-  if (elapsedMs > 1000 * config.TICK_INTERVAL)  console.log('SLOW TICK: %d ms', elapsedMs)
+  if (elapsedMs > 1000 * config.TICK_INTERVAL) console.log('SLOW TICK: %d ms', elapsedMs)
 })
 
 // Renders each frame. Should run at 60Hz.

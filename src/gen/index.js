@@ -22,29 +22,38 @@ function generateWorld (state) {
   var cz = loc.z >> CB
 
   // Fill in any missing chunks
-  var newChunks = 0
-  for (var dx = -radius; dx < radius && newChunks < MAX_NEW_CHUNKS; dx++) {
-    for (var dy = -radius; dy < radius && newChunks < MAX_NEW_CHUNKS; dy++) {
-      for (var dz = -radius; dz < radius && newChunks < MAX_NEW_CHUNKS; dz++) {
-        if (dx * dx + dy * dy + dz * dz > radius * radius) continue
+  var chunksToGenerate = []
+  for (var dx = -radius; dx < radius; dx++) {
+    for (var dy = -radius; dy < radius; dy++) {
+      for (var dz = -radius; dz < radius; dz++) {
+        var d2 = dx * dx + dy * dy + dz * dz
+        if (d2 > radius * radius) continue
         var ix = (cx + dx) << CB
         var iy = (cy + dy) << CB
         var iz = (cz + dz) << CB
         var chunk = state.world.getChunk(ix, iy, iz)
         if (chunk) continue
-        chunk = generateChunk(ix, iy, iz)
-        if (!chunk) continue
-        state.world.addChunk(chunk)
-        newChunks++
+        chunksToGenerate.push({ix: ix, iy: iy, iz: iz, d2: d2})
       }
     }
   }
-  if (newChunks === 0) return
-  console.log('Generated %d chunks', newChunks)
+
+  // Only generate up to MAX_NEW_CHUNKS chunks, starting with the ones closest to the player
+  chunksToGenerate.sort(function (a, b) { return a.d2 - b.d2 })
+  var newChunks = []
+  for (var i = 0; i < chunksToGenerate.length && newChunks.length < MAX_NEW_CHUNKS; i++) {
+    var c = chunksToGenerate[i]
+    chunk = generateChunk(c.ix, c.iy, c.iz)
+    if (!chunk) continue
+    state.world.addChunk(chunk)
+    newChunks.push(chunk)
+  }
+  if (newChunks.length === 0) return
+  console.log('Generated %d chunks', newChunks.length)
 
   // Mesh
-  state.world.chunks.forEach(function (chunk) {
-    if (!chunk.mesh) meshChunk.mesh(chunk, state.world)
+  newChunks.forEach(function (chunk) {
+    meshChunk.mesh(chunk, state.world)
   })
 
   // Delete any no longer needed chunks
