@@ -7,7 +7,7 @@ module.exports = {
   mesh: mesh
 }
 
-var CS = config.CHUNK_SIZE
+var CS = config.CHUNK_SIZE | 0
 var CS3 = CS * CS * CS
 var verts = new Float32Array(CS3 * 3)
 var normals = new Float32Array(CS3 * 3)
@@ -26,20 +26,30 @@ function mesh (chunk, world) {
   for (var i = 0; i < CS3; i++) meshed[i] = 0
 
   // Then, mesh using the greedy quad algorithm
+  var count = meshGreedyQuad(chunk, world)
+
+  if (chunk.mesh) chunk.mesh.destroy()
+  chunk.mesh = {
+    verts: env.regl.buffer(verts, count * 3),
+    normals: env.regl.buffer(normals, count * 3),
+    uvs: env.regl.buffer(uvs, count * 2),
+    count: count,
+    destroy: destroy
+  }
+}
+
+function meshGreedyQuad (chunk, world) {
   var ivert = 0
   var inormal = 0
   var iuv = 0
-  var ix, iy, iz
+  var i, ix, iy, iz
   for (ix = 0; ix < CS; ix++) {
     for (iy = 0; iy < CS; iy++) {
       for (iz = 0; iz < CS; iz++) {
-        var isMeshed = getVoxel(meshed, ix, iy, iz)
+        var isMeshed = getVoxel(meshed, ix, iy, iz) | 0
         if (isMeshed > 0) continue
-        var v = getVoxel(chunk.data, ix, iy, iz)
+        var v = getVoxel(chunk.data, ix, iy, iz) | 0
         if (v === vox.INDEX.AIR) continue
-
-        // get uvs, etc
-        var voxType = vox.TYPES[v]
 
         // expand to largest possible quad
         var jx = ix + 1
@@ -78,6 +88,9 @@ function mesh (chunk, world) {
           }
         }
 
+        // get uvs, etc
+        var voxType = vox.TYPES[v]
+
         // add the six faces (12 tris total) for the quad
         var x0 = chunk.x + ix
         var y0 = chunk.y + iy
@@ -92,9 +105,9 @@ function mesh (chunk, world) {
           var xface = fside ? x1 : x0
           var yface = fside ? y1 : y0
           var zface = fside ? z1 : z0
-          var drawX = check(world, [fside ? x1 : (x0 - 1), y0, z0], [fside ? (x1 + 1) : x0, y1, z1])
-          var drawY = check(world, [x0, fside ? y1 : (y0 - 1), z0], [x1, fside ? (y1 + 1) : y0, z1])
-          var drawZ = check(world, [x0, y0, fside ? z1 : (z0 - 1)], [x1, y1, fside ? (z1 + 1) : z0])
+          var drawX = check(world, fside ? x1 : (x0 - 1), y0, z0, fside ? (x1 + 1) : x0, y1, z1)
+          var drawY = check(world, x0, fside ? y1 : (y0 - 1), z0, x1, fside ? (y1 + 1) : y0, z1)
+          var drawZ = check(world, x0, y0, fside ? z1 : (z0 - 1), x1, y1, fside ? (z1 + 1) : z0)
 
           // add vertices
           if (drawX) {
@@ -140,20 +153,15 @@ function mesh (chunk, world) {
     }
   }
 
-  chunk.mesh = {
-    verts: env.regl.buffer(verts, ivert),
-    normals: env.regl.buffer(normals, inormal),
-    uvs: env.regl.buffer(uvs, iuv),
-    count: ivert / 3,
-    destroy: destroy
-  }
+  // Returns the number of vertices created
+  return ivert / 3
 }
 
 // Checks whether there are any AIR blocks in a given 3D quad
-function check (world, v0, v1) {
-  for (var x = v0[0]; x < v1[0]; x++) {
-    for (var y = v0[1]; y < v1[1]; y++) {
-      for (var z = v0[2]; z < v1[2]; z++) {
+function check (world, x0, y0, z0, x1, y1, z1) {
+  for (var x = x0; x < x1; x++) {
+    for (var y = y0; y < y1; y++) {
+      for (var z = z0; z < z1; z++) {
         var v = world.getVox(x, y, z)
         if (v === vox.INDEX.AIR || v < 0) return true
       }

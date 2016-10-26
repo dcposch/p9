@@ -52,11 +52,6 @@ env.shell.on('tick', function () {
   var startMs = new Date().getTime()
   env.resizeCanvasIfNeeded()
 
-  // Handle player input, physics, update player position, direction, and velocity
-  // TODO: handle additional player actions (break block, place block, etc)
-  // The game is paused when not in fullscreen
-  if (env.shell.fullscreen) playerControls.tick(state)
-
   // Client / server
   // TODO: enqueue actions to send to the server
   // TODO: create or modify any chunks we got from the server since the last tick
@@ -85,8 +80,14 @@ env.regl.frame(function (context) {
 
   // Track FPS
   var now = new Date().getTime()
-  state.perf.fps = 0.99 * state.perf.fps + 0.01 * 1000 / (now - state.perf.lastFrameTime) // EMA
+  var dt = (now - state.perf.lastFrameTime) / 1000
+  state.perf.fps = 0.99 * state.perf.fps + 0.01 / dt // Exponential moving average
   state.perf.lastFrameTime = now
+
+  // Handle player input, physics, update player position, direction, and velocity
+  // TODO: handle additional player actions (break block, place block, etc)
+  // The game is paused when not in fullscreen
+  if (env.shell.fullscreen) playerControls.tick(state, dt)
 
   // Redraw the frame
   env.regl.clear({ color: [0, 0, 0, 1], depth: 1 })

@@ -74,7 +74,9 @@ function getVox (x, y, z) {
   var key = cx + ',' + cy + ',' + cz
   var chunk = this.chunkTable[key]
   if (!chunk || !chunk.data) return -1
-  return chunk.data[(x - cx) * CS * CS + (y - cy) * CS + (z - cz)]
+  var ix = (x - cx) * CS * CS + (y - cy) * CS + (z - cz)
+  if (ix < 0 || ix >= chunk.data.length) throw new Error('WTF ' + ix)
+  return chunk.data[ix]
 }
 
 // Returns the chunk AT (x, y, z), not the chunk containing (x, y, z)

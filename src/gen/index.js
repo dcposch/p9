@@ -11,7 +11,9 @@ module.exports = {
 var CS = config.CHUNK_SIZE
 var CB = config.CHUNK_BITS
 var heightmap = new Float32Array(CS * CS)
-var MAX_NEW_CHUNKS = 10
+var MAX_NEW_CHUNKS = 8
+var MAX_REMESH_CHUNKS = 6
+var mapToMesh = {}
 
 // Generate chunks in a radius around the player
 function generateWorld (state) {
@@ -49,28 +51,27 @@ function generateWorld (state) {
     state.world.addChunk(chunk)
     newChunks.push(chunk)
   }
-  if (newChunks.length === 0) return
-  console.log('Generated %d chunks', newChunks.length)
 
   // Mesh
-  var chunksToMeshMap = {}
   newChunks.forEach(function (c) {
-    chunksToMeshMap[[c.x, c.y, c.z].join(',')] = true
+    // Mesh chunk
+    meshChunk.mesh(c, state.world)
     // Remesh adjacent chunks
-    chunksToMeshMap[[c.x + CS, c.y, c.z].join(',')] = true
-    chunksToMeshMap[[c.x - CS, c.y, c.z].join(',')] = true
-    chunksToMeshMap[[c.x, c.y + CS, c.z].join(',')] = true
-    chunksToMeshMap[[c.x, c.y - CS, c.z].join(',')] = true
-    chunksToMeshMap[[c.x, c.y, c.z + CS].join(',')] = true
-    chunksToMeshMap[[c.x, c.y, c.z - CS].join(',')] = true
+    mapToMesh[[c.x + CS, c.y, c.z].join(',')] = true
+    mapToMesh[[c.x - CS, c.y, c.z].join(',')] = true
+    mapToMesh[[c.x, c.y + CS, c.z].join(',')] = true
+    mapToMesh[[c.x, c.y - CS, c.z].join(',')] = true
+    mapToMesh[[c.x, c.y, c.z + CS].join(',')] = true
+    mapToMesh[[c.x, c.y, c.z - CS].join(',')] = true
   })
-  var chunksToMesh = Object.keys(chunksToMeshMap).map(function (key) {
-    var coords = key.split(',').map(Number)
-    return state.world.getChunk(coords[0], coords[1], coords[2])
-  }).filter(function (chunk) { return chunk })
-  chunksToMesh.forEach(function (chunk) {
-    meshChunk.mesh(chunk, state.world)
+  // Don't remesh the new chunks themselves, those are already done
+  newChunks.forEach(function (c) {
+    delete mapToMesh[[c.x, c.y, c.z].join(',')]
   })
+
+  // Quit if there's nothing new to do
+  var keysToMesh = Object.keys(mapToMesh)
+  if (newChunks.length === 0 && keysToMesh.length === 0) return
 
   // Delete any no longer needed chunks
   state.world.removeChunks(function (chunk) {
@@ -79,6 +80,21 @@ function generateWorld (state) {
     var dz = (chunk.z >> CB) - cz
     return dx * dx + dy * dy + dz * dz > radius * radius
   })
+
+  // Remesh chunks, lazily
+  var numRemeshed = 0
+  for (i = 0; i < keysToMesh.length; i++) {
+    var key = keysToMesh[i]
+    var coords = key.split(',').map(Number)
+    chunk = state.world.getChunk(coords[0], coords[1], coords[2])
+    if (chunk) {
+      meshChunk.mesh(chunk, state.world)
+      numRemeshed++
+    }
+    delete mapToMesh[key]
+    if (numRemeshed >= MAX_REMESH_CHUNKS) break
+  }
+  console.log('Generated %d chunks, remeshed %d', newChunks.length, numRemeshed)
 }
 
 // World generation. Generates one chunk of voxels.

@@ -25,6 +25,7 @@ module.exports = {
     MAX_ANISOTROPIC: 0 // Disable anisotropic filtering
   },
   PHYSICS: {
+    MAX_DT: 0.01, // Compute physics in increments of at most 10ms to avoid glitches
     GRAVITY: 30 // Twice Earth gravity, 20ms^-2, each voxel is 1 m^3
   }
 }

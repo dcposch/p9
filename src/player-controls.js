@@ -9,20 +9,23 @@ module.exports = {
 var CS = config.CHUNK_SIZE
 
 // Calculates player physics and takes player input
-function tick (state) {
-  simulate(state)
-  navigate(state.player)
+function tick (state, dt) {
+  for (var t = 0.0; t < dt; t += config.PHYSICS.MAX_DT) {
+    var stepDt = Math.min(config.PHYSICS.MAX_DT, dt - t)
+    navigate(state.player, stepDt)
+    simulate(state, stepDt)
+  }
   look(state.player)
 }
 
 // Let the player move
-function navigate (player) {
+function navigate (player, dt) {
   var loc = player.location
   var dir = player.direction
 
   // Directional input (WASD) always works
   var speed = shell.wasDown('nav-sprint') ? config.SPEED_SPRINT : config.SPEED_WALK
-  var dist = speed * config.TICK_INTERVAL
+  var dist = speed * dt
   if (shell.wasDown('nav-forward')) move(loc, dist, dir.azimuth, 0)
   if (shell.wasDown('nav-back')) move(loc, dist, dir.azimuth + Math.PI, 0)
   if (shell.wasDown('nav-left')) move(loc, dist, dir.azimuth + Math.PI * 0.5, 0)
@@ -54,7 +57,7 @@ function look (player) {
   dir.altitude = Math.min(0.5 * pi, Math.max(-0.5 * pi, dir.altitude)) // Clamp to [-pi/2, pi/2]
 }
 
-function simulate (state) {
+function simulate (state, dt) {
   var player = state.player
   var loc = player.location
 
@@ -82,7 +85,7 @@ function simulate (state) {
   })
 
   // Gravity
-  player.dzdt -= config.PHYSICS.GRAVITY * config.TICK_INTERVAL
+  player.dzdt -= config.PHYSICS.GRAVITY * dt
 
   // Vertical collision
   var underfoot = collide(state, loc.x, loc.y, loc.z - ph - eps)
@@ -107,7 +110,7 @@ function simulate (state) {
     player.situation = 'airborne'
   }
 
-  loc.z += player.dzdt * config.TICK_INTERVAL
+  loc.z += player.dzdt * dt
 }
 
 function collide (state, x, y, z) {
