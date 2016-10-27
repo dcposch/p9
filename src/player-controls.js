@@ -10,6 +10,8 @@ var CS = config.CHUNK_SIZE
 
 // Calculates player physics and takes player input
 function tick (state, dt) {
+  // If dt is too large, simulate in smaller increments
+  // This prevents glitches like jumping through a block, getting stuck inside a block, etc
   for (var t = 0.0; t < dt; t += config.PHYSICS.MAX_DT) {
     var stepDt = Math.min(config.PHYSICS.MAX_DT, dt - t)
     navigate(state.player, stepDt)
@@ -57,6 +59,7 @@ function look (player) {
   dir.altitude = Math.min(0.5 * pi, Math.max(-0.5 * pi, dir.altitude)) // Clamp to [-pi/2, pi/2]
 }
 
+// Apply gravity to the player, don't let them pass through blocks, etc
 function simulate (state, dt) {
   var player = state.player
   var loc = player.location
@@ -113,6 +116,7 @@ function simulate (state, dt) {
   loc.z += player.dzdt * dt
 }
 
+// Returns true if (x, y, z) is unpassable (either in a block or off the world)
 function collide (state, x, y, z) {
   var chunks = state.world.chunks
   for (var i = 0; i < chunks.length; i++) {

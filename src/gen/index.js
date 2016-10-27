@@ -10,7 +10,9 @@ module.exports = {
 
 var CS = config.CHUNK_SIZE
 var CB = config.CHUNK_BITS
-var heightmap = new Float32Array(CS * CS)
+var heightmap1 = new Float32Array(CS * CS)
+var heightmap2 = new Float32Array(CS * CS)
+var heightmap3 = new Float32Array(CS * CS)
 var MAX_NEW_CHUNKS = 8
 var MAX_REMESH_CHUNKS = 6
 var mapToMesh = {}
@@ -108,21 +110,29 @@ function generateChunk (x, y, z) {
     var splash = 0.5 - 0.5 * Math.cos(Math.sqrt(sx * sx + sy * sy) / 50)
     return 100 * splash * (rand + 0.5)
   }
-  var perlinHeightmapAmplitudes = [0, 0, 0, 0, 5, 0, 10, 0, 0, mountainAmp]
-  perlin.generate(heightmap, x, y, CS, perlinHeightmapAmplitudes)
+  var perlinGroundAmplitudes = [0, 0, 0, 0, 5, 0, 10, 0, 0, mountainAmp]
+  var perlinLayer2Amplitudes = [0, 5, 0, 0, 0, 10]
+  var perlinLayer3Amplitudes = [0, 0, 0, 5, 0, 10]
+  perlin.generate(heightmap1, x, y, CS, perlinGroundAmplitudes)
+  perlin.generate(heightmap2, x, y, CS, perlinLayer2Amplitudes)
+  perlin.generate(heightmap3, x, y, CS, perlinLayer3Amplitudes)
 
   // Go from a Perlin heightmap to actual voxels
   var numAir = 0
   for (var ix = 0; ix < CS; ix++) {
     for (var iy = 0; iy < CS; iy++) {
-      var height = heightmap[ix * CS + iy]
+      var height1 = heightmap1[ix * CS + iy]
+      var height2 = heightmap2[ix * CS + iy]
+      var height3 = heightmap3[ix * CS + iy]
       for (var iz = 0; iz < CS; iz++) {
         var voxz = z + iz
         var voxtype
-        if (voxz < height && voxz > 20) {
-          voxtype = vox.INDEX.STONE
-        } else if (voxz < height) {
-          voxtype = vox.INDEX.PURPLE
+        if (voxz < height1 && voxz > 40.0 + height2) {
+          voxtype = vox.INDEX.PINK
+        } else if (voxz < height1 && voxz > 20.0 + height3) {
+          voxtype = vox.INDEX.LIGHT_PURPLE
+        } else if (voxz < height1) {
+          voxtype = vox.INDEX.DARK_PURPLE
         } else if (voxz < 15) {
           voxtype = vox.INDEX.WATER
         } else {
@@ -130,6 +140,17 @@ function generateChunk (x, y, z) {
           numAir++
         }
         data[ix * CS * CS + iy * CS + iz] = voxtype
+      }
+
+      // Place cacti
+      var h1 = Math.ceil(height1)
+      if (h1 >= 15 && h1 <= 18 && (height2 % 1.0) < 0.05) {
+        var cactusHeight = Math.floor((height2 % 1.0) * 3.0 / 0.05) + 1
+        for (voxz = h1; voxz < h1 + cactusHeight; voxz++) {
+          iz = voxz - z
+          if (iz >= CS || iz < 0) break
+          data[ix * CS * CS + iy * CS + iz] = vox.INDEX.CACTUS
+        }
       }
     }
   }

@@ -24,8 +24,52 @@ VOX.TYPES = [
     uv: {side: [1, 0], top: [1, 0], bottom: [1, 0]}
   },
   {
-    name: 'PURPLE',
+    name: 'RED',
+    uv: {side: [1, 8], top: [1, 8], bottom: [1, 8]}
+  },
+  {
+    name: 'PINK',
     uv: {side: [2, 8], top: [2, 8], bottom: [2, 8]}
+  },
+  {
+    name: 'DARK_GREEN',
+    uv: {side: [1, 9], top: [1, 9], bottom: [1, 9]}
+  },
+  {
+    name: 'LIGHT_GREEN',
+    uv: {side: [2, 9], top: [2, 9], bottom: [2, 9]}
+  },
+  {
+    name: 'BROWN',
+    uv: {side: [1, 10], top: [1, 10], bottom: [1, 10]}
+  },
+  {
+    name: 'YELLOW',
+    uv: {side: [2, 10], top: [2, 10], bottom: [2, 10]}
+  },
+  {
+    name: 'DARK_BLUE',
+    uv: {side: [1, 11], top: [1, 11], bottom: [1, 11]}
+  },
+  {
+    name: 'LIGHT_BLUE',
+    uv: {side: [2, 11], top: [2, 11], bottom: [2, 11]}
+  },
+  {
+    name: 'DARK_PURPLE',
+    uv: {side: [1, 12], top: [1, 12], bottom: [1, 12]}
+  },
+  {
+    name: 'LIGHT_PURPLE',
+    uv: {side: [2, 12], top: [2, 12], bottom: [2, 12]}
+  },
+  {
+    name: 'CACTUS',
+    uv: {side: [6, 4], top: [5, 4], bottom: [7, 4]}
+  },
+  {
+    name: 'LEAVES',
+    uv: {side: [4, 12], top: [4, 12], bottom: [4, 12]}
   }
 ]
 
