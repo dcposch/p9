@@ -63,16 +63,7 @@ function drawChunksScope () {
       uLightAmbient: [0.6, 0.6, 0.6]
     },
     blend: {
-      enable: true,
-      func: {
-        src: 'src alpha',
-        dst: 'one minus src alpha'
-      },
-      equation: {
-        rgb: 'add',
-        alpha: 'add'
-      },
-      color: [0, 0, 0, 0]
+      enable: false
     }
   })
 }

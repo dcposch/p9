@@ -49,6 +49,7 @@ void main(void) {
     float v = dot(vec3(-p.z, p.y, -p.z), abs(vec3(n.y, n.z, n.x)));
     vec2 tileUV = fract(vec2(u, v));
     vec4 texColor = sampleTileAtlas(vUV, tileUV);
+    if (texColor.a < 0.5) discard;
 
     float lightDot = clamp(dot(uLightDir, vNormal), 0.0, 1.0);
     vec3 light = uLightAmbient + lightDot * uLightDiffuse;
