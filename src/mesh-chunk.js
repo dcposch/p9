@@ -105,9 +105,9 @@ function meshGreedyQuad (chunk, world) {
           var xface = fside ? x1 : x0
           var yface = fside ? y1 : y0
           var zface = fside ? z1 : z0
-          var drawX = check(world, fside ? x1 : (x0 - 1), y0, z0, fside ? (x1 + 1) : x0, y1, z1)
-          var drawY = check(world, x0, fside ? y1 : (y0 - 1), z0, x1, fside ? (y1 + 1) : y0, z1)
-          var drawZ = check(world, x0, y0, fside ? z1 : (z0 - 1), x1, y1, fside ? (z1 + 1) : z0)
+          var drawX = check(world, v, fside ? x1 : (x0 - 1), y0, z0, fside ? (x1 + 1) : x0, y1, z1)
+          var drawY = check(world, v, x0, fside ? y1 : (y0 - 1), z0, x1, fside ? (y1 + 1) : y0, z1)
+          var drawZ = check(world, v, x0, y0, fside ? z1 : (z0 - 1), x1, y1, fside ? (z1 + 1) : z0)
 
           // add vertices
           if (drawX) {
@@ -157,13 +157,14 @@ function meshGreedyQuad (chunk, world) {
   return ivert / 3
 }
 
-// Checks whether there are any AIR blocks in a given 3D quad
-function check (world, x0, y0, z0, x1, y1, z1) {
+// Checks whether there are any seethru blocks in a given 3D quad *other than* vCompare
+function check (world, vCompare, x0, y0, z0, x1, y1, z1) {
   for (var x = x0; x < x1; x++) {
     for (var y = y0; y < y1; y++) {
       for (var z = z0; z < z1; z++) {
         var v = world.getVox(x, y, z)
-        if (v === vox.INDEX.AIR || v < 0) return true
+        if (v === vCompare) continue
+        if (v === vox.INDEX.AIR || v === vox.INDEX.WATER || v < 0) return true
       }
     }
   }
