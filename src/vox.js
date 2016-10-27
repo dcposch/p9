@@ -65,7 +65,8 @@ VOX.TYPES = [
   },
   {
     name: 'CACTUS',
-    uv: {side: [6, 4], top: [5, 4], bottom: [7, 4]}
+    uv: {side: [6, 4], top: [5, 4], bottom: [7, 4]},
+    sideOffset: 1/16
   },
   {
     name: 'LEAVES',

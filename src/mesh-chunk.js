@@ -90,6 +90,7 @@ function meshGreedyQuad (chunk, world) {
 
         // get uvs, etc
         var voxType = vox.TYPES[v]
+        var sideOffset = voxType.sideOffset || 0
 
         // add the six faces (12 tris total) for the quad
         var x0 = chunk.x + ix
@@ -102,8 +103,8 @@ function meshGreedyQuad (chunk, world) {
         for (var fside = 0; fside <= 1; fside++) {
           // figure out which faces we need to draw
           var dir = fside ? 1 : -1
-          var xface = fside ? x1 : x0
-          var yface = fside ? y1 : y0
+          var xface = fside ? (x1 - sideOffset) : (x0 + sideOffset)
+          var yface = fside ? (y1 - sideOffset) : (y0 + sideOffset)
           var zface = fside ? z1 : z0
           var drawX = check(world, v, fside ? x1 : (x0 - 1), y0, z0, fside ? (x1 + 1) : x0, y1, z1)
           var drawY = check(world, v, x0, fside ? y1 : (y0 - 1), z0, x1, fside ? (y1 + 1) : y0, z1)
