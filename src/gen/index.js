@@ -144,12 +144,25 @@ function generateChunk (x, y, z) {
 
       // Place cacti
       var h1 = Math.ceil(height1)
-      if (h1 >= 15 && h1 <= 18 && (height2 % 1.0) < 0.05) {
-        var cactusHeight = Math.floor((height2 % 1.0) * 3.0 / 0.05) + 1
+      var isShore = h1 >= 15 && h1 <= 18
+      var cactusJuice = height2 > 4.0 ? 2.0 : (height2 % 1.0) * 20.0
+      var palmJuice = (height2 > 14.0 || height2 < 10.0) ? 2.0 : (height2 % 1.0) * 50.0
+      if (isShore && cactusJuice < 1.0) {
+        var cactusHeight = Math.floor(cactusJuice * 3.0) + 1
         for (voxz = h1; voxz < h1 + cactusHeight; voxz++) {
-          iz = voxz - z
-          if (iz >= CS || iz < 0) break
-          data[ix * CS * CS + iy * CS + iz] = vox.INDEX.CACTUS
+          trySet(data, ix, iy, voxz - z, vox.INDEX.CACTUS)
+        }
+      } else if (isShore && palmJuice < 1.0) {
+        var palmHeight = Math.floor(palmJuice * 10) + 5
+        for (voxz = h1; voxz < h1 + palmHeight; voxz++) {
+          trySet(data, ix, iy, voxz - z, vox.INDEX.BROWN)
+          if (voxz === h1 + palmHeight - 1) {
+            trySet(data, ix, iy, voxz - z, vox.INDEX.LEAVES)
+            trySet(data, ix + 1, iy + 1, voxz - z, vox.INDEX.LEAVES)
+            trySet(data, ix + 1, iy - 1, voxz - z, vox.INDEX.LEAVES)
+            trySet(data, ix - 1, iy + 1, voxz - z, vox.INDEX.LEAVES)
+            trySet(data, ix - 1, iy - 1, voxz - z, vox.INDEX.LEAVES)
+          }
         }
       }
     }
@@ -164,4 +177,10 @@ function generateChunk (x, y, z) {
     z: z,
     data: data
   }
+}
+
+// TODO: remove, use Chunk.prototype
+function trySet (data, ix, iy, iz, v) {
+  if (ix < 0 || iy < 0 || iz < 0 || ix >= CS || iy >= CS || iz >= CS) return
+  data[ix * CS * CS + iy * CS + iz] = v
 }
