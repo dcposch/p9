@@ -1,6 +1,7 @@
 var perlin = require('../math/perlin')
 var vox = require('../vox')
 var config = require('../config')
+var Chunk = require('../chunk')
 var meshChunk = require('../mesh-chunk')
 
 // Generate the world
@@ -56,9 +57,9 @@ function generateWorld (state) {
 
   // Mesh
   newChunks.forEach(function (c) {
-    // Mesh chunk
+    // Mesh chunk now
     meshChunk.mesh(c, state.world)
-    // Remesh adjacent chunks
+    // Remesh adjacent chunks soon
     mapToMesh[[c.x + CS, c.y, c.z].join(',')] = true
     mapToMesh[[c.x - CS, c.y, c.z].join(',')] = true
     mapToMesh[[c.x, c.y + CS, c.z].join(',')] = true
@@ -83,7 +84,7 @@ function generateWorld (state) {
     return dx * dx + dy * dy + dz * dz > radius * radius
   })
 
-  // Remesh chunks, lazily
+  // Remesh chunks
   var numRemeshed = 0
   for (i = 0; i < keysToMesh.length; i++) {
     var key = keysToMesh[i]
@@ -103,9 +104,11 @@ function generateWorld (state) {
 // Returns a newly allocated Chunk: { x, y, z, data: UInt8Array }
 // Skips {data} if the chunk would be completely empty
 function generateChunk (x, y, z) {
-  if (z >= 128 || z < 0) return { x: x, y: y, z: z }
+  var ret = new Chunk(x, y, z)
+  if (z >= 128 || z < 0) return ret
 
-  var data = new Uint8Array(CS * CS * CS)
+  // Generate a Perlin heightmap
+  // https://web.archive.org/web/20160421115558/http://freespace.virgin.net/hugo.elias/models/m_perlin.htm
   var mountainAmp = function (rand, sx, sy) {
     var splash = 0.5 - 0.5 * Math.cos(Math.sqrt(sx * sx + sy * sy) / 50)
     return 100 * splash * (rand + 0.5)
@@ -118,12 +121,13 @@ function generateChunk (x, y, z) {
   perlin.generate(heightmap3, x, y, CS, perlinLayer3Amplitudes)
 
   // Go from a Perlin heightmap to actual voxels
-  var numAir = 0
   for (var ix = 0; ix < CS; ix++) {
     for (var iy = 0; iy < CS; iy++) {
       var height1 = heightmap1[ix * CS + iy]
       var height2 = heightmap2[ix * CS + iy]
       var height3 = heightmap3[ix * CS + iy]
+
+      // Place earth and water
       for (var iz = 0; iz < CS; iz++) {
         var voxz = z + iz
         var voxtype
@@ -137,12 +141,11 @@ function generateChunk (x, y, z) {
           voxtype = vox.INDEX.WATER
         } else {
           voxtype = vox.INDEX.AIR
-          numAir++
         }
-        data[ix * CS * CS + iy * CS + iz] = voxtype
+        ret.setVox(ix, iy, iz, voxtype)
       }
 
-      // Place cacti
+      // Place plants
       var h1 = Math.ceil(height1)
       var isShore = h1 >= 15 && h1 <= 18
       var cactusJuice = height2 > 4.0 ? 2.0 : (height2 % 1.0) * 20.0
@@ -150,37 +153,27 @@ function generateChunk (x, y, z) {
       if (isShore && cactusJuice < 1.0) {
         var cactusHeight = Math.floor(cactusJuice * 3.0) + 1
         for (voxz = h1; voxz < h1 + cactusHeight; voxz++) {
-          trySet(data, ix, iy, voxz - z, vox.INDEX.CACTUS)
+          trySet(ret, ix, iy, voxz - z, vox.INDEX.CACTUS)
         }
       } else if (isShore && palmJuice < 1.0) {
         var palmHeight = Math.floor(palmJuice * 10) + 5
         for (voxz = h1; voxz < h1 + palmHeight; voxz++) {
-          trySet(data, ix, iy, voxz - z, vox.INDEX.BROWN)
-          if (voxz === h1 + palmHeight - 1) {
-            trySet(data, ix, iy, voxz - z, vox.INDEX.LEAVES)
-            trySet(data, ix + 1, iy + 1, voxz - z, vox.INDEX.LEAVES)
-            trySet(data, ix + 1, iy - 1, voxz - z, vox.INDEX.LEAVES)
-            trySet(data, ix - 1, iy + 1, voxz - z, vox.INDEX.LEAVES)
-            trySet(data, ix - 1, iy - 1, voxz - z, vox.INDEX.LEAVES)
-          }
+          trySet(ret, ix, iy, voxz - z, vox.INDEX.BROWN)
+          if (voxz !== h1 + palmHeight - 1) continue
+          trySet(ret, ix, iy, voxz - z, vox.INDEX.LEAVES)
+          trySet(ret, ix + 1, iy + 1, voxz - z, vox.INDEX.LEAVES)
+          trySet(ret, ix + 1, iy - 1, voxz - z, vox.INDEX.LEAVES)
+          trySet(ret, ix - 1, iy + 1, voxz - z, vox.INDEX.LEAVES)
+          trySet(ret, ix - 1, iy - 1, voxz - z, vox.INDEX.LEAVES)
         }
       }
     }
   }
 
-  // Don't store arrays full of zeros
-  if (numAir === CS * CS * CS) data = undefined
-
-  return {
-    x: x,
-    y: y,
-    z: z,
-    data: data
-  }
+  return ret
 }
 
-// TODO: remove, use Chunk.prototype
-function trySet (data, ix, iy, iz, v) {
+function trySet (chunk, ix, iy, iz, v) {
   if (ix < 0 || iy < 0 || iz < 0 || ix >= CS || iy >= CS || iz >= CS) return
-  data[ix * CS * CS + iy * CS + iz] = v
+  chunk.setVox(ix, iy, iz, v)
 }
