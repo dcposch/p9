@@ -1,6 +1,7 @@
 var env = require('./env')
 var config = require('./config')
 var vox = require('./vox')
+var Chunk = require('./chunk')
 
 // Meshes and renders voxels chunks
 module.exports = {
@@ -12,7 +13,7 @@ var CS3 = CS * CS * CS
 var verts = new Float32Array(CS3 * 3)
 var normals = new Float32Array(CS3 * 3)
 var uvs = new Float32Array(CS3 * 2)
-var meshed = new Uint8Array(CS3)
+var meshed = new Chunk(0, 0, 0)
 
 // Meshes a chunk, creating a regl object.
 // (That means position, UV VBOs are sent to the GPU.)
@@ -23,7 +24,7 @@ function mesh (chunk, world) {
   if (!chunk.data) return
 
   // Clear progress buffer
-  for (var i = 0; i < CS3; i++) meshed[i] = 0
+  if (meshed.data) meshed.data.fill(0)
 
   // Then, mesh using the greedy quad algorithm
   var count = meshGreedyQuad(chunk, world)
@@ -46,9 +47,9 @@ function meshGreedyQuad (chunk, world) {
   for (ix = 0; ix < CS; ix++) {
     for (iy = 0; iy < CS; iy++) {
       for (iz = 0; iz < CS; iz++) {
-        var isMeshed = getVoxel(meshed, ix, iy, iz) | 0
+        var isMeshed = meshed.getVox(ix, iy, iz) | 0
         if (isMeshed > 0) continue
-        var v = getVoxel(chunk.data, ix, iy, iz) | 0
+        var v = chunk.getVox(ix, iy, iz) | 0
         if (v === vox.INDEX.AIR) continue
 
         // expand to largest possible quad
@@ -58,19 +59,19 @@ function meshGreedyQuad (chunk, world) {
         var kx, ky, kz
         var match = true
         for (; match && jx < CS; match && jx++) {
-          match = getVoxel(chunk.data, jx, iy, iz) === v && !getVoxel(meshed, jx, iy, iz)
+          match = chunk.getVox(jx, iy, iz) === v && !meshed.getVox(jx, iy, iz)
         }
         match = true
         for (; match && jy < CS; match && jy++) {
           for (kx = ix; match && kx < jx; kx++) {
-            match = getVoxel(chunk.data, kx, jy, iz) === v && !getVoxel(meshed, kx, jy, iz)
+            match = chunk.getVox(kx, jy, iz) === v && !meshed.getVox(kx, jy, iz)
           }
         }
         match = true
         for (; match && jz < CS; match && jz++) {
           for (kx = ix; match && kx < jx; kx++) {
             for (ky = iy; match && ky < jy; match && ky++) {
-              match = getVoxel(chunk.data, kx, ky, jz) === v && !getVoxel(meshed, kx, ky, jz)
+              match = chunk.getVox(kx, ky, jz) === v && !meshed.getVox(kx, ky, jz)
             }
           }
         }
@@ -82,8 +83,8 @@ function meshGreedyQuad (chunk, world) {
         for (kx = ix; kx < jx; kx++) {
           for (ky = iy; ky < jy; ky++) {
             for (kz = iz; kz < jz; kz++) {
-              if (getVoxel(chunk.data, kx, ky, kz) !== v) console.log('invalid quad', kx, ky, kz)
-              setVoxel(meshed, kx, ky, kz, 1)
+              if (chunk.getVox(kx, ky, kz) !== v) console.log('invalid quad', kx, ky, kz)
+              meshed.setVox(kx, ky, kz, 1)
             }
           }
         }
@@ -189,14 +190,4 @@ function destroy () {
   this.verts.destroy()
   this.normals.destroy()
   this.uvs.destroy()
-}
-
-// Helper method for looking up a value from a packed voxel array (XYZ layout)
-function getVoxel (data, ix, iy, iz) {
-  return data[ix * CS * CS + iy * CS + iz]
-}
-
-// Helper method for writing up a value from a packed voxel array (XYZ layout)
-function setVoxel (data, ix, iy, iz, val) {
-  data[ix * CS * CS + iy * CS + iz] = val
 }

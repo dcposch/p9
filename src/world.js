@@ -75,11 +75,11 @@ function getVox (x, y, z) {
   var chunk = this.chunkTable[key]
   if (!chunk || !chunk.data) return -1
   var ix = (x - cx) * CS * CS + (y - cy) * CS + (z - cz)
-  if (ix < 0 || ix >= chunk.data.length) throw new Error('WTF ' + ix)
   return chunk.data[ix]
 }
 
 // Returns the chunk AT (x, y, z), not the chunk containing (x, y, z)
+// In other words, x, y, and z should all be multiples of CHUNK_SIZE
 // Returns undefined if that chunk doesn't exist
 function getChunk (x, y, z) {
   var key = x + ',' + y + ',' + z

@@ -6,8 +6,6 @@ module.exports = {
   tick: tick
 }
 
-var CS = config.CHUNK_SIZE
-
 // Calculates player physics and takes player input
 function tick (state, dt) {
   // If dt is too large, simulate in smaller increments
@@ -118,24 +116,6 @@ function simulate (state, dt) {
 
 // Returns true if (x, y, z) is unpassable (either in a block or off the world)
 function collide (state, x, y, z) {
-  var chunks = state.world.chunks
-  for (var i = 0; i < chunks.length; i++) {
-    var chunk = chunks[i]
-    if (chunk.x > x || chunk.y > y || chunk.z > z) continue
-    if (chunk.x + CS <= x || chunk.y + CS <= y || chunk.z + CS <= z) continue
-    if (!chunk.data) return false // Empty chunk
-    var ix = Math.floor(x - chunk.x)
-    var iy = Math.floor(y - chunk.y)
-    var iz = Math.floor(z - chunk.z)
-    var v = getVoxel(chunk.data, ix, iy, iz)
-    return !!v
-  }
-  // In an area where we have no chunks loaded? Always collide
-  // Don't let the player walk off the edge of the world
-  return true
-}
-
-// Helper method for looking up a value from a packed voxel array (XYZ layout)
-function getVoxel (data, ix, iy, iz) {
-  return data[ix * CS * CS + iy * CS + iz]
+  var v = state.world.getVox(x | 0, y | 0, z | 0)
+  return !!v
 }
