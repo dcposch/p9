@@ -11,8 +11,10 @@ module.exports = {
 
 var CS = config.CHUNK_SIZE
 var CB = config.CHUNK_BITS
-var heightmap1 = new Float32Array(CS * CS)
-var heightmap2 = new Float32Array(CS * CS)
+var PAD = 3
+var PAD2 = 2 * PAD
+var heightmap1 = new Float32Array((CS + PAD2) * (CS + PAD2))
+var heightmap2 = new Float32Array((CS + PAD2) * (CS + PAD2))
 var heightmap3 = new Float32Array(CS * CS)
 var MAX_NEW_CHUNKS = 8
 var MAX_REMESH_CHUNKS = 6
@@ -116,15 +118,15 @@ function generateChunk (x, y, z) {
   var perlinGroundAmplitudes = [0, 0, 0, 0, 5, 0, 10, 0, 0, mountainAmp]
   var perlinLayer2Amplitudes = [0, 5, 0, 0, 0, 10]
   var perlinLayer3Amplitudes = [0, 0, 0, 5, 0, 10]
-  perlin.generate(heightmap1, x, y, CS, perlinGroundAmplitudes)
-  perlin.generate(heightmap2, x, y, CS, perlinLayer2Amplitudes)
-  perlin.generate(heightmap3, x, y, CS, perlinLayer3Amplitudes)
+  perlin.generate2D(heightmap1, x - PAD, y - PAD, CS + PAD2, perlinGroundAmplitudes)
+  perlin.generate2D(heightmap2, x - PAD, y - PAD, CS + PAD2, perlinLayer2Amplitudes)
+  perlin.generate2D(heightmap3, x, y, CS, perlinLayer3Amplitudes)
 
   // Go from a Perlin heightmap to actual voxels
   for (var ix = 0; ix < CS; ix++) {
     for (var iy = 0; iy < CS; iy++) {
-      var height1 = heightmap1[ix * CS + iy]
-      var height2 = heightmap2[ix * CS + iy]
+      var height1 = heightmap1[(ix + PAD) * (CS + PAD2) + iy + PAD]
+      var height2 = heightmap2[(ix + PAD) * (CS + PAD2) + iy + PAD]
       var height3 = heightmap3[ix * CS + iy]
 
       // Place earth and water
@@ -144,28 +146,42 @@ function generateChunk (x, y, z) {
         }
         ret.setVox(ix, iy, iz, voxtype)
       }
+    }
+  }
 
-      // Place plants
-      var h1 = Math.ceil(height1)
-      var isShore = h1 >= 15 && h1 <= 18
-      var cactusJuice = height2 > 4.0 ? 2.0 : (height2 % 1.0) * 20.0
-      var palmJuice = (height2 > 14.0 || height2 < 10.0) ? 2.0 : (height2 % 1.0) * 50.0
-      if (isShore && cactusJuice < 1.0) {
-        var cactusHeight = Math.floor(cactusJuice * 3.0) + 1
-        for (voxz = h1; voxz < h1 + cactusHeight; voxz++) {
-          trySet(ret, ix, iy, voxz - z, vox.INDEX.CACTUS)
+  // Place plants
+  for (ix = -2; ix < CS + PAD; ix++) {
+    for (iy = -2; iy < CS + PAD; iy++) {
+      var h1 = heightmap1[(ix + PAD) * (CS + PAD2) + iy + PAD]
+      var h2 = heightmap2[(ix + PAD) * (CS + PAD2) + iy + PAD]
+      var i1 = Math.ceil(h1)
+      var isShore = i1 >= 15 && i1 <= 18
+      var palmJuice = (h2 > 14.0 || h2 < 10.0) ? 2.0 : (h2 % 1.0) * 50.0 // range [0, 50)
+      if (!isShore || palmJuice > 1.0) continue
+      if (i1 >= z + CS || i1 + palmHeight < z) continue
+      // If we're here, we're placing a palm tree, and palmJuice is in [0, 1)
+      var palmHeight = Math.floor(palmJuice * 10.0) + 4
+      for (iz = i1 - z; iz < i1 + palmHeight - z; iz++) {
+        // First, place the leaves
+        var crown = i1 + palmHeight - z - iz - 1
+        var setLeaf = false
+        if (crown <= 2) {
+          for (var jx = -3; jx <= 3; jx++) {
+            for (var jy = -3; jy <= 3; jy++) {
+              if (ix + jx < 0 || ix + jx >= CS || iy + jy < 0 || iy + jy >= CS) continue
+              var h2J = heightmap2[(ix + jx + PAD) * (CS + PAD2) + iy + jy + PAD]
+              var palmJuiceJ = h2J % 1.0
+              var leafJuice = Math.abs(Math.abs(jx) + Math.abs(jy) - crown)
+              if (leafJuice > palmJuiceJ + 0.5) continue
+              var leafType = Math.max(0, Math.min(2, crown - leafJuice))
+              voxtype = [vox.INDEX.PLANT_1, vox.INDEX.PLANT_2, vox.INDEX.PLANT_3][leafType]
+              setLeaf = setLeaf || (jx === 0 && jy === 0)
+              trySet(ret, ix + jx, iy + jy, iz, voxtype)
+            }
+          }
         }
-      } else if (isShore && palmJuice < 1.0) {
-        var palmHeight = Math.floor(palmJuice * 10) + 5
-        for (voxz = h1; voxz < h1 + palmHeight; voxz++) {
-          trySet(ret, ix, iy, voxz - z, vox.INDEX.BROWN)
-          if (voxz !== h1 + palmHeight - 1) continue
-          trySet(ret, ix, iy, voxz - z, vox.INDEX.LEAVES)
-          trySet(ret, ix + 1, iy + 1, voxz - z, vox.INDEX.LEAVES)
-          trySet(ret, ix + 1, iy - 1, voxz - z, vox.INDEX.LEAVES)
-          trySet(ret, ix - 1, iy + 1, voxz - z, vox.INDEX.LEAVES)
-          trySet(ret, ix - 1, iy - 1, voxz - z, vox.INDEX.LEAVES)
-        }
+        // Then, place the trunk
+        if (!setLeaf) trySet(ret, ix, iy, iz, vox.INDEX.STRIPE_WOOD, true)
       }
     }
   }
@@ -173,7 +189,8 @@ function generateChunk (x, y, z) {
   return ret
 }
 
-function trySet (chunk, ix, iy, iz, v) {
+function trySet (chunk, ix, iy, iz, v, overwrite) {
   if (ix < 0 || iy < 0 || iz < 0 || ix >= CS || iy >= CS || iz >= CS) return
+  if (!overwrite && chunk.getVox(ix, iy, iz) !== vox.INDEX.AIR) return
   chunk.setVox(ix, iy, iz, v)
 }

@@ -71,6 +71,26 @@ VOX.TYPES = [
   {
     name: 'LEAVES',
     uv: {side: [4, 12], top: [4, 12], bottom: [4, 12]}
+  },
+  {
+    name: 'POPLAR',
+    uv: {side: [5, 7], top: [5, 1], bottom: [5, 1]}
+  },
+  {
+    name: 'STRIPE_WOOD',
+    uv: {side: [7, 12], top: [5, 1], bottom: [5, 1]}
+  },
+  {
+    name: 'PLANT_1',
+    uv: {side: [8, 10], top: [8, 10], bottom: [8, 10]}
+  },
+  {
+    name: 'PLANT_2',
+    uv: {side: [9, 10], top: [9, 10], bottom: [9, 10]}
+  },
+  {
+    name: 'PLANT_3',
+    uv: {side: [10, 10], top: [10, 10], bottom: [10, 10]}
   }
 ]
 

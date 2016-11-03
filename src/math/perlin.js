@@ -4,7 +4,7 @@ var interp = require('./interp')
 // Generates deterministic 2D Perlin noise
 // TODO: publish this as its own NPM module
 module.exports = {
-  generate: generatePerlinNoise
+  generate2D: generate2D
 }
 
 // Avoid run-time allocations, reduce GC pressure
@@ -19,12 +19,12 @@ var RAND_SEED = 2892
 // (x, y) - location on the plane, world coordinates, corresponds to (ix, iy) = 0, 0
 // width - (width x width) are the dimensions of `ret`
 // amplitudes - perlin amplitudes
-function generatePerlinNoise (ret, x, y, width, amplitudes) {
+function generate2D (ret, x, y, width, amplitudes) {
   if (width > MAX_WIDTH) {
-    throw new Error('generatePerlinNoise width ' + width + ' > max width ' + MAX_WIDTH)
+    throw new Error('generate2D width ' + width + ' > max width ' + MAX_WIDTH)
   }
   if (width * width !== ret.length) {
-    throw new Error('generatePerlinNoise wrong ret len. width: ' + width + ', len: ' + ret.length)
+    throw new Error('generate2D wrong ret len. width: ' + width + ', len: ' + ret.length)
   }
 
   // First, clear the output
@@ -46,7 +46,9 @@ function generatePerlinNoise (ret, x, y, width, amplitudes) {
     var ys = Math.floor(y / stride) * stride
 
     // We'll take a w x w grid of noise samples at (xs, ys), (xs + stride, ys), ...
-    var w = Math.max(width >> i, 1) + 1
+    var w = Math.max(
+      Math.ceil((x + width) / stride) - Math.floor(x / stride),
+      Math.ceil((y + width) / stride) - Math.floor(y / stride)) + 1
     if (w > MAX_WIDTH) throw new Error('perlin max width exceeded: ' + w)
 
     // (su, sv) is an index into the grid of noise samples

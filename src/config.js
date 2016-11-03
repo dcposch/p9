@@ -21,7 +21,7 @@ module.exports = {
     'nav-jump': ['space']
   },
   GRAPHICS: {
-    CHUNK_DRAW_RADIUS: 10, // Draw this many chunks in every direction from the player
+    CHUNK_DRAW_RADIUS: 6, // Draw this many chunks in every direction from the player
     MAX_ANISOTROPIC: 0 // Disable anisotropic filtering
   },
   PHYSICS: {

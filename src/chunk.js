@@ -26,5 +26,8 @@ Chunk.prototype.getVox = function (ix, iy, iz) {
 Chunk.prototype.setVox = function (ix, iy, iz, v) {
   if (!this.data && v === vox.TYPES.AIR) return
   if (!this.data) this.data = new Uint8Array(CS * CS * CS)
+  if (this.data[(ix << CB << CB) + (iy << CB) + iz] === undefined) {
+    throw new Error('Chunk.setVox ' + [ix, iy, iz].join(','))
+  }
   this.data[(ix << CB << CB) + (iy << CB) + iz] = v
 }
