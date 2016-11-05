@@ -26,22 +26,38 @@ test('perlin-amplitudes', function (t) {
 
 // Sample perlin noise across the plane, check for continuity
 test('perlin-plane', function (t) {
+  // amplitudes sum to 1.0
+  var amplitudes = [1 / 128, 2 / 128, 4 / 128, 8 / 128, 16 / 128, 32 / 128, 64 / 128]
+  testPerlinPlane(t, amplitudes, 'img/perlin-plane.png')
+})
+
+// Sample perlin noise where the amplitudes vary across the plane
+test('perlin-function', function (t) {
+  // mountainFn produces an amplitude in [0, 0.75) over our domain (0, 0) to (1000, 1000)
+  var mountainFn = function (rand, x, y, scale) {
+    return rand * Math.sin((x + y) * Math.PI / 2000.0) * 0.75
+  }
+  // maximum amplitudes sum to 1.0
+  var amplitudes = [1 / 128, 2 / 128, 4 / 128, 8 / 128, 16 / 128, 0, mountainFn]
+  testPerlinPlane(t, amplitudes, 'img/perlin-function.png')
+})
+
+function testPerlinPlane (t, amplitudes, filepath) {
   var width = 1000
   var height = 1000
   var stride = 40
   var noise = new Float32Array(stride * stride)
   var png = new PNG({width, height})
-  var amplitudes = [1, 2, 4, 8, 16, 32, 64]
   for (var x = 0; x < width; x += stride) {
     for (var y = 0; y < height; y += stride) {
       perlin.generate2D(noise, x, y, stride, amplitudes)
-      copyToPNG(png, x, y, noise, 127.0, stride, stride)
+      copyToPNG(png, x, y, noise, 1.0, stride, stride)
     }
   }
   var buffer = PNG.sync.write(png)
-  compareOrWriteBuffer(t, buffer, 'img/perlin-plane.png')
+  compareOrWriteBuffer(t, buffer, filepath)
   t.end()
-})
+}
 
 function compareOrWritePNG (t, data, max, width, height, filepath) {
   var png = new PNG({width, height})
