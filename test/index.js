@@ -31,11 +31,11 @@ test('perlin-plane', function (t) {
   var stride = 40
   var noise = new Float32Array(stride * stride)
   var png = new PNG({width, height})
-  var amplitudes = [0, 0, 0, 0, 0, 0, 1]
+  var amplitudes = [1, 2, 4, 8, 16, 32, 64]
   for (var x = 0; x < width; x += stride) {
     for (var y = 0; y < height; y += stride) {
       perlin.generate2D(noise, x, y, stride, amplitudes)
-      copyToPNG(png, x, y, noise, 1.0, stride, stride)
+      copyToPNG(png, x, y, noise, 127.0, stride, stride)
     }
   }
   var buffer = PNG.sync.write(png)
