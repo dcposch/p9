@@ -1,7 +1,8 @@
 var test = require('tape')
 var perlin = require('../src/math/perlin')
 var PNG = require('pngjs').PNG
-var fs = require('fs')
+var fs = require('fs-extra')
+var path = require('path')
 
 // Sample perlin noise with different amplitude settings at (0, 0)
 test('perlin-amplitudes', function (t) {
@@ -15,11 +16,11 @@ test('perlin-amplitudes', function (t) {
     if (i > 0) amplitudes[i - 1] = 0
     amplitudes[i] = 1
     perlin.generate2D(ret, x, y, width, amplitudes)
-    writePNG(ret, 1.0, width, width, '/tmp/perlin-' + i + '.png')
+    compareOrWritePNG(t, ret, 1.0, width, width, 'img/perlin-' + i + '.png')
   }
   amplitudes = [1, 2, 4, 8, 16, 32, 64]
   perlin.generate2D(ret, x, y, width, amplitudes)
-  writePNG(ret, 127.0, width, width, '/tmp/perlin-all.png')
+  compareOrWritePNG(t, ret, 127.0, width, width, 'img/perlin-all.png')
   t.end()
 })
 
@@ -38,15 +39,28 @@ test('perlin-plane', function (t) {
     }
   }
   var buffer = PNG.sync.write(png)
-  fs.writeFileSync('/tmp/perlin-plane.png', buffer)
+  compareOrWriteBuffer(t, buffer, 'img/perlin-plane.png')
   t.end()
 })
 
-function writePNG (data, max, width, height, filepath) {
+function compareOrWritePNG (t, data, max, width, height, filepath) {
   var png = new PNG({width, height})
   copyToPNG(png, 0, 0, data, max, width, height)
   var buffer = PNG.sync.write(png)
-  fs.writeFileSync(filepath, buffer)
+  compareOrWriteBuffer(t, buffer, filepath)
+}
+
+function compareOrWriteBuffer (t, buf, filepath) {
+  var fullPath = path.join(__dirname, filepath)
+  try {
+    var expectedBuf = fs.readFileSync(fullPath)
+    t.deepEqual(buf, expectedBuf, 'png buffers should match: ' + filepath)
+  } catch (e) {
+    if (e.code !== 'ENOENT') return t.fail(e)
+    fs.mkdirpSync(path.dirname(fullPath))
+    fs.writeFileSync(fullPath, buf)
+    console.error('created ' + filepath)
+  }
 }
 
 function copyToPNG (png, offsetX, offsetY, data, max, width, height) {
