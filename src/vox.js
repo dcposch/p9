@@ -1,8 +1,16 @@
 // Usage:
 // VOX.TYPES[1] // { name: 'WATER', ... }
 // VOX.INDEX.WATER // equals 1
-var VOX = {}
+var VOX = {
+  isSolid: isSolid
+}
 module.exports = VOX
+
+// Checks whether a given block index is solid (on-world and not air or water)
+function isSolid (v) {
+  // -1 is off-world, 0 is air, 1 is water, all other blocks are solid
+  return v > 1
+}
 
 // Voxel (block) types
 // The index will be used for serialization over the network and to disk.

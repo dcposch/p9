@@ -3,6 +3,7 @@ var playerControls = require('./player-controls')
 var gen = require('./gen')
 var World = require('./world')
 var config = require('./config')
+var picker = require('./picker')
 
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
@@ -24,7 +25,9 @@ var state = window.state = {
     // Physics
     dzdt: 0,
     // Situation can also be 'on-ground', 'suffocating'
-    situation: 'airborne'
+    situation: 'airborne',
+    // Which block we're looking at
+    lookAtBlock: null
   },
   perf: {
     lastFrameTime: new Date().getTime(),
@@ -58,10 +61,14 @@ env.shell.on('tick', function () {
   // TODO: update player state if there's data from the server
   // TODO: update objects, other players, NPCs, etc if there's data from the server
 
-  // Apply actions to world
+  // Update the world
   // (This should be done by both the client and the server. If they disagree, the server wins.)
   // TODO: place and break blocks
   gen.generateWorld(state)
+
+  // Block interactions
+  // TODO: handle break block, place block, etc
+  picker.pick(state)
 
   // Physics
   // TODO: update all active chunks
@@ -85,7 +92,6 @@ env.regl.frame(function (context) {
   state.perf.lastFrameTime = now
 
   // Handle player input, physics, update player position, direction, and velocity
-  // TODO: handle additional player actions (break block, place block, etc)
   // The game is paused when not in fullscreen
   if (env.shell.fullscreen) playerControls.tick(state, dt)
 

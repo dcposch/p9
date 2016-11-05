@@ -42,6 +42,8 @@ test('perlin-function', function (t) {
   testPerlinPlane(t, amplitudes, 'img/perlin-function.png')
 })
 
+// Sample perlin noise over the plane from (x, y) = (0, 0) to (1000, 1000)
+// Compare resulting image to reference PNG, or create reference PNG if new
 function testPerlinPlane (t, amplitudes, filepath) {
   var width = 1000
   var height = 1000
@@ -84,10 +86,10 @@ function copyToPNG (png, offsetX, offsetY, data, max, width, height) {
     for (var y = 0; y < height; y++) {
       var ix = (x + offsetX) + (y + offsetY) * png.height
       var grey = Math.min(255, Math.max(0, Math.floor(256 * data[x * width + y] / max)))
-      png.data[ix * 4 + 0] = grey
-      png.data[ix * 4 + 1] = grey
-      png.data[ix * 4 + 2] = grey
-      png.data[ix * 4 + 3] = 255
+      png.data[ix * 4 + 0] = grey // red
+      png.data[ix * 4 + 1] = grey // green
+      png.data[ix * 4 + 2] = grey // blue
+      png.data[ix * 4 + 3] = 255 // alpha
     }
   }
 }

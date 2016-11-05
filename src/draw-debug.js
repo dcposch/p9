@@ -1,6 +1,7 @@
 var env = require('./env')
 var shaders = require('./shaders')
 var version = require('../package.json').version
+var vox = require('./vox')
 
 var canvas = createHiddenCanvas()
 var context2D = createContext2D(canvas)
@@ -81,6 +82,12 @@ function createDebugText (state) {
 
   if (!state.started || !env.shell.fullscreen) {
     ret.push('Click to start')
+  } else if (state.player.lookAtBlock) {
+    var b = state.player.lookAtBlock
+    var l = b.location
+    ret.push('Looking at: (' + l.x + ', ' + l.y + ', ' + l.z + ') ' + vox.TYPES[b.voxel].name)
+  } else {
+    ret.push('Looking at: sky')
   }
 
   return ret
