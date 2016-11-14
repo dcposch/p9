@@ -96,7 +96,7 @@ env.regl.frame(function (context) {
   if (env.shell.fullscreen) playerControls.tick(state, dt)
 
   // Redraw the frame
-  env.regl.clear({ color: [0, 0, 0, 1], depth: 1 })
+  env.regl.clear({ color: [1, 1, 1, 1], depth: 1 })
   drawWorld(state)
   drawDebug(state)
   drawHitMarker({ color: [1, 1, 1, 0.5] })

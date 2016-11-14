@@ -11,8 +11,8 @@ varying vec3 vNormal;
 // aVertexPosition in world coordinates.
 // uMatrix is a combined projection * view matrix, so it transforms to clip coordinates.
 void main(void) {
-    gl_Position = uMatrix * vec4(aVertexPosition, 1.0);
-    vUV = aVertexUV;
-    vPosition = aVertexPosition;
-    vNormal = aVertexNormal;
+  gl_Position = uMatrix * vec4(aVertexPosition, 1.0);
+  vUV = aVertexUV;
+  vPosition = aVertexPosition;
+  vNormal = aVertexNormal;
 }

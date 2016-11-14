@@ -27,7 +27,7 @@ function updateMatrix (context, props) {
   // Then, make the projection matrix
   var width = context.viewportWidth
   var height = context.viewportHeight
-  mat4.perspective(pmat, 1, width / height, 0.2, 4000.0)
+  mat4.perspective(pmat, 1, width / height, 0.1, 1000.0)
   // Rotate the coordinates. +Z is up here, id style
   for (var i = 0; i < 4; i++) {
     var tmp = pmat[8 + i]

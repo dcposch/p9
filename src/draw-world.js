@@ -60,7 +60,8 @@ function drawChunksScope () {
       uAtlas: textureAtlas,
       uLightDir: [0.6, 0.48, 0.64],
       uLightDiffuse: [1, 1, 0.9],
-      uLightAmbient: [0.6, 0.6, 0.6]
+      uLightAmbient: [0.6, 0.6, 0.6],
+      uDepthFog: [1.0, 1.0, 1.0, 200.0]
     },
     blend: {
       enable: false

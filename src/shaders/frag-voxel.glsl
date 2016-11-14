@@ -10,14 +10,55 @@ uniform sampler2D uAtlas;
 uniform vec3 uLightDir;
 uniform vec3 uLightDiffuse;
 uniform vec3 uLightAmbient;
+uniform vec4 uDepthFog;
 
 const float TILE_SIZE = 1.0 / 32.0;
+
+vec4 computeTexColor ();
+vec3 computeLight ();
+vec4 computeDepthFog ();
+vec4 sampleTileAtlas (vec2 tileCoord, vec2 tileUV);
+
+void main (void) {
+    vec4 texColor = computeTexColor(); // Voxel texture
+    if (texColor.a < 0.5) discard; // Binary transparency: see thru leaves, glass blocks, etc
+    vec3 light = computeLight(); // Ambient and direct lighting
+    vec4 fog = computeDepthFog();
+    vec3 emittedLight = light * texColor.xyz;
+    gl_FragColor = vec4(emittedLight * (1.0 - fog.w) + fog.xyz * fog.w, 1.0);
+}
+
+// Computes the voxel texture color for this fragment
+vec4 computeTexColor () {
+  vec3 n = vNormal;
+  vec3 p = vPosition;
+  float u = dot(vec3(p.x, p.y, p.x), abs(vec3(n.z, n.x, n.y)));
+  float v = dot(vec3(-p.z, p.y, -p.z), abs(vec3(n.y, n.z, n.x)));
+  vec2 tileUV = fract(vec2(u, v));
+  return sampleTileAtlas(vUV, tileUV);
+}
+
+// Computes the combined ambient and direct lighting. There is no diffuse light.
+vec3 computeLight () {
+  float lightDot = clamp(dot(uLightDir, vNormal), 0.0, 1.0);
+  return uLightAmbient + lightDot * uLightDiffuse;
+}
+
+// Computes depth fog
+// uDepthFog.xyz is the color of the fog
+// uDepthFog.w is the depth at which it reaches 50% opacity
+// When depth is 3 * uDepthFog.w, the fog is at 75% opacity, etc
+vec4 computeDepthFog () {
+  float depth = gl_FragCoord.z / gl_FragCoord.w;
+  float opacity = 1.0 - exp(-depth / uDepthFog.w);
+  return vec4(uDepthFog.xyz, opacity);
+}
 
 // Algorithm from a sweet blog post
 // http://0fps.net/2013/07/09/texture-atlases-wrapping-and-mip-mapping/
 // tileCoord represents integer coordinates in the texture atlas. (3, 4) would be 3rd col, 4th row.
 // tileUV represents the fract in that particular square. tileUV is in [0.0, 1.0)
-vec4 sampleTileAtlas(vec2 tileCoord, vec2 tileUV) {
+vec4 sampleTileAtlas (vec2 tileCoord, vec2 tileUV) {
   // Initialize accumulators
   vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
   float totalWeight = 0.0;
@@ -40,19 +81,4 @@ vec4 sampleTileAtlas(vec2 tileCoord, vec2 tileUV) {
 
   // Return weighted color
   return color / totalWeight;
-}
-
-void main(void) {
-    vec3 n = vNormal;
-    vec3 p = vPosition;
-    float u = dot(vec3(p.x, p.y, p.x), abs(vec3(n.z, n.x, n.y)));
-    float v = dot(vec3(-p.z, p.y, -p.z), abs(vec3(n.y, n.z, n.x)));
-    vec2 tileUV = fract(vec2(u, v));
-    vec4 texColor = sampleTileAtlas(vUV, tileUV);
-    if (texColor.a < 0.5) discard;
-
-    float lightDot = clamp(dot(uLightDir, vNormal), 0.0, 1.0);
-    vec3 light = uLightAmbient + lightDot * uLightDiffuse;
-
-    gl_FragColor = vec4(light * texColor.xyz, texColor.w);
 }
