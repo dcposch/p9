@@ -117,5 +117,5 @@ function simulate (state, dt) {
 // Returns true if (x, y, z) is unpassable (either in a block or off the world)
 function collide (state, x, y, z) {
   var v = state.world.getVox(x | 0, y | 0, z | 0)
-  return !!v
+  return v > 1
 }
