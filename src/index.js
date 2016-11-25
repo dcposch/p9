@@ -26,7 +26,7 @@ var state = window.state = {
     dzdt: 0,
     // Situation can also be 'on-ground', 'suffocating'
     situation: 'airborne',
-    // Which block we're looking at
+    // Which block we're looking at. {location: {x,y,z}, side: {nx,ny,nz}, voxel}
     lookAtBlock: null
   },
   perf: {
@@ -67,8 +67,8 @@ env.shell.on('tick', function () {
   gen.generateWorld(state)
 
   // Block interactions
-  // TODO: handle break block, place block, etc
   picker.pick(state)
+  playerControls.interact(state)
 
   // Physics
   // TODO: update all active chunks

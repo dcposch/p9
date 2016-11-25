@@ -1,12 +1,14 @@
 var config = require('./config')
 var env = require('./env')
+var vox = require('./vox')
 var shell = env.shell
 
 module.exports = {
-  tick: tick
+  tick: tick,
+  interact: interact
 }
 
-// Calculates player physics and takes player input
+// Calculates player physics. Lets the player move and look around.
 function tick (state, dt) {
   // If dt is too large, simulate in smaller increments
   // This prevents glitches like jumping through a block, getting stuck inside a block, etc
@@ -16,6 +18,13 @@ function tick (state, dt) {
     simulate(state, stepDt)
   }
   look(state.player)
+}
+
+// Lets the player place and break blocks
+// TODO: let the player interact with items
+function interact (state) {
+  if (shell.wasDown('mouse-left')) placeBlock(state)
+  else if (shell.wasDown('mouse-right')) breakBlock(state)
 }
 
 // Let the player move
@@ -118,4 +127,30 @@ function simulate (state, dt) {
 function collide (state, x, y, z) {
   var v = state.world.getVox(x | 0, y | 0, z | 0)
   return v > 1
+}
+
+// Place a block onto the block face we're looking at
+// TODO: rate limit
+function placeBlock (state) {
+  var block = state.player.lookAtBlock
+  if (!block) return
+  var loc = block.location
+  var side = block.side
+  var bx = loc.x + side.nx
+  var by = loc.y + side.ny
+  var bz = loc.z + side.nz
+
+  // Don't let the player place a block where they're standing
+  var p = state.player.location
+  if (bx === Math.floor(p.x)) return
+  if (by === Math.floor(p.y)) return
+  if ([0, 1].includes(bz - Math.floor(p.z))) return
+
+  // TODO: select which type of block to place
+  state.world.setVox(bx, by, bz, vox.INDEX.LIGHT_PURPLE)
+}
+
+// Break the block we're looking at
+function breakBlock (state) {
+  // TODO
 }

@@ -47,17 +47,18 @@ function generateWorld (state) {
 
   // Only generate up to MAX_NEW_CHUNKS chunks, starting with the ones closest to the player
   chunksToGenerate.sort(function (a, b) { return a.d2 - b.d2 })
-  var newChunks = []
   var maxNew = state.world.chunks.length === 0 ? 1e6 : MAX_NEW_CHUNKS
-  for (var i = 0; i < chunksToGenerate.length && newChunks.length < maxNew; i++) {
+  var numNew = 0
+  for (var i = 0; i < chunksToGenerate.length && numNew < maxNew; i++) {
     var c = chunksToGenerate[i]
     chunk = generateChunk(c.ix, c.iy, c.iz)
     if (!chunk) continue
     state.world.addChunk(chunk)
-    newChunks.push(chunk)
+    numNew++
   }
 
   // Mesh
+  var newChunks = state.world.chunks.filter(function (chunk) { return !chunk.mesh })
   newChunks.forEach(function (c) {
     // Mesh chunk now
     meshChunk.mesh(c, state.world)

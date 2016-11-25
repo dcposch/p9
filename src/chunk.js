@@ -13,6 +13,7 @@ function Chunk (x, y, z) {
   this.y = y
   this.z = z
   this.data = null
+  this.mesh = null
 }
 
 // Takes integer coordinates relative to this chunk--in other words, in the range [0, CHUNK_SIZE)
@@ -29,5 +30,9 @@ Chunk.prototype.setVox = function (ix, iy, iz, v) {
   if (this.data[(ix << CB << CB) + (iy << CB) + iz] === undefined) {
     throw new Error('Chunk.setVox ' + [ix, iy, iz].join(','))
   }
-  this.data[(ix << CB << CB) + (iy << CB) + iz] = v
+  var index = (ix << CB << CB) + (iy << CB) + iz
+  if (this.data[index] === v) return
+  this.data[index] = v
+  if (this.mesh) this.mesh.destroy()
+  this.mesh = null
 }

@@ -1,6 +1,6 @@
 var config = require('./config')
+var Chunk = require('./chunk')
 
-var CS = config.CHUNK_SIZE
 var CB = config.CHUNK_BITS
 
 module.exports = World
@@ -22,7 +22,8 @@ World.prototype = {
   removeChunk: removeChunk,
   removeChunks: removeChunks,
   getChunk: getChunk,
-  getVox: getVox
+  getVox: getVox,
+  setVox: setVox
 }
 
 // Adds a new chunk (cube of voxels) to the world
@@ -66,22 +67,33 @@ function removeChunks (predicate) {
   if (offset > 0) this.chunks.length = this.chunks.length - offset
 }
 
-// Returns the voxel at (x, y, z), or -1 if that chunk doesn't exist
-function getVox (x, y, z) {
-  var cx = x >> CB << CB
-  var cy = y >> CB << CB
-  var cz = z >> CB << CB
-  var key = cx + ',' + cy + ',' + cz
-  var chunk = this.chunkTable[key]
-  if (!chunk || !chunk.data) return -1
-  var ix = (x - cx) * CS * CS + (y - cy) * CS + (z - cz)
-  return chunk.data[ix]
-}
-
 // Returns the chunk AT (x, y, z), not the chunk containing (x, y, z)
 // In other words, x, y, and z should all be multiples of CHUNK_SIZE
 // Returns undefined if that chunk doesn't exist
 function getChunk (x, y, z) {
   var key = x + ',' + y + ',' + z
   return this.chunkTable[key]
+}
+
+// Returns the voxel at (x, y, z), or -1 if that chunk doesn't exist
+function getVox (x, y, z) {
+  var cx = x >> CB << CB
+  var cy = y >> CB << CB
+  var cz = z >> CB << CB
+  var chunk = this.getChunk(cx, cy, cz)
+  if (!chunk) return -1
+  return chunk.getVox(x - cx, y - cy, z - cz)
+}
+
+// Sets the voxel at (x, y, z), creating a new chunk if necessary
+function setVox (x, y, z, v) {
+  var cx = x >> CB << CB
+  var cy = y >> CB << CB
+  var cz = z >> CB << CB
+  var chunk = this.getChunk(cx, cy, cz)
+  if (!chunk) {
+    chunk = new Chunk(cx, cy, cz)
+    this.addChunk(chunk)
+  }
+  chunk.setVox(x - cx, y - cy, z - cz, v)
 }

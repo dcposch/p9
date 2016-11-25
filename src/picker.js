@@ -5,9 +5,9 @@ module.exports = {
 }
 
 var SIDE_0 = { nx: 0, ny: 0, nz: 0 }
-var SIDE_X = [{ nx: -1, ny: 0, nz: 0 }, { nx: 1, ny: 0, nz: 0 }]
-var SIDE_Y = [{ nx: 0, ny: -1, nz: 0 }, { nx: 0, ny: 1, nz: 0 }]
-var SIDE_Z = [{ nx: 0, ny: 0, nz: -1 }, { nx: 0, ny: 0, nz: 1 }]
+var SIDE_X = [{ nx: 1, ny: 0, nz: 0 }, { nx: -1, ny: 0, nz: 0 }]
+var SIDE_Y = [{ nx: 0, ny: 1, nz: 0 }, { nx: 0, ny: -1, nz: 0 }]
+var SIDE_Z = [{ nx: 0, ny: 0, nz: 1 }, { nx: 0, ny: 0, nz: -1 }]
 var EPS = 1e-6
 
 // Picking algorithm
