@@ -2,7 +2,6 @@ var perlin = require('../math/perlin')
 var vox = require('../vox')
 var config = require('../config')
 var Chunk = require('../chunk')
-var meshChunk = require('../mesh-chunk')
 
 // Generate the world
 module.exports = {
@@ -17,8 +16,6 @@ var heightmap1 = new Float32Array((CS + PAD2) * (CS + PAD2))
 var heightmap2 = new Float32Array((CS + PAD2) * (CS + PAD2))
 var heightmap3 = new Float32Array(CS * CS)
 var MAX_NEW_CHUNKS = 8
-var MAX_REMESH_CHUNKS = 6
-var mapToMesh = {}
 
 // Generate chunks in a radius around the player
 function generateWorld (state) {
@@ -57,28 +54,6 @@ function generateWorld (state) {
     numNew++
   }
 
-  // Mesh
-  var newChunks = state.world.chunks.filter(function (chunk) { return !chunk.mesh })
-  newChunks.forEach(function (c) {
-    // Mesh chunk now
-    meshChunk.mesh(c, state.world)
-    // Remesh adjacent chunks soon
-    mapToMesh[[c.x + CS, c.y, c.z].join(',')] = true
-    mapToMesh[[c.x - CS, c.y, c.z].join(',')] = true
-    mapToMesh[[c.x, c.y + CS, c.z].join(',')] = true
-    mapToMesh[[c.x, c.y - CS, c.z].join(',')] = true
-    mapToMesh[[c.x, c.y, c.z + CS].join(',')] = true
-    mapToMesh[[c.x, c.y, c.z - CS].join(',')] = true
-  })
-  // Don't remesh the new chunks themselves, those are already done
-  newChunks.forEach(function (c) {
-    delete mapToMesh[[c.x, c.y, c.z].join(',')]
-  })
-
-  // Quit if there's nothing new to do
-  var keysToMesh = Object.keys(mapToMesh)
-  if (newChunks.length === 0 && keysToMesh.length === 0) return
-
   // Delete any no longer needed chunks
   state.world.removeChunks(function (chunk) {
     var dx = (chunk.x >> CB) - cx
@@ -86,21 +61,6 @@ function generateWorld (state) {
     var dz = (chunk.z >> CB) - cz
     return dx * dx + dy * dy + dz * dz > radius * radius
   })
-
-  // Remesh chunks
-  var numRemeshed = 0
-  for (i = 0; i < keysToMesh.length; i++) {
-    var key = keysToMesh[i]
-    var coords = key.split(',').map(Number)
-    chunk = state.world.getChunk(coords[0], coords[1], coords[2])
-    if (chunk) {
-      meshChunk.mesh(chunk, state.world)
-      numRemeshed++
-    }
-    delete mapToMesh[key]
-    if (numRemeshed >= MAX_REMESH_CHUNKS) break
-  }
-  console.log('Generated %d chunks, remeshed %d', newChunks.length, numRemeshed)
 }
 
 // World generation. Generates one chunk of voxels.

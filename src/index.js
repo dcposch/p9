@@ -4,6 +4,7 @@ var gen = require('./gen')
 var World = require('./world')
 var config = require('./config')
 var picker = require('./picker')
+var mesher = require('./mesher')
 
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
@@ -62,8 +63,6 @@ env.shell.on('tick', function () {
   // TODO: update objects, other players, NPCs, etc if there's data from the server
 
   // Update the world
-  // (This should be done by both the client and the server. If they disagree, the server wins.)
-  // TODO: place and break blocks
   gen.generateWorld(state)
 
   // Block interactions
@@ -71,7 +70,7 @@ env.shell.on('tick', function () {
   playerControls.interact(state)
 
   // Physics
-  // TODO: update all active chunks
+  // TODO: block physics, update all active chunks
   var elapsedMs = Math.round(new Date().getTime() - startMs)
   if (elapsedMs > 1000 * config.TICK_INTERVAL) console.log('Slow tick: %d ms', elapsedMs)
 })
@@ -94,6 +93,8 @@ env.regl.frame(function (context) {
   // Handle player input, physics, update player position, direction, and velocity
   // The game is paused when not in fullscreen
   if (env.shell.fullscreen) playerControls.tick(state, dt)
+
+  mesher.meshWorld(state.world)
 
   // Redraw the frame
   env.regl.clear({ color: [1, 1, 1, 1], depth: 1 })

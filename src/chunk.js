@@ -14,6 +14,7 @@ function Chunk (x, y, z) {
   this.z = z
   this.data = null
   this.mesh = null
+  this.dirty = false
 }
 
 // Takes integer coordinates relative to this chunk--in other words, in the range [0, CHUNK_SIZE)
@@ -24,6 +25,7 @@ Chunk.prototype.getVox = function (ix, iy, iz) {
 }
 
 // Takes integer coordinates relative to this chunk and a voxel int
+// If this changes the value of that voxel, makes the chunk dirty
 Chunk.prototype.setVox = function (ix, iy, iz, v) {
   if (!this.data && v === vox.TYPES.AIR) return
   if (!this.data) this.data = new Uint8Array(CS * CS * CS)
@@ -33,6 +35,5 @@ Chunk.prototype.setVox = function (ix, iy, iz, v) {
   var index = (ix << CB << CB) + (iy << CB) + iz
   if (this.data[index] === v) return
   this.data[index] = v
-  if (this.mesh) this.mesh.destroy()
-  this.mesh = null
+  this.dirty = true
 }

@@ -142,9 +142,11 @@ function placeBlock (state) {
 
   // Don't let the player place a block where they're standing
   var p = state.player.location
-  if (bx === Math.floor(p.x)) return
-  if (by === Math.floor(p.y)) return
-  if ([0, 1].includes(bz - Math.floor(p.z))) return
+  var intersectsPlayer =
+    bx === Math.floor(p.x) &&
+    by === Math.floor(p.y) &&
+    [0, 1].includes(bz - Math.floor(p.z))
+  if (intersectsPlayer) return
 
   // TODO: select which type of block to place
   state.world.setVox(bx, by, bz, vox.INDEX.LIGHT_PURPLE)

@@ -5,22 +5,72 @@ var Chunk = require('./chunk')
 
 // Meshes and renders voxels chunks
 module.exports = {
-  mesh: mesh
+  meshWorld: meshWorld,
+  meshChunk: meshChunk
 }
 
-var CS = config.CHUNK_SIZE | 0
+// Working memory for meshChunk. Allocate once.
+var CS = config.CHUNK_SIZE
 var CS3 = CS * CS * CS
 var verts = new Float32Array(CS3 * 3)
 var normals = new Float32Array(CS3 * 3)
 var uvs = new Float32Array(CS3 * 2)
 var meshed = new Chunk(0, 0, 0)
 
+// Variables for meshWorld
+var MAX_REMESH_CHUNKS = 6
+var mapToMesh = {}
+
+// Meshes all dirty chunks in the visible world, and lazily remeshes adjacent chunks
+function meshWorld (world) {
+  // Mesh
+  var dirtyChunks = world.chunks.filter(function (chunk) {
+    return (chunk.data && !chunk.mesh) || chunk.dirty
+  })
+  dirtyChunks.forEach(function (c) {
+    // Mesh chunk now
+    meshChunk(c, world)
+    // Remesh adjacent chunks soon
+    mapToMesh[[c.x + CS, c.y, c.z].join(',')] = true
+    mapToMesh[[c.x - CS, c.y, c.z].join(',')] = true
+    mapToMesh[[c.x, c.y + CS, c.z].join(',')] = true
+    mapToMesh[[c.x, c.y - CS, c.z].join(',')] = true
+    mapToMesh[[c.x, c.y, c.z + CS].join(',')] = true
+    mapToMesh[[c.x, c.y, c.z - CS].join(',')] = true
+  })
+  // Don't remesh the dirty chunks themselves, those are already done
+  dirtyChunks.forEach(function (c) {
+    delete mapToMesh[[c.x, c.y, c.z].join(',')]
+  })
+
+  // Quit if there's nothing new to do
+  var keysToMesh = Object.keys(mapToMesh)
+  if (dirtyChunks.length === 0 && keysToMesh.length === 0) return
+
+  // Remesh chunks
+  var numRemeshed = 0
+  for (var i = 0; i < keysToMesh.length; i++) {
+    var key = keysToMesh[i]
+    var coords = key.split(',').map(Number)
+    var chunk = world.getChunk(coords[0], coords[1], coords[2])
+    if (chunk) {
+      meshChunk(chunk, world)
+      numRemeshed++
+    }
+    delete mapToMesh[key]
+    if (numRemeshed >= MAX_REMESH_CHUNKS) break
+  }
+  console.log('Meshed %d dirty chunks, remeshed %d adjacent', dirtyChunks.length, numRemeshed)
+}
+
 // Meshes a chunk, creating a regl object.
 // (That means position, UV VBOs are sent to the GPU.)
 //
 // Meshes exposed surfaces only. Uses the greedy algorithm.
 // http://0fps.net/2012/06/30/meshing-in-a-minecraft-game/
-function mesh (chunk, world) {
+function meshChunk (chunk, world) {
+  chunk.dirty = false
+
   if (!chunk.data) return
 
   // Clear progress buffer
