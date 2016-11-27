@@ -27,5 +27,9 @@ module.exports = {
   PHYSICS: {
     MAX_DT: 0.01, // Compute physics in increments of at most 10ms to avoid glitches
     GRAVITY: 30 // Twice Earth gravity, 20ms^-2, each voxel is 1 m^3
+  },
+  SERVER: {
+    VERSION: 0,
+    PORT: 8080
   }
 }
