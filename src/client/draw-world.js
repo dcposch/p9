@@ -1,5 +1,5 @@
 var env = require('./env')
-var config = require('./config')
+var config = require('../config')
 var shaders = require('./shaders')
 var camera = require('./camera')
 

@@ -1,6 +1,6 @@
 var regl = require('regl')
 var shell = require('game-shell')
-var config = require('./config')
+var config = require('../config')
 
 var canvas = document.querySelector('#gl')
 var INITIAL_W = canvas.width

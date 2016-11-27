@@ -1,4 +1,4 @@
-var vox = require('./vox')
+var vox = require('../vox')
 
 module.exports = {
   pick: pick

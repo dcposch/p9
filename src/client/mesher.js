@@ -1,7 +1,7 @@
 var env = require('./env')
-var config = require('./config')
-var vox = require('./vox')
-var Chunk = require('./chunk')
+var config = require('../config')
+var vox = require('../vox')
+var Chunk = require('../chunk')
 
 // Meshes and renders voxels chunks
 module.exports = {

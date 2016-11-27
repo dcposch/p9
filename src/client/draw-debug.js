@@ -1,7 +1,7 @@
 var env = require('./env')
 var shaders = require('./shaders')
-var version = require('../package.json').version
-var vox = require('./vox')
+var version = require('../../package.json').version
+var vox = require('../vox')
 
 var canvas = createHiddenCanvas()
 var context2D = createContext2D(canvas)

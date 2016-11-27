@@ -18,10 +18,11 @@ module.exports = function Client (ws) {
     else handleJsonMessage(self, JSON.parse(data))
   })
   ws.send(JSON.stringify({serverVersion: config.SERVER.VERSION}))
+  ws.send(Uint8Array.from([1, 2, 3, 4]))
 }
 
 function handleBinaryMessage (client, arr) {
-  console.log('DBG binary message ' + arr)
+  console.log('DBG binary message ' + typeof arr)
 }
 
 function handleJsonMessage (client, obj) {

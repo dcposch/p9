@@ -9,7 +9,8 @@
     "lint-css": "stylelint **/*.css --config node_modules/stylelint-config-standard/index.js",
     "lint": "npm run lint-js && npm run lint-css",
     "test": "npm run lint && node ./test",
-    "build": "npm run clean && mkdirp build && browserify --debug -t brfs src/ > build/bundle.js && cp -r static/* build/",
+    "browserify": "browserify --debug -t brfs src/client > build/bundle.js",
+    "build": "npm run clean && mkdirp build && npm run browserify && cp -r static/* build/",
     "start": "npm run build && node ./src/server"
   },
   "repository": {
@@ -17,7 +18,7 @@
     "url": "git://github.com/dcposch/gl.git"
   },
   "author": "",
-  "license": "BSD-2-Clause",
+  "license": "Proprietary",
   "bugs": {
     "url": "https://github.com/dcposch/gl/issues"
   },

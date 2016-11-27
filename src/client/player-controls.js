@@ -1,6 +1,6 @@
-var config = require('./config')
+var config = require('../config')
 var env = require('./env')
-var vox = require('./vox')
+var vox = require('../vox')
 var shell = env.shell
 
 module.exports = {

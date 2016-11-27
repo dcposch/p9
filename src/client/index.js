@@ -1,10 +1,10 @@
 var sound = require('./sound')
 var playerControls = require('./player-controls')
-var gen = require('./gen')
-var World = require('./world')
-var config = require('./config')
 var picker = require('./picker')
 var mesher = require('./mesher')
+var World = require('../world')
+var config = require('../config')
+var gen = require('../gen')
 
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
