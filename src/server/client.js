@@ -21,8 +21,8 @@ module.exports = function Client (ws) {
   ws.send(Uint8Array.from([1, 2, 3, 4]))
 }
 
-function handleBinaryMessage (client, arr) {
-  console.log('DBG binary message ' + typeof arr)
+function handleBinaryMessage (client, data) {
+  console.log('DBG binary message ' + data.length + ': ' + new Uint8Array(data))
 }
 
 function handleJsonMessage (client, obj) {

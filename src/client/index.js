@@ -2,6 +2,7 @@ var sound = require('./sound')
 var playerControls = require('./player-controls')
 var picker = require('./picker')
 var mesher = require('./mesher')
+var Socket = require('./socket')
 var World = require('../world')
 var config = require('../config')
 var gen = require('../gen')
@@ -35,23 +36,13 @@ var state = window.state = {
     fps: 0
   },
   world: new World(),
-  socket: new window.WebSocket('ws:/' + window.location.host)
+  socket: new Socket()
 }
 
 // Runs once: initialization
 env.shell.on('init', function () {
   console.log('WELCOME ~ VOXEL WORLD')
 })
-
-state.socket.onopen = function () {
-  console.log('DBG socket open')
-  state.socket.send(JSON.stringify({hello: 'world'}))
-  state.socket.send(Uint8Array.from([1, 2, 3, 4]))
-}
-
-state.socket.onmessage = function (e) {
-  console.log('DBG got message: ' + e.data)
-}
 
 // Click to start
 env.canvas.addEventListener('click', function () {
