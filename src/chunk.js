@@ -20,14 +20,14 @@ function Chunk (x, y, z) {
 // Takes integer coordinates relative to this chunk--in other words, in the range [0, CHUNK_SIZE)
 // Returns an integer representing voxel data
 Chunk.prototype.getVox = function (ix, iy, iz) {
-  if (!this.data) return vox.TYPES.AIR
+  if (!this.data) return vox.INDEX.AIR
   return this.data[(ix << CB << CB) + (iy << CB) + iz]
 }
 
 // Takes integer coordinates relative to this chunk and a voxel int
 // If this changes the value of that voxel, makes the chunk dirty
 Chunk.prototype.setVox = function (ix, iy, iz, v) {
-  if (!this.data && v === vox.TYPES.AIR) return
+  if (!this.data && v === vox.INDEX.AIR) return
   if (!this.data) this.data = new Uint8Array(CS * CS * CS)
   if (this.data[(ix << CB << CB) + (iy << CB) + iz] === undefined) {
     throw new Error('Chunk.setVox ' + [ix, iy, iz].join(','))
