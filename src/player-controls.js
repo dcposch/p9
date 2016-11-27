@@ -8,6 +8,16 @@ module.exports = {
   interact: interact
 }
 
+var EPS = 0.001
+var PW = config.PLAYER_WIDTH
+var PH = config.PLAYER_HEIGHT
+var HORIZONTAL_COLLISION_DIRS = [
+  [PW, 0, 0], [PW, 0, -1],
+  [-PW, 0, 0], [-PW, 0, -1],
+  [0, PW, 0], [0, PW, -1],
+  [0, -PW, 0], [0, -PW, -1]
+]
+
 // Calculates player physics. Lets the player move and look around.
 function tick (state, dt) {
   // If dt is too large, simulate in smaller increments
@@ -72,50 +82,37 @@ function simulate (state, dt) {
   var loc = player.location
 
   // Horizontal collision
-  var eps = 0.001
-  var pw = config.PLAYER_WIDTH
-  var ph = config.PLAYER_HEIGHT
-  var dirs = [
-    [pw, 0, -ph + pw],
-    [-pw, 0, -ph + pw],
-    [0, pw, -ph + pw],
-    [0, -pw, -ph + pw],
-    [pw, 0, -pw],
-    [-pw, 0, -pw],
-    [0, pw, -pw],
-    [0, -pw, -pw]
-  ]
-  dirs.forEach(function (dir) {
+  HORIZONTAL_COLLISION_DIRS.forEach(function (dir) {
     if (!collide(state, loc.x + dir[0], loc.y + dir[1], loc.z + dir[2])) return
     // Back off just enough to avoid collision. Don't bounce.
-    if (dir[0] > 0) loc.x = Math.ceil(loc.x) - pw - eps
-    if (dir[0] < 0) loc.x = Math.floor(loc.x) + pw + eps
-    if (dir[1] > 0) loc.y = Math.ceil(loc.y) - pw - eps
-    if (dir[1] < 0) loc.y = Math.floor(loc.y) + pw + eps
+    if (dir[0] > 0) loc.x = Math.ceil(loc.x) - PW - EPS
+    if (dir[0] < 0) loc.x = Math.floor(loc.x) + PW + EPS
+    if (dir[1] > 0) loc.y = Math.ceil(loc.y) - PW - EPS
+    if (dir[1] < 0) loc.y = Math.floor(loc.y) + PW + EPS
   })
 
   // Gravity
   player.dzdt -= config.PHYSICS.GRAVITY * dt
 
   // Vertical collision
-  var underfoot = collide(state, loc.x, loc.y, loc.z - ph - eps)
-  var legs = collide(state, loc.x, loc.y, loc.z - pw - eps)
-  var head = collide(state, loc.x, loc.y, loc.z - eps)
+  var underfoot = collide(state, loc.x, loc.y, loc.z - PH - EPS)
+  var legs = collide(state, loc.x, loc.y, loc.z - PW - EPS)
+  var head = collide(state, loc.x, loc.y, loc.z + PW - EPS)
   if (head && underfoot) {
     player.dzdt = 0
     player.situation = 'suffocating'
   } else if (head) {
     player.dzdt = 0
     player.situation = 'airborne'
-    loc.z = Math.floor(loc.z - ph - eps) + ph
+    loc.z = Math.floor(loc.z - PH - EPS) + PH
   } else if (legs) {
     player.dzdt = 0
     player.situation = 'on-ground'
-    loc.z = Math.ceil(loc.z - pw - eps) + ph
+    loc.z = Math.ceil(loc.z - PW - EPS) + PH
   } else if (underfoot && player.dzdt <= 0) {
     player.dzdt = 0
     player.situation = 'on-ground'
-    loc.z = Math.ceil(loc.z - ph - eps) + ph
+    loc.z = Math.ceil(loc.z - PH - EPS) + PH
   } else {
     player.situation = 'airborne'
   }
@@ -125,7 +122,7 @@ function simulate (state, dt) {
 
 // Returns true if (x, y, z) is unpassable (either in a block or off the world)
 function collide (state, x, y, z) {
-  var v = state.world.getVox(x | 0, y | 0, z | 0)
+  var v = state.world.getVox(Math.floor(x), Math.floor(y), Math.floor(z))
   return v > 1
 }
 
@@ -145,7 +142,7 @@ function placeBlock (state) {
   var intersectsPlayer =
     bx === Math.floor(p.x) &&
     by === Math.floor(p.y) &&
-    [0, 1].includes(bz - Math.floor(p.z))
+    [0, -1].includes(bz - Math.floor(p.z))
   if (intersectsPlayer) return
 
   // TODO: select which type of block to place

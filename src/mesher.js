@@ -97,9 +97,9 @@ function meshGreedyQuad (chunk, world) {
   for (ix = 0; ix < CS; ix++) {
     for (iy = 0; iy < CS; iy++) {
       for (iz = 0; iz < CS; iz++) {
-        var isMeshed = meshed.getVox(ix, iy, iz) | 0
+        var isMeshed = meshed.getVox(ix, iy, iz)
         if (isMeshed > 0) continue
-        var v = chunk.getVox(ix, iy, iz) | 0
+        var v = chunk.getVox(ix, iy, iz)
         if (v === vox.INDEX.AIR) continue
 
         // expand to largest possible quad

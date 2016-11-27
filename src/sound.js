@@ -16,7 +16,7 @@ names.forEach(function (name) {
 })
 
 function play (name) {
-  let audio = cache[name]
+  var audio = cache[name]
   if (!audio) throw new Error('Missing sound: ' + name)
   audio.currentTime = 0
   audio.play()
