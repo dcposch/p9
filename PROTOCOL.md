@@ -27,7 +27,7 @@
 - for each chunk:
   - x, y, z, numQuads (int32)
   - for each quad:
-    - quad x, y, z, v (5 + 5 + 5 + 8 bits, packed into an int32)
+    - quad x0, y0, z0, x1, y1, z1, v (7 bytes, padded to 8 bytes)
 
 example scene:
 
