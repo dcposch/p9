@@ -42,8 +42,8 @@ function raycastBlock (loc, dir, world) {
     var v = world.getVox(ix, iy, iz)
     if (v < 0) return null // off-world
     if (vox.isSolid(v)) return { location: { x: ix, y: iy, z: iz }, side: side, voxel: v }
-    // if we're here, (lx, ly, lz) is in an air or water block
-    // intersect the nearest integer x, y, and z planes, then see which is closest
+    // If we're here, (lx, ly, lz) is in an air or water block
+    // Intersect the nearest integer x, y, and z planes, then see which is closest
     var distx = (sdx - lx + ix) / dx
     var disty = (sdy - ly + iy) / dy
     var distz = (sdz - lz + iz) / dz

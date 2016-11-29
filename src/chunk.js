@@ -9,13 +9,13 @@ var CB = config.CHUNK_BITS
 
 var packed = new Chunk()
 
-function Chunk (x, y, z, data) {
-  this.x = x || 0
-  this.y = y || 0
-  this.z = z || 0
-  this.packed = false
+function Chunk (x, y, z, data, packed) {
+  this.x = x | 0
+  this.y = y | 0
+  this.z = z | 0
+  this.packed = !!packed
   this.data = data || null
-  this.length = data ? data.length : 0
+  this.length = packed ? data.length : 0
   this.mesh = null
   this.dirty = !!data
 }
@@ -210,10 +210,12 @@ function findQuad (chunk, ix, iy, iz) {
   return null
 }
 
+// Implements the greedy quad algorithm
+// http://0fps.net/2012/06/30/meshing-in-a-minecraft-game/
 function packGreedyQuads (chunk) {
   if (packed.data) packed.data.fill(0)
 
-  // write quads into a flat array, minimize allocations
+  // Write quads into a flat array, minimize allocations
   var quads = []
   var ix, iy, iz
   for (ix = 0; ix < CS; ix++) {
@@ -224,7 +226,7 @@ function packGreedyQuads (chunk) {
         var v = chunk.getVox(ix, iy, iz)
         if (v === 0) continue
 
-        // expand to largest possible quad
+        // Expand to largest possible quad
         var jx = ix + 1
         var jy = iy + 1
         var jz = iz + 1
@@ -248,7 +250,7 @@ function packGreedyQuads (chunk) {
           }
         }
 
-        // mark quad as done
+        // Mark quad as done
         if (ix >= jx) throw new Error('invalid quad x')
         if (iy >= jy) throw new Error('invalid quad y')
         if (iz >= jz) throw new Error('invalid quad z')
@@ -261,6 +263,7 @@ function packGreedyQuads (chunk) {
           }
         }
 
+        // 8 bytes per quad. see PROTOCOL.md
         quads.push(ix)
         quads.push(iy)
         quads.push(iz)

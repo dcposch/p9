@@ -61,11 +61,8 @@ function meshWorld (world) {
   console.log('Meshed %d dirty chunks, remeshed %d adjacent', dirtyChunks.length, numRemeshed)
 }
 
-// Meshes a chunk, creating a regl object.
+// Meshes a chunk, exposed surfaces only, creating a regl object.
 // (That means position, UV VBOs are sent to the GPU.)
-//
-// Meshes exposed surfaces only. Uses the greedy algorithm.
-// http://0fps.net/2012/06/30/meshing-in-a-minecraft-game/
 function meshChunk (chunk, world) {
   if (!chunk.data) return
   if (!chunk.packed) throw new Error('must pack chunk before meshing')
@@ -92,7 +89,7 @@ function meshBuffers (chunk, world) {
   var iuv = 0
   var i
 
-  // loop thru the packed representation (list of quads)
+  // Loop thru the packed representation (list of quads)
   for (var index = 0; index < chunk.length; index += 8) {
     var x0 = chunk.x + data[index]
     var y0 = chunk.y + data[index + 1]
@@ -102,13 +99,13 @@ function meshBuffers (chunk, world) {
     var z1 = chunk.z + data[index + 5]
     var v = data[index + 6]
 
-    // get uvs, etc
+    // Get uvs, etc
     var voxType = vox.TYPES[v]
     var sideOffset = voxType.sideOffset || 0
 
-    // add the six faces (12 tris total) for the quad
+    // Add the six faces (12 tris total) for the quad
     for (var fside = 0; fside <= 1; fside++) {
-      // figure out which faces we need to draw
+      // Figure out which faces we need to draw
       var dir = fside ? 1 : -1
       var xface = fside ? (x1 - sideOffset) : (x0 + sideOffset)
       var yface = fside ? (y1 - sideOffset) : (y0 + sideOffset)
@@ -145,12 +142,12 @@ function meshBuffers (chunk, world) {
         ivert += addXYZ(verts, ivert, x1, y1, zface)
       }
 
-      // add normals
+      // Add normals
       if (drawX) for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, dir, 0, 0)
       if (drawY) for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, 0, dir, 0)
       if (drawZ) for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, 0, 0, dir)
 
-      // add texture atlas UVs
+      // Add texture atlas UVs
       var uvxy = voxType.uv.side
       var uvz = fside === 1 ? voxType.uv.top : voxType.uv.bottom
       if (drawX) for (i = 0; i < 6; i++) iuv += addUV(uvs, iuv, uvxy)

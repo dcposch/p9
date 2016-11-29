@@ -37,7 +37,7 @@ test('perlin-function', function (t) {
   var mountainFn = function (rand, x, y, scale) {
     return rand * Math.sin((x + y) * Math.PI / 2000.0) * 0.75
   }
-  // maximum amplitudes sum to 1.0
+  // amplitudes sum to 1.0
   var amplitudes = [1 / 128, 2 / 128, 4 / 128, 8 / 128, 16 / 128, 0, mountainFn]
   testPerlinPlane(t, amplitudes, 'img/perlin-function.png')
 })
