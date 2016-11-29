@@ -147,6 +147,8 @@ function generateChunk (x, y, z) {
     }
   }
 
+  // Go from flat array to list-of-quads, save 90+% space
+  ret.pack()
   return ret
 }
 

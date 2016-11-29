@@ -1,11 +1,19 @@
+var config = require('./config')
+
 // A chunk is a cubic region of space that fits CHUNK_SIZE^3 voxels
 // Coordinates (x, y, z) are aligned to CHUNK_SIZE
 module.exports = Chunk
 
+var CS = config.CHUNK_SIZE
+var CB = config.CHUNK_BITS
+
+var packed = new Chunk()
+
 function Chunk (x, y, z, data) {
-  this.x = x
-  this.y = y
-  this.z = z
+  this.x = x || 0
+  this.y = y || 0
+  this.z = z || 0
+  this.packed = false
   this.data = data || null
   this.length = data ? data.length : 0
   this.mesh = null
@@ -15,8 +23,44 @@ function Chunk (x, y, z, data) {
 // Takes integer coordinates relative to this chunk--in other words, in the range [0, CHUNK_SIZE)
 // Returns an integer representing voxel data
 Chunk.prototype.getVox = function (ix, iy, iz) {
+  if (!this.data) return 0
+  if (this.packed) return getVoxPacked(this, ix, iy, iz)
+  else return getVoxUnpacked(this, ix, iy, iz)
+}
+
+// Takes integer coordinates relative to this chunk and a voxel int
+// If this changes the value of that voxel, makes the chunk dirty
+Chunk.prototype.setVox = function (ix, iy, iz, v) {
   var data = this.data
-  if (!data) return 0
+  if (!data && v === 0) return // Nothing to do (setting air at a voxel that was already air)
+  if (this.packed) setVoxPacked(this, ix, iy, iz, v)
+  else setVoxUnpacked(this, ix, iy, iz, v)
+}
+
+// Changes the representation from a flat array to list-of-quads
+// Flat array: one byte per voxel, so CHUNK_SIZE^3 = 32 KB space, O(1) getVox and setVox
+// List of quads: 8 bytes per quad, typically ~2 KB, O(nQuads) getVox and setVox
+// Average over 10x reduction in memory use, quads ready to mesh, but getVox/setVox ~10x slower
+Chunk.prototype.pack = function () {
+  if (this.packed) throw new Error('already packed')
+  if (this.data) {
+    var quads = packGreedyQuads(this)
+    this.data = new Uint8Array(nextPow2(quads.length))
+    this.data.set(quads)
+    this.length = quads.length
+  }
+  this.packed = true
+}
+
+// Changes representation from list-of-quads to flat array
+Chunk.prototype.unpack = function () {
+  if (!this.packed) throw new Error('already unpacked')
+  if (this.data) throw new Error('unpack nonempty chunk unimplemented')
+  this.packed = false
+}
+
+function getVoxPacked (chunk, ix, iy, iz) {
+  var data = chunk.data
   for (var i = 0; i < data.length; i += 8) {
     var x0 = data[i]
     var y0 = data[i + 1]
@@ -31,19 +75,16 @@ Chunk.prototype.getVox = function (ix, iy, iz) {
   return 0
 }
 
-// Takes integer coordinates relative to this chunk and a voxel int
-// If this changes the value of that voxel, makes the chunk dirty
-Chunk.prototype.setVox = function (ix, iy, iz, v) {
-  var data = this.data
-  if (!data && v === 0) return // Nothing to do (setting air at a voxel that was already air)
+function setVoxPacked (chunk, ix, iy, iz, v) {
+  var data = chunk.data
 
   // Find the quad that this point belongs to
-  var q = findQuad(this, ix, iy, iz)
+  var q = findQuad(chunk, ix, iy, iz)
   if (!q && v === 0) return // Nothing to do (setting air at a voxel that was already air)
   if (q && v === q.v) return // Nothing to do (voxel is already v)
 
   // We will do some combination of adding and coalescing quads
-  this.dirty = true
+  chunk.dirty = true
 
   // First, create a 1x1x1 quad for the voxel we're setting
   var add = []
@@ -65,7 +106,7 @@ Chunk.prototype.setVox = function (ix, iy, iz, v) {
   // Coalesce quads where possible
   while (true) {
     var coalescedAny = false
-    for (var i = 0; i < this.length; i += 8) {
+    for (var i = 0; i < chunk.length; i += 8) {
       var x0 = data[i]
       var y0 = data[i + 1]
       var z0 = data[i + 2]
@@ -99,7 +140,7 @@ Chunk.prototype.setVox = function (ix, iy, iz, v) {
 
   // Delete all air quads
   var offset = 0
-  for (i = 0; i < this.length; i += 8) {
+  for (i = 0; i < chunk.length; i += 8) {
     if (data[i + 6] === 0) {
       offset += 8
       continue
@@ -111,17 +152,17 @@ Chunk.prototype.setVox = function (ix, iy, iz, v) {
   }
 
   // Resize the data array, reallocating if necessary
-  this.length += add.length * 8 - offset
-  if (!data || this.length > data.length) {
-    var newData = new Uint8Array(nextPow2(this.length + 32))
+  chunk.length += add.length * 8 - offset
+  if (!data || chunk.length > data.length) {
+    var newData = new Uint8Array(nextPow2(chunk.length + 32))
     if (data) newData.set(data)
-    this.data = data = newData
+    chunk.data = data = newData
   }
 
   // Finally, copy in any newly added quads
   for (i = 0; i < add.length; i++) {
     var quad = add[i]
-    var index = this.length - add.length * 8 + i * 8
+    var index = chunk.length - add.length * 8 + i * 8
     data[index + 0] = quad.x0
     data[index + 1] = quad.y0
     data[index + 2] = quad.z0
@@ -167,4 +208,82 @@ function findQuad (chunk, ix, iy, iz) {
     }
   }
   return null
+}
+
+function packGreedyQuads (chunk) {
+  if (packed.data) packed.data.fill(0)
+
+  // write quads into a flat array, minimize allocations
+  var quads = []
+  var ix, iy, iz
+  for (ix = 0; ix < CS; ix++) {
+    for (iy = 0; iy < CS; iy++) {
+      for (iz = 0; iz < CS; iz++) {
+        var isMeshed = packed.getVox(ix, iy, iz)
+        if (isMeshed > 0) continue
+        var v = chunk.getVox(ix, iy, iz)
+        if (v === 0) continue
+
+        // expand to largest possible quad
+        var jx = ix + 1
+        var jy = iy + 1
+        var jz = iz + 1
+        var kx, ky, kz
+        var match = true
+        for (; match && jx < CS; match && jx++) {
+          match = chunk.getVox(jx, iy, iz) === v && !packed.getVox(jx, iy, iz)
+        }
+        match = true
+        for (; match && jy < CS; match && jy++) {
+          for (kx = ix; match && kx < jx; kx++) {
+            match = chunk.getVox(kx, jy, iz) === v && !packed.getVox(kx, jy, iz)
+          }
+        }
+        match = true
+        for (; match && jz < CS; match && jz++) {
+          for (kx = ix; match && kx < jx; kx++) {
+            for (ky = iy; match && ky < jy; match && ky++) {
+              match = chunk.getVox(kx, ky, jz) === v && !packed.getVox(kx, ky, jz)
+            }
+          }
+        }
+
+        // mark quad as done
+        if (ix >= jx) throw new Error('invalid quad x')
+        if (iy >= jy) throw new Error('invalid quad y')
+        if (iz >= jz) throw new Error('invalid quad z')
+        for (kx = ix; kx < jx; kx++) {
+          for (ky = iy; ky < jy; ky++) {
+            for (kz = iz; kz < jz; kz++) {
+              if (chunk.getVox(kx, ky, kz) !== v) console.log('invalid quad', kx, ky, kz)
+              packed.setVox(kx, ky, kz, 1)
+            }
+          }
+        }
+
+        quads.push(ix)
+        quads.push(iy)
+        quads.push(iz)
+        quads.push(jx)
+        quads.push(jy)
+        quads.push(jz)
+        quads.push(v)
+        quads.push(0)
+      }
+    }
+  }
+
+  return quads
+}
+
+function getVoxUnpacked (chunk, ix, iy, iz) {
+  return chunk.data[(ix << CB << CB) + (iy << CB) + iz]
+}
+
+function setVoxUnpacked (chunk, ix, iy, iz, v) {
+  if (!chunk.data) chunk.data = new Uint8Array(CS * CS * CS)
+  var index = (ix << CB << CB) + (iy << CB) + iz
+  if (chunk.data[index] === v) return
+  chunk.data[index] = v
+  chunk.dirty = true
 }
