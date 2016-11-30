@@ -2,7 +2,7 @@ var CHUNK_BITS = 5
 
 // Configuration, game settings, physics constants
 module.exports = {
-  TICK_INTERVAL: 0.05, // Seconds
+  TICK_INTERVAL: 0.1, // Seconds
   CHUNK_SIZE: 1 << CHUNK_BITS, // The world is divided into 32x32x32-block chunks
   CHUNK_BITS: CHUNK_BITS,
   PLAYER_WIDTH: 0.5, // You can't get closer than 0.5 meters (blocks) from a block
@@ -29,7 +29,7 @@ module.exports = {
     GRAVITY: 30 // Twice Earth gravity, 20ms^-2, each voxel is 1 m^3
   },
   WORLD_GEN: {
-    CHUNK_RADIUS: 10, // Generate this many chunk in every direction from every player
+    CHUNK_RADIUS: 10 // Generate this many chunk in every direction from every player
   },
   CLIENT: {
     VERSION: 0

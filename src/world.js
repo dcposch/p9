@@ -30,6 +30,7 @@ World.prototype = {
 // Should contain {x, y, z, data, mesh}
 function addChunk (chunk) {
   var key = chunk.x + ',' + chunk.y + ',' + chunk.z
+  if (this.chunkTable[key]) throw new Error('there is already a chunk at ' + key)
   this.chunks.push(chunk)
   this.chunkTable[key] = chunk
 }
@@ -38,6 +39,7 @@ function addChunk (chunk) {
 // Takes a chunk object or any object {x, y, z}
 function removeChunk (chunk) {
   var key = chunk.x + ',' + chunk.y + ',' + chunk.z
+  if (!this.chunkTable[key]) throw new Error('there is no chunk at ' + key)
   for (var i = 0; i < this.chunks.length; i++) {
     var c = this.chunks[i]
     if (c.x !== chunk.x || c.y !== chunk.y || c.z !== chunk.z) continue

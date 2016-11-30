@@ -1,7 +1,11 @@
+var EventEmitter = require('events')
 var config = require('../config')
 
 // Creates a new client handle from a new websocket connection
-module.exports = function Client (ws) {
+module.exports = Client
+
+function Client (ws) {
+  this.clientVersion = null
   this.ws = ws
   // See the client index.js for details about player state
   this.player = {
@@ -18,7 +22,14 @@ module.exports = function Client (ws) {
     else handleJsonMessage(self, JSON.parse(data))
   })
   ws.send(JSON.stringify({serverVersion: config.SERVER.VERSION}))
-  ws.send(Uint8Array.from([1, 2, 3, 4]))
+}
+
+Client.prototype = Object.create(EventEmitter.prototype)
+
+Client.prototype.send = function (message) {
+  if (!(message instanceof Uint8Array)) message = JSON.stringify(message)
+  console.log('DBG sending, len ' + message.length)
+  this.ws.send(message.length)
 }
 
 function handleBinaryMessage (client, data) {
@@ -26,5 +37,22 @@ function handleBinaryMessage (client, data) {
 }
 
 function handleJsonMessage (client, obj) {
-  console.log('DBG JSON message ' + JSON.stringify(obj, null, 2))
+  switch (obj.type) {
+    case 'handshake':
+      return handleHandshake(client, obj)
+    case 'player':
+      return handlePlayer(client, obj)
+    default:
+      console.error('ignoring unknown message type ' + obj)
+  }
+}
+
+function handleHandshake (client, obj) {
+  client.clientVersion = obj.clientVersion
+}
+
+function handlePlayer (client, obj) {
+  // TODO: doing this 10x per second per client is not ideal. use binary.
+  // TODO: validation
+  this.player = obj.player
 }

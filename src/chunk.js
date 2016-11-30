@@ -1,4 +1,5 @@
 var config = require('./config')
+var nextPow2 = require('./math/bit').nextPow2
 
 // A chunk is a cubic region of space that fits CHUNK_SIZE^3 voxels
 // Coordinates (x, y, z) are aligned to CHUNK_SIZE
@@ -35,6 +36,7 @@ Chunk.prototype.setVox = function (ix, iy, iz, v) {
   if (!data && v === 0) return // Nothing to do (setting air at a voxel that was already air)
   if (this.packed) setVoxPacked(this, ix, iy, iz, v)
   else setVoxUnpacked(this, ix, iy, iz, v)
+  return this
 }
 
 // Changes the representation from a flat array to list-of-quads
@@ -50,6 +52,7 @@ Chunk.prototype.pack = function () {
     this.length = quads.length
   }
   this.packed = true
+  return this
 }
 
 // Changes representation from list-of-quads to flat array
@@ -57,6 +60,7 @@ Chunk.prototype.unpack = function () {
   if (!this.packed) throw new Error('already unpacked')
   if (this.data) throw new Error('unpack nonempty chunk unimplemented')
   this.packed = false
+  return this
 }
 
 function getVoxPacked (chunk, ix, iy, iz) {
@@ -171,16 +175,6 @@ function setVoxPacked (chunk, ix, iy, iz, v) {
     data[index + 5] = quad.z1
     data[index + 6] = quad.v
   }
-}
-
-function nextPow2 (v) {
-  v = (v | 0) - 1
-  v |= v >> 1
-  v |= v >> 2
-  v |= v >> 4
-  v |= v >> 8
-  v |= v >> 16
-  return v + 1
 }
 
 function findQuad (chunk, ix, iy, iz) {

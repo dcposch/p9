@@ -27,7 +27,6 @@ var chunksTravelled = {}
 
 // Generate chunks in a radius around each player
 function generateWorld (state) {
-  var n = 0
   for (var i = 0; i < state.clients.length; i++) {
     var client = state.clients[i]
     if (!client.player || !client.player.location) continue
@@ -36,7 +35,7 @@ function generateWorld (state) {
 }
 
 // Generate any missing chunks in a radius around a point
-function generateWorldAt (world, loc)
+function generateWorldAt (world, loc) {
   // First, check whether we've already generated the world around this chunk
   var cx = loc.x >> CB << CB
   var cy = loc.y >> CB << CB
@@ -69,7 +68,7 @@ function generateWorldAt (world, loc)
 // Skips {data} if the chunk would be completely empty
 function generateChunk (x, y, z) {
   var ret = new Chunk(x, y, z)
-  if (z >= 128 || z < 0) return ret
+  if (z >= 128 || z < 0) return ret.pack()
 
   // Generate a Perlin heightmap
   // https://web.archive.org/web/20160421115558/http://freespace.virgin.net/hugo.elias/models/m_perlin.htm
@@ -89,11 +88,11 @@ function generateChunk (x, y, z) {
   placeTrees(ret)
 
   // Go from flat array of voxels to list-of-quads, save 90+% space
-  ret.pack()
-  return ret
+  return ret.pack()
 }
 
 function placeLand (ret) {
+  var z = ret.z
   for (var ix = 0; ix < CS; ix++) {
     for (var iy = 0; iy < CS; iy++) {
       var height1 = perlin1[(ix + PAD) * (CS + PAD2) + iy + PAD]
@@ -122,8 +121,9 @@ function placeLand (ret) {
 }
 
 function placeTrees (ret) {
-  for (ix = -2; ix < CS + PAD; ix++) {
-    for (iy = -2; iy < CS + PAD; iy++) {
+  var z = ret.z
+  for (var ix = -2; ix < CS + PAD; ix++) {
+    for (var iy = -2; iy < CS + PAD; iy++) {
       var h1 = perlin1[(ix + PAD) * (CS + PAD2) + iy + PAD]
       var h2 = perlin2[(ix + PAD) * (CS + PAD2) + iy + PAD]
       var i1 = Math.ceil(h1)
@@ -133,7 +133,7 @@ function placeTrees (ret) {
       if (i1 >= z + CS || i1 + palmHeight < z) continue
       // If we're here, we're placing a palm tree, and palmJuice is in [0, 1)
       var palmHeight = Math.floor(palmJuice * 10.0) + 4
-      for (iz = i1 - z; iz < i1 + palmHeight - z; iz++) {
+      for (var iz = i1 - z; iz < i1 + palmHeight - z; iz++) {
         // First, place the leaves
         var crown = i1 + palmHeight - z - iz - 1
         var setLeaf = false
@@ -146,7 +146,7 @@ function placeTrees (ret) {
               var leafJuice = Math.abs(Math.abs(jx) + Math.abs(jy) - crown)
               if (leafJuice > palmJuiceJ + 0.5) continue
               var leafType = Math.max(0, Math.min(2, crown - leafJuice))
-              voxtype = [vox.INDEX.PLANT_1, vox.INDEX.PLANT_2, vox.INDEX.PLANT_3][leafType]
+              var voxtype = [vox.INDEX.PLANT_1, vox.INDEX.PLANT_2, vox.INDEX.PLANT_3][leafType]
               setLeaf = setLeaf || (jx === 0 && jy === 0)
               trySet(ret, ix + jx, iy + jy, iz, voxtype)
             }

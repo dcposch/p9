@@ -38,6 +38,12 @@ var state = window.state = {
   socket: new Socket()
 }
 
+// Handle server messages
+state.socket.on('binary', function (msg) {
+  var ints = new Int32Array(msg)
+  console.log('GOT BINARY ' + ints.length)
+})
+
 // Runs once: initialization
 env.shell.on('init', function () {
   console.log('WELCOME ~ VOXEL WORLD')
@@ -62,6 +68,7 @@ env.shell.on('tick', function () {
   // TODO: create or modify any chunks we got from the server since the last tick
   // TODO: update player state if there's data from the server
   // TODO: update objects, other players, NPCs, etc if there's data from the server
+  state.socket.send({type: 'player', player: state.player})
 
   // Block interactions
   picker.pick(state)
