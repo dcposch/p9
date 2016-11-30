@@ -5,62 +5,63 @@ var Chunk = require('../chunk')
 
 // Generate the world
 module.exports = {
-  generateWorld
+  generateWorld,
+  generateWorldAt
 }
 
 var CS = config.CHUNK_SIZE
 var CB = config.CHUNK_BITS
+
+// Sample Perlin noise a few voxels around each chunk.
+// That tells us if we need to eg. place leaves for a tree rooted in an adjacent chunk.
 var PAD = 3
 var PAD2 = 2 * PAD
-var heightmap1 = new Float32Array((CS + PAD2) * (CS + PAD2))
-var heightmap2 = new Float32Array((CS + PAD2) * (CS + PAD2))
-var heightmap3 = new Float32Array(CS * CS)
-var MAX_NEW_CHUNKS = 8
 
-// Generate chunks in a radius around the player
+// Allocate Perlin heightmaps once, re-use
+var perlin1 = new Float32Array((CS + PAD2) * (CS + PAD2))
+var perlin2 = new Float32Array((CS + PAD2) * (CS + PAD2))
+var perlin3 = new Float32Array(CS * CS)
+
+// Keep track of every chunk location that's had a player in it
+var chunksTravelled = {}
+
+// Generate chunks in a radius around each player
 function generateWorld (state) {
-  var loc = state.player.location
-  var radius = config.GRAPHICS.CHUNK_DRAW_RADIUS
-  var cx = loc.x >> CB
-  var cy = loc.y >> CB
-  var cz = loc.z >> CB
+  var n = 0
+  for (var i = 0; i < state.clients.length; i++) {
+    var client = state.clients[i]
+    if (!client.player || !client.player.location) continue
+    generateWorldAt(state.world, client.player.location)
+  }
+}
 
-  // Fill in any missing chunks
-  var chunksToGenerate = []
+// Generate any missing chunks in a radius around a point
+function generateWorldAt (world, loc)
+  // First, check whether we've already generated the world around this chunk
+  var cx = loc.x >> CB << CB
+  var cy = loc.y >> CB << CB
+  var cz = loc.z >> CB << CB
+  var key = cx + ',' + cy + ',' + cz
+  if (chunksTravelled[key]) return
+  chunksTravelled[key] = true
+
+  // If not, fill in any missing chunks
+  var radius = config.WORLD_GEN.CHUNK_RADIUS
   for (var dx = -radius; dx < radius; dx++) {
     for (var dy = -radius; dy < radius; dy++) {
       for (var dz = -radius; dz < radius; dz++) {
         var d2 = dx * dx + dy * dy + dz * dz
         if (d2 > radius * radius) continue
-        var ix = (cx + dx) << CB
-        var iy = (cy + dy) << CB
-        var iz = (cz + dz) << CB
-        var chunk = state.world.getChunk(ix, iy, iz)
+        var ix = cx + (dx << CB)
+        var iy = cy + (dy << CB)
+        var iz = cz + (dz << CB)
+        var chunk = world.getChunk(ix, iy, iz)
         if (chunk) continue
-        chunksToGenerate.push({ix: ix, iy: iy, iz: iz, d2: d2})
+        chunk = generateChunk(ix, iy, iz)
+        world.addChunk(chunk)
       }
     }
   }
-
-  // Only generate up to MAX_NEW_CHUNKS chunks, starting with the ones closest to the player
-  chunksToGenerate.sort(function (a, b) { return a.d2 - b.d2 })
-  var maxNew = state.world.chunks.length === 0 ? 1e6 : MAX_NEW_CHUNKS
-  var numNew = 0
-  for (var i = 0; i < chunksToGenerate.length && numNew < maxNew; i++) {
-    var c = chunksToGenerate[i]
-    chunk = generateChunk(c.ix, c.iy, c.iz)
-    if (!chunk) continue
-    state.world.addChunk(chunk)
-    numNew++
-  }
-
-  // Delete any no longer needed chunks
-  state.world.removeChunks(function (chunk) {
-    var dx = (chunk.x >> CB) - cx
-    var dy = (chunk.y >> CB) - cy
-    var dz = (chunk.z >> CB) - cz
-    return dx * dx + dy * dy + dz * dz > radius * radius
-  })
 }
 
 // World generation. Generates one chunk of voxels.
@@ -79,16 +80,25 @@ function generateChunk (x, y, z) {
   var perlinGroundAmplitudes = [0, 0, 0, 0, 5, 0, 10, 0, 0, mountainAmp]
   var perlinLayer2Amplitudes = [0, 5, 0, 0, 0, 10]
   var perlinLayer3Amplitudes = [0, 0, 0, 5, 0, 10]
-  perlin.generate2D(heightmap1, x - PAD, y - PAD, CS + PAD2, perlinGroundAmplitudes)
-  perlin.generate2D(heightmap2, x - PAD, y - PAD, CS + PAD2, perlinLayer2Amplitudes)
-  perlin.generate2D(heightmap3, x, y, CS, perlinLayer3Amplitudes)
+  perlin.generate2D(perlin1, x - PAD, y - PAD, CS + PAD2, perlinGroundAmplitudes)
+  perlin.generate2D(perlin2, x - PAD, y - PAD, CS + PAD2, perlinLayer2Amplitudes)
+  perlin.generate2D(perlin3, x, y, CS, perlinLayer3Amplitudes)
 
-  // Go from a Perlin heightmap to actual voxels
+  // Go from Perlin noise to voxels
+  placeLand(ret)
+  placeTrees(ret)
+
+  // Go from flat array of voxels to list-of-quads, save 90+% space
+  ret.pack()
+  return ret
+}
+
+function placeLand (ret) {
   for (var ix = 0; ix < CS; ix++) {
     for (var iy = 0; iy < CS; iy++) {
-      var height1 = heightmap1[(ix + PAD) * (CS + PAD2) + iy + PAD]
-      var height2 = heightmap2[(ix + PAD) * (CS + PAD2) + iy + PAD]
-      var height3 = heightmap3[ix * CS + iy]
+      var height1 = perlin1[(ix + PAD) * (CS + PAD2) + iy + PAD]
+      var height2 = perlin2[(ix + PAD) * (CS + PAD2) + iy + PAD]
+      var height3 = perlin3[ix * CS + iy]
 
       // Place earth and water
       for (var iz = 0; iz < CS; iz++) {
@@ -109,12 +119,13 @@ function generateChunk (x, y, z) {
       }
     }
   }
+}
 
-  // Place plants
+function placeTrees (ret) {
   for (ix = -2; ix < CS + PAD; ix++) {
     for (iy = -2; iy < CS + PAD; iy++) {
-      var h1 = heightmap1[(ix + PAD) * (CS + PAD2) + iy + PAD]
-      var h2 = heightmap2[(ix + PAD) * (CS + PAD2) + iy + PAD]
+      var h1 = perlin1[(ix + PAD) * (CS + PAD2) + iy + PAD]
+      var h2 = perlin2[(ix + PAD) * (CS + PAD2) + iy + PAD]
       var i1 = Math.ceil(h1)
       var isShore = i1 >= 15 && i1 <= 18
       var palmJuice = (h2 > 14.0 || h2 < 10.0) ? 2.0 : (h2 % 1.0) * 50.0 // range [0, 50)
@@ -130,7 +141,7 @@ function generateChunk (x, y, z) {
           for (var jx = -3; jx <= 3; jx++) {
             for (var jy = -3; jy <= 3; jy++) {
               if (ix + jx < 0 || ix + jx >= CS || iy + jy < 0 || iy + jy >= CS) continue
-              var h2J = heightmap2[(ix + jx + PAD) * (CS + PAD2) + iy + jy + PAD]
+              var h2J = perlin2[(ix + jx + PAD) * (CS + PAD2) + iy + jy + PAD]
               var palmJuiceJ = h2J % 1.0
               var leafJuice = Math.abs(Math.abs(jx) + Math.abs(jy) - crown)
               if (leafJuice > palmJuiceJ + 0.5) continue
@@ -146,10 +157,6 @@ function generateChunk (x, y, z) {
       }
     }
   }
-
-  // Go from flat array to list-of-quads, save 90+% space
-  ret.pack()
-  return ret
 }
 
 function trySet (chunk, ix, iy, iz, v, overwrite) {

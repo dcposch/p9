@@ -4,6 +4,7 @@ var express = require('express')
 var config = require('../config')
 var World = require('../world')
 var Client = require('./client')
+var gen = require('../gen')
 
 var httpServer = http.createServer()
 var wsServer = new WebSocketServer({server: httpServer})
@@ -12,6 +13,11 @@ var state = {
   clients: [],
   world: new World()
 }
+
+// TODO: generate the world on the fly around players
+console.time('world gen')
+gen.generateWorldAt(state.world, {x: 0, y: 0, z: 0})
+console.timeEnd('world gen')
 
 // Serve the Voxelwave Server API
 wsServer.on('connection', function (ws) {

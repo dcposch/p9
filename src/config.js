@@ -28,6 +28,9 @@ module.exports = {
     MAX_DT: 0.01, // Compute physics in increments of at most 10ms to avoid glitches
     GRAVITY: 30 // Twice Earth gravity, 20ms^-2, each voxel is 1 m^3
   },
+  WORLD_GEN: {
+    CHUNK_RADIUS: 10, // Generate this many chunk in every direction from every player
+  },
   CLIENT: {
     VERSION: 0
   },

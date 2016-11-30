@@ -5,7 +5,6 @@ var mesher = require('./mesher')
 var Socket = require('./socket')
 var World = require('../world')
 var config = require('../config')
-var gen = require('../gen')
 
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
@@ -63,9 +62,6 @@ env.shell.on('tick', function () {
   // TODO: create or modify any chunks we got from the server since the last tick
   // TODO: update player state if there's data from the server
   // TODO: update objects, other players, NPCs, etc if there's data from the server
-
-  // Update the world
-  gen.generateWorld(state)
 
   // Block interactions
   picker.pick(state)
