@@ -18,6 +18,8 @@ function Client (ws) {
     situation: 'airborne',
     lookAtBlock: null
   }
+  // Keep track of what chunks we've sent to whom. Maps chunkKey to timestamp.
+  this.chunksSent = {}
 
   ws.on('message', handleMessage.bind(this))
   ws.send(JSON.stringify({serverVersion: config.SERVER.VERSION}))

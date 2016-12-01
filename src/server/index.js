@@ -7,6 +7,7 @@ var Client = require('./client')
 var gen = require('../gen')
 var FlexBuffer = require('../protocol/flex-buffer')
 var ChunkIO = require('../protocol/chunk-io')
+var serveMonitor = require('./serve-monitor')
 
 var httpServer = http.createServer()
 var wsServer = new WebSocketServer({server: httpServer})
@@ -36,6 +37,7 @@ wsServer.on('connection', function (ws) {
 // Serve the client files
 var app = express()
 app.use(express.static('build'))
+app.use('/monitor', serveMonitor(state))
 httpServer.on('request', app)
 
 httpServer.listen(config.SERVER.PORT, function () {
