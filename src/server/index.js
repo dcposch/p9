@@ -5,7 +5,8 @@ var config = require('../config')
 var World = require('../world')
 var Client = require('./client')
 var gen = require('../gen')
-var Scratch = require('../protocol/scratch')
+var FlexBuffer = require('../protocol/flex-buffer')
+var ChunkIO = require('../protocol/chunk-io')
 
 var httpServer = http.createServer()
 var wsServer = new WebSocketServer({server: httpServer})
@@ -14,8 +15,6 @@ var state = {
   clients: [],
   world: new World()
 }
-
-var scratch = new Scratch()
 
 // TODO: generate the world on the fly around players
 console.time('world gen')
@@ -28,20 +27,10 @@ wsServer.on('connection', function (ws) {
   state.clients.push(client)
 
   // TODO: move this somewhere
-  var world = state.world
-
-  scratch.reset()
-  scratch.writeInt32LE(world.chunks.length)
-  world.chunks.forEach(function (chunk) {
-    if (!chunk.packed) throw new Error('expected all chunks to be packed list-of-quads')
-    scratch.writeInt32LE(chunk.x)
-    scratch.writeInt32LE(chunk.y)
-    scratch.writeInt32LE(chunk.z)
-    scratch.writeInt32LE(chunk.length / 8) // num quads
-    if (chunk.length === 0) return
-    scratch.writeUint8Array(chunk.data, 0, chunk.length)
-  })
-  client.send(scratch.slice())
+  var buf = new FlexBuffer()
+  buf.reset()
+  ChunkIO.write(buf, state.world.chunks)
+  client.send(buf.slice())
 })
 
 // Serve the client files

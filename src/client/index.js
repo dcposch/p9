@@ -3,9 +3,9 @@ var playerControls = require('./player-controls')
 var picker = require('./picker')
 var mesher = require('./mesher')
 var Socket = require('./socket')
-var World = require('../world')
-var Chunk = require('../chunk')
 var config = require('../config')
+var World = require('../world')
+var ChunkIO = require('../protocol/chunk-io')
 
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
@@ -41,21 +41,11 @@ var state = window.state = {
 
 // Handle server messages
 state.socket.on('binary', function (msg) {
-  var ints = new Int32Array(msg)
-  var numChunks = ints[0]
-  var offset = 1
-  for (var i = 0; i < numChunks; i++) {
-    var x = ints[offset]
-    var y = ints[offset + 1]
-    var z = ints[offset + 2]
-    var numQuads = ints[offset + 3]
-    offset += 4
-    var data = new Uint8Array(msg.slice(offset * 4, offset * 4 + numQuads * 8))
-    offset += numQuads * 2
-    var chunk = new Chunk(x, y, z, data, true)
+  var chunks = ChunkIO.read(msg)
+  chunks.forEach(function (chunk) {
     state.world.addChunk(chunk)
-  }
-  console.log('Read %d chunks', numChunks)
+  })
+  console.log('Read %d chunks', chunks.length)
 })
 
 // Runs once: initialization

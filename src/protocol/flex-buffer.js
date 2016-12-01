@@ -1,31 +1,31 @@
 var nextPow2 = require('../math/bit').nextPow2
 
-module.exports = Scratch
+module.exports = FlexBuffer
 
-// Scratch space
-// Uses a buffer that resizes automatically
-function Scratch () {
+// A buffer that resizes automatically.
+// You can truncate it, append to it, then use slice() to get a Buffer.
+function FlexBuffer () {
   this.buf = new Buffer(1 << 20)
   this.n = 0
 }
 
-Scratch.prototype.reset = function () {
+FlexBuffer.prototype.reset = function () {
   this.n = 0
 }
 
-Scratch.prototype.writeInt32LE = function (v) {
+FlexBuffer.prototype.writeInt32LE = function (v) {
   resize(this, 4)
   this.buf.writeInt32LE(v, this.n)
   this.n += 4
 }
 
-Scratch.prototype.writeUint8 = function (v) {
+FlexBuffer.prototype.writeUint8 = function (v) {
   resize(this, 1)
   this.buf.writeUint8(v, this.n)
   this.n++
 }
 
-Scratch.prototype.writeUint8Array = function (arr, start, len) {
+FlexBuffer.prototype.writeUint8Array = function (arr, start, len) {
   if (start) {
     var arrayBuf = arr.buffer // get the underlying ArrayBuffer
     arr = new Uint8Array(arrayBuf.slice(start, len))
@@ -35,7 +35,7 @@ Scratch.prototype.writeUint8Array = function (arr, start, len) {
   this.n += len
 }
 
-Scratch.prototype.slice = function () {
+FlexBuffer.prototype.slice = function () {
   return this.buf.slice(0, this.n)
 }
 
