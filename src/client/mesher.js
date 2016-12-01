@@ -21,6 +21,8 @@ var mapToMesh = {}
 
 // Meshes all dirty chunks in the visible world, and lazily remeshes adjacent chunks
 function meshWorld (world) {
+  var startMs = new Date().getTime()
+
   // Mesh
   var dirtyChunks = world.chunks.filter(function (chunk) {
     return (chunk.data && !chunk.mesh) || chunk.dirty
@@ -58,7 +60,9 @@ function meshWorld (world) {
     delete mapToMesh[key]
     if (numRemeshed >= MAX_REMESH_CHUNKS) break
   }
-  console.log('Meshed %d dirty chunks, remeshed %d adjacent', dirtyChunks.length, numRemeshed)
+
+  var elapsedMs = new Date().getTime() - startMs
+  console.log('Meshed %d chunks, remeshed %d in %dms', dirtyChunks.length, numRemeshed, elapsedMs)
 }
 
 // Meshes a chunk, exposed surfaces only, creating a regl object.
@@ -101,6 +105,7 @@ function meshBuffers (chunk, world) {
 
     // Get uvs, etc
     var voxType = vox.TYPES[v]
+    if (!voxType) throw new Error('unsupported voxel type ' + v)
     var sideOffset = voxType.sideOffset || 0
 
     // Add the six faces (12 tris total) for the quad

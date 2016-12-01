@@ -5,7 +5,7 @@ var config = require('../config')
 var World = require('../world')
 var Client = require('./client')
 var gen = require('../gen')
-var scratch = require('../protocol/scratch')
+var Scratch = require('../protocol/scratch')
 
 var httpServer = http.createServer()
 var wsServer = new WebSocketServer({server: httpServer})
@@ -14,6 +14,8 @@ var state = {
   clients: [],
   world: new World()
 }
+
+var scratch = new Scratch()
 
 // TODO: generate the world on the fly around players
 console.time('world gen')

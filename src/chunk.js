@@ -251,7 +251,7 @@ function packGreedyQuads (chunk) {
         for (kx = ix; kx < jx; kx++) {
           for (ky = iy; ky < jy; ky++) {
             for (kz = iz; kz < jz; kz++) {
-              if (chunk.getVox(kx, ky, kz) !== v) console.log('invalid quad', kx, ky, kz)
+              if (chunk.getVox(kx, ky, kz) !== v) throw new Error('invalid quad')
               packed.setVox(kx, ky, kz, 1)
             }
           }

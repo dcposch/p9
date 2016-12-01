@@ -1,49 +1,48 @@
 var nextPow2 = require('../math/bit').nextPow2
 
+module.exports = Scratch
+
 // Scratch space
 // Uses a buffer that resizes automatically
-module.exports = {
-  reset,
-  writeUint8,
-  writeInt32LE,
-  writeUint8Array,
-  slice
+function Scratch () {
+  this.buf = new Buffer(1 << 20)
+  this.n = 0
 }
 
-var buf = new Buffer(1 << 20)
-var n = 0
-
-function reset () {
-  n = 0
+Scratch.prototype.reset = function () {
+  this.n = 0
 }
 
-function writeInt32LE (v) {
-  resize(4)
-  buf.writeInt32LE(v, n)
+Scratch.prototype.writeInt32LE = function (v) {
+  resize(this, 4)
+  this.buf.writeInt32LE(v, this.n)
+  this.n += 4
 }
 
-function writeUint8 (v) {
-  resize(1)
-  buf.writeUint8(v, n)
-  n++
+Scratch.prototype.writeUint8 = function (v) {
+  resize(this, 1)
+  this.buf.writeUint8(v, this.n)
+  this.n++
 }
 
-function writeUint8Array (arr, start, len) {
+Scratch.prototype.writeUint8Array = function (arr, start, len) {
   if (start) {
     var arrayBuf = arr.buffer // get the underlying ArrayBuffer
     arr = new Uint8Array(arrayBuf.slice(start, len))
   }
-  resize(arr.length)
-  buf.set(arr, n)
+  resize(this, arr.length)
+  this.buf.set(arr, this.n)
+  this.n += len
 }
 
-function slice () {
-  return buf.slice(0, n)
+Scratch.prototype.slice = function () {
+  return this.buf.slice(0, this.n)
 }
 
-function resize (m) {
-  if (n + m <= buf.length) return
+function resize (self, m) {
+  var n = self.n
+  if (n + m <= self.buf.length) return
   var newBuf = new Buffer(nextPow2(n + m))
-  newBuf.set(buf.slice(0, n))
-  buf = newBuf
+  newBuf.set(self.buf.slice(0, n))
+  self.buf = newBuf
 }
