@@ -9,7 +9,8 @@ module.exports = Socket
 function Socket () {
   var self = this
 
-  var ws = new window.WebSocket('ws:/' + window.location.host)
+  var wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  var ws = new window.WebSocket(wsProto + '/' + window.location.host)
   ws.binaryType = 'arraybuffer'
   this.ws = ws
 
