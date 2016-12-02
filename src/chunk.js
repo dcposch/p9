@@ -21,6 +21,10 @@ function Chunk (x, y, z, data, packed) {
   this.dirty = !!data
 }
 
+Chunk.prototype.getKey = function () {
+  return this.x + ',' + this.y + ',' + this.z
+}
+
 // Takes integer coordinates relative to this chunk--in other words, in the range [0, CHUNK_SIZE)
 // Returns an integer representing voxel data
 Chunk.prototype.getVox = function (ix, iy, iz) {
@@ -61,6 +65,11 @@ Chunk.prototype.unpack = function () {
   if (this.data) throw new Error('unpack nonempty chunk unimplemented')
   this.packed = false
   return this
+}
+
+Chunk.prototype.destroy = function () {
+  console.log('DBG destroying ' + this.getKey() + ', mesh ' + (!!this.mesh))
+  if (this.mesh) this.mesh.destroy()
 }
 
 function getVoxPacked (chunk, ix, iy, iz) {

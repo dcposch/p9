@@ -31,6 +31,7 @@ var state = window.state = {
     // Which block we're looking at. {location: {x,y,z}, side: {nx,ny,nz}, voxel}
     lookAtBlock: null
   },
+  pendingCommands: [],
   perf: {
     lastFrameTime: new Date().getTime(),
     fps: 0
@@ -43,7 +44,12 @@ var state = window.state = {
 state.socket.on('binary', function (msg) {
   var chunks = ChunkIO.read(msg)
   chunks.forEach(function (chunk) {
-    state.world.addChunk(chunk)
+    // TODO: state.world.replaceChunk
+    var c = state.world.getChunk(chunk.x, chunk.y, chunk.z)
+    if (!c) return state.world.addChunk(chunk)
+    c.data = chunk.data
+    c.length = chunk.length
+    c.dirty = true
   })
   console.log('Read %d chunks', chunks.length)
   mesher.meshWorld(state.world)
@@ -78,6 +84,7 @@ button.addEventListener('click', function () {
   env.shell.fullscreen = true
   env.shell.pointerLock = true
 
+  state.player.name = input.value
   state.startTime = new Date().getTime()
   sound.play('win95.mp3')
   document.querySelector('.splash').remove()
@@ -93,19 +100,27 @@ env.shell.on('tick', function () {
   var startMs = new Date().getTime()
   env.resizeCanvasIfNeeded()
 
+  // Block interactions
+  picker.pick(state)
+  var command = playerControls.interact(state)
+  if (command) state.pendingCommands.push(command)
+
+  // Physics
+  // TODO: block physics, update all active chunks
+
   // Client / server
   // TODO: enqueue actions to send to the server
   // TODO: create or modify any chunks we got from the server since the last tick
   // TODO: update player state if there's data from the server
   // TODO: update objects, other players, NPCs, etc if there's data from the server
-  state.socket.send({type: 'player', player: state.player})
+  state.socket.send({
+    type: 'update',
+    player: state.player,
+    commands: state.pendingCommands
+  })
+  if (state.pendingCommands.length) console.log('sent %d commands', state.pendingCommands.length)
+  state.pendingCommands.length = 0
 
-  // Block interactions
-  picker.pick(state)
-  playerControls.interact(state)
-
-  // Physics
-  // TODO: block physics, update all active chunks
   var elapsedMs = Math.round(new Date().getTime() - startMs)
   if (elapsedMs > 1000 * config.TICK_INTERVAL) console.log('Slow tick: %d ms', elapsedMs)
 })

@@ -5,6 +5,8 @@ var config = require('../config')
 module.exports = Client
 
 function Client (ws) {
+  EventEmitter.call(this)
+
   // A new client just connected, here's the websocket
   this.ws = ws
   // Client version. Unknown at first, will be set during the handshake.
@@ -12,7 +14,8 @@ function Client (ws) {
   // See the client/index.js for details about player state
   // TODO: avoid code duplication, move this to protocol/
   this.player = {
-    location: { x: 0, y: 0, z: 20 },
+    name: 'unknown',
+    location: { x: 0, y: 0, z: 0 },
     direction: { azimuth: 0, altitude: 0 },
     dzdt: 0,
     situation: 'airborne',
@@ -45,10 +48,10 @@ function handleJsonMessage (client, obj) {
   switch (obj.type) {
     case 'handshake':
       return handleHandshake(client, obj)
-    case 'player':
-      return handlePlayer(client, obj)
+    case 'update':
+      return handleUpdate(client, obj)
     default:
-      console.error('ignoring unknown message type ' + obj)
+      console.error('ignoring unknown message type ' + obj.type)
   }
 }
 
@@ -56,8 +59,10 @@ function handleHandshake (client, obj) {
   client.clientVersion = obj.clientVersion
 }
 
-function handlePlayer (client, obj) {
+function handleUpdate (client, obj) {
   // TODO: doing this 10x per second per client is not ideal. use binary.
   // TODO: validation
-  this.player = obj.player
+  if (client.player.name !== obj.player.name) console.log('%s joined', obj.player.name)
+  client.player = obj.player
+  client.emit('update', obj)
 }

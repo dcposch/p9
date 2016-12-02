@@ -69,7 +69,11 @@ function handleGetIndex (req, res) {
   lines.push('Chunks ' + chunks.length + ' total ' + mb(chunkTotal))
 
   var clients = self.state.clients
-  lines.push('Clients ' + clients.length)
+  lines.push('')
+  lines.push('## ' + clients.length + ' clients connected')
+  clients.forEach(function (client) {
+    lines.push('- ' + client.player.name + ' at ' + coords(client.player.location))
+  })
 
   res.set('content-type', 'text/plain')
   res.send(lines.join('\n'))
@@ -81,4 +85,8 @@ function mb (v) {
 
 function percent (v) {
   return Math.round(v * 100) + '%'
+}
+
+function coords (v) {
+  return v.x + ', ' + v.y + ', ' + v.z
 }

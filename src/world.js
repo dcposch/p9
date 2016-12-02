@@ -19,6 +19,7 @@ function World () {
 
 World.prototype = {
   addChunk: addChunk,
+  replaceChunk: replaceChunk,
   removeChunk: removeChunk,
   removeChunks: removeChunks,
   getChunk: getChunk,
@@ -35,18 +36,37 @@ function addChunk (chunk) {
   this.chunkTable[key] = chunk
 }
 
+// Adds a new chunk to the world
+// Same as addChunk, but replaces an existing chunk at the same location instead of throwing.
+function replaceChunk (chunk) {
+  var key = chunk.x + ',' + chunk.y + ',' + chunk.z
+  if (this.chunkTable[key]) {
+    var index = findChunkIndex(this, chunk)
+    this.chunks[index].destroy()
+    this.chunks[index] = chunk
+  } else {
+    this.chunks.push(chunk)
+  }
+  this.chunkTable[key] = chunk
+}
+
 // Removes a chunk from the world.
 // Takes a chunk object or any object {x, y, z}
 function removeChunk (chunk) {
   var key = chunk.x + ',' + chunk.y + ',' + chunk.z
   if (!this.chunkTable[key]) throw new Error('there is no chunk at ' + key)
-  for (var i = 0; i < this.chunks.length; i++) {
-    var c = this.chunks[i]
-    if (c.x !== chunk.x || c.y !== chunk.y || c.z !== chunk.z) continue
-    this.chunks.splice(i, 1)
-    break
-  }
+  var index = findChunkIndex(this, chunk)
+  this.chunks[index].destroy()
+  this.chunks.splice(index, 1)
   delete this.chunkTable[key]
+}
+
+function findChunkIndex (world, chunk) {
+  for (var i = 0; i < world.chunks.length; i++) {
+    var c = world.chunks[i]
+    if (c.x !== chunk.x || c.y !== chunk.y || c.z !== chunk.z) return i
+  }
+  throw new Error('chunk not found')
 }
 
 // Efficiently removes multiple chunks from the world, O(n) where n is total # of chunks.
@@ -60,7 +80,7 @@ function removeChunks (predicate) {
       offset++
       var key = chunk.x + ',' + chunk.y + ',' + chunk.z
       delete this.chunkTable[key]
-      if (chunk.mesh) chunk.mesh.destroy()
+      chunk.destroy()
     } else if (offset > 0) {
       // Move `chunk` to the correct slot
       this.chunks[i - offset] = chunk

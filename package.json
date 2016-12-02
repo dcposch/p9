@@ -7,7 +7,7 @@
     "clean": "rimraf build",
     "lint-js": "standard",
     "lint-css": "stylelint **/*.css --config node_modules/stylelint-config-standard/index.js",
-    "lint": "npm run lint-js && npm run lint-css",
+    "lint": "npm run clean && npm run lint-js && npm run lint-css",
     "test": "npm run lint && node ./test",
     "browserify": "browserify --debug -t brfs src/client > build/bundle.js",
     "build": "npm run clean && mkdirp build && npm run browserify && cp -r static/* build/",

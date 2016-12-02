@@ -17,7 +17,6 @@ var HORIZONTAL_COLLISION_DIRS = [
   [0, PW, 0], [0, PW, -1],
   [0, -PW, 0], [0, -PW, -1]
 ]
-var DIRS = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [-1, 0, 0], [0, -1, 0], [0, 0, -1]]
 
 // Calculates player physics. Lets the player move and look around.
 function tick (state, dt) {
@@ -37,8 +36,8 @@ function interact (state) {
   var left = shell.wasDown('mouse-left')
   var right = shell.wasDown('mouse-right')
   var shift = shell.wasDown('shift')
-  if (right || (shift && left)) breakBlock(state)
-  else if (left) placeBlock(state)
+  if (right || (shift && left)) return breakBlock(state)
+  else if (left) return placeBlock(state)
 }
 
 // Let the player move
@@ -150,7 +149,7 @@ function placeBlock (state) {
   if (intersectsPlayer) return
 
   // TODO: select which type of block to place
-  state.world.setVox(bx, by, bz, vox.INDEX.LIGHT_PURPLE)
+  return {type: 'set', x: bx, y: by, z: bz, v: vox.INDEX.LIGHT_PURPLE}
 }
 
 // Break the block we're looking at
@@ -166,5 +165,5 @@ function breakBlock (state) {
     state.world.getVox(loc.x, loc.y, loc.z + 1)
   ]
   var v = neighbors.includes(vox.INDEX.WATER) ? vox.INDEX.WATER : vox.INDEX.AIR
-  state.world.setVox(loc.x, loc.y, loc.z, v)
+  return {type: 'set', x: loc.x, y: loc.y, z: loc.z, v: v}
 }
