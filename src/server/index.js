@@ -34,6 +34,11 @@ wsServer.on('connection', function (ws) {
   var client = new Client(ws)
   state.clients.push(client)
   client.on('update', handleUpdate)
+  client.on('close', function () {
+    var index = state.clients.indexOf(client)
+    console.log('removing client %d: %s', index, client.player.name)
+    state.clients.splice(index, 1)
+  })
 })
 
 setInterval(tick, 100)

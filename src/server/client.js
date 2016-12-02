@@ -23,16 +23,24 @@ function Client (ws) {
   }
   // Keep track of what chunks we've sent to whom. Maps chunkKey to timestamp.
   this.chunksSent = {}
+  this.closed = false
 
   ws.on('message', handleMessage.bind(this))
+  ws.on('close', handleClose.bind(this))
   ws.send(JSON.stringify({serverVersion: config.SERVER.VERSION}))
 }
 
 Client.prototype = Object.create(EventEmitter.prototype)
 
 Client.prototype.send = function (message) {
+  if (this.closed) return console.error('ignoring message, socket closed')
   if (!(message instanceof Uint8Array)) message = JSON.stringify(message)
   this.ws.send(message)
+}
+
+function handleClose () {
+  this.closed = true
+  this.emit('close')
 }
 
 function handleMessage (data, flags) {
