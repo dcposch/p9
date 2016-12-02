@@ -1,12 +1,77 @@
-body {
-  font-family: helvetica, sans-serif;
-  padding: 40px;
-  margin: 0;
-  background: #f0f0f0;
-  color: #222;
+@font-face {
+  font-family: 'pxl';
+  font-style: normal;
+  font-weight: 400;
+  src: url(pixel/pxl.ttf) format('ttf');
 }
 
-h1 {
-  font-size: 24px;
-  margin-top: 0;
+body {
+  position: relative;
+  font-family: pxl;
+  letter-spacing: 0.15em;
+  font-size: 30px;
+  padding: 40px;
+  width: 600px;
+  margin: 0 auto;
+  background: #fff;
+}
+
+.hero {
+  width: 600px;
+}
+
+label {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  top: 194px;
+  left: 141px;
+  color: #fff;
+}
+
+input {
+  position: absolute;
+  margin: 0;
+  border: 0;
+  padding: 40px 0 10px 0;
+  top: 220px;
+  left: 140px;
+  width: 400px;
+  font: 30px pxl;
+  letter-spacing: 0.12em;
+  color: #000;
+  background-color: transparent;
+}
+
+input:focus,
+button:focus {
+  outline: none;
+}
+
+button {
+  display: none;
+  position: absolute;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  top: 380px;
+  left: 140px;
+  width: 140px;
+  height: 80px;
+  background: url(pixel/go.png);
+  background-position: 0 80px;
+  cursor: pointer;
+}
+
+button.enabled {
+  display: block;
+}
+
+button:hover {
+  background-position: 0 0;
+}
+
+canvas {
+  position: absolute;
+  top: 0;
 }

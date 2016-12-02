@@ -60,7 +60,7 @@ function createContext2D (canvas) {
 
 function createDebugText (state) {
   var ret = []
-  ret.push('VW ' + version)
+  ret.push('P9 ' + version + ' - WASD, SHIFT, SPACE, L and R click')
 
   var loc = state.player.location
   var dir = state.player.direction
@@ -80,9 +80,7 @@ function createDebugText (state) {
   }).reduce(function (a, b) { return a + b }, 0)
   ret.push('Chunks: ' + state.world.chunks.length + ', verts: ' + totalVerts)
 
-  if (!state.started || !env.shell.fullscreen) {
-    ret.push('Click to start')
-  } else if (state.player.lookAtBlock) {
+  if (state.player.lookAtBlock) {
     var b = state.player.lookAtBlock
     var l = b.location
     ret.push('Looking at: (' + l.x + ', ' + l.y + ', ' + l.z + ') ' + vox.TYPES[b.voxel].name)

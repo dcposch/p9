@@ -17,10 +17,10 @@ var drawWorld = require('./draw-world')
 
 // All game state lives here
 var state = window.state = {
-  started: false,
+  startTime: 0,
   player: {
     // Block coordinates of the player's head (the camera). +Z is up. When facing +X, +Y is left.
-    location: { x: 0, y: 0, z: 20 },
+    location: { x: -68, y: 0, z: 30 },
     // Azimuth ranges from 0 (looking down the +X axis) to 2*pi. Azimuth pi/2 looks at +Y.
     // Altitude ranges from -pi/2 (looking straight down) to pi/2 (up). 0 looks straight ahead.
     direction: { azimuth: 0, altitude: 0 },
@@ -46,6 +46,7 @@ state.socket.on('binary', function (msg) {
     state.world.addChunk(chunk)
   })
   console.log('Read %d chunks', chunks.length)
+  mesher.meshWorld(state.world)
 })
 
 // Runs once: initialization
@@ -54,12 +55,34 @@ env.shell.on('init', function () {
 })
 
 // Click to start
-env.canvas.addEventListener('click', function () {
+var label = document.querySelector('label')
+var input = document.querySelector('input')
+var button = document.querySelector('button')
+var canvas = document.querySelector('canvas')
+
+input.addEventListener('keyup', function () {
+  var name = input.value.replace(/[^A-Za-z]/g, '')
+  if (name !== input.value) {
+    input.value = name
+    label.innerHTML = 'letters only'
+  }
+  // TODO: auth, invites, signup
+  var names = ['dc', 'feross', 'mikola', 'neil', 'lipi', 'noor', 'bcrypt', 'nobody']
+  button.classList.toggle('enabled', names.includes(input.value))
+})
+
+button.addEventListener('click', function () {
   env.shell.fullscreen = true
   env.shell.pointerLock = true
-  if (state.started) return
+
+  state.startTime = new Date().getTime()
   sound.play('win95.mp3')
-  state.started = true
+  document.querySelector('.splash').remove()
+
+  canvas.addEventListener('click', function () {
+    env.shell.fullscreen = true
+    env.shell.pointerLock = true
+  })
 })
 
 // Runs regularly, independent of frame rate
@@ -92,6 +115,7 @@ env.regl.frame(function (context) {
   // TODO: draw all visible chunks
   // TODO: draw all objects
   // TODO: draw HUD (inventory, hotbar, health bar, etc)
+  if (!state.startTime) return
 
   // Track FPS
   var now = new Date().getTime()
@@ -100,7 +124,7 @@ env.regl.frame(function (context) {
   state.perf.lastFrameTime = now
 
   // Handle player input, physics, update player position, direction, and velocity
-  // The game is paused when not in fullscreen
+  // While out of fullscreen, the game is paused
   if (env.shell.fullscreen) playerControls.tick(state, dt)
 
   mesher.meshWorld(state.world)

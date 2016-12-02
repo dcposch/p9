@@ -61,7 +61,11 @@ function drawChunksScope () {
       uLightDir: [0.6, 0.48, 0.64],
       uLightDiffuse: [1, 1, 0.9],
       uLightAmbient: [0.6, 0.6, 0.6],
-      uDepthFog: [1.0, 1.0, 1.0, 200.0]
+      uDepthFog: function (context, props) {
+        var secs = (new Date().getTime() - props.startTime) * 0.001
+        var t = 1.0 - Math.exp(-secs * 0.1)
+        return [1.0, 1.0, 1.0, 400.0 * t]
+      }
     },
     blend: {
       enable: false

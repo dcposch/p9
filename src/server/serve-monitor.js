@@ -69,12 +69,7 @@ function handleGetIndex (req, res) {
   lines.push('Chunks ' + chunks.length + ' total ' + mb(chunkTotal))
 
   var clients = self.state.clients
-  var clientVersions = {}
-  clients.forEach(function (client) {
-    var v = client.clientVersion
-    if (v) clientVersions[v] = (clientVersions[v] || 0) + 1
-  })
-  lines.push('Clients ' + clients.length + ' versions ' + JSON.stringify(clientVersions))
+  lines.push('Clients ' + clients.length)
 
   res.set('content-type', 'text/plain')
   res.send(lines.join('\n'))
