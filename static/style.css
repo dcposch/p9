@@ -63,12 +63,24 @@ button {
   cursor: pointer;
 }
 
-button.enabled {
+button.show {
   display: block;
 }
 
 button:hover {
   background-position: 0 0;
+}
+
+.controls {
+  display: none;
+  position: absolute;
+  left: 60px;
+  top: 540px;
+  color: #ffccf0;
+}
+
+.controls.show {
+  display: block;
 }
 
 canvas {

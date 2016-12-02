@@ -17,6 +17,7 @@ var HORIZONTAL_COLLISION_DIRS = [
   [0, PW, 0], [0, PW, -1],
   [0, -PW, 0], [0, -PW, -1]
 ]
+var DIRS = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [-1, 0, 0], [0, -1, 0], [0, 0, -1]]
 
 // Calculates player physics. Lets the player move and look around.
 function tick (state, dt) {
@@ -33,8 +34,11 @@ function tick (state, dt) {
 // Lets the player place and break blocks
 // TODO: let the player interact with items
 function interact (state) {
-  if (shell.wasDown('mouse-left')) placeBlock(state)
-  else if (shell.wasDown('mouse-right')) breakBlock(state)
+  var left = shell.wasDown('mouse-left')
+  var right = shell.wasDown('mouse-right')
+  var shift = shell.wasDown('shift')
+  if (right || (shift && left)) breakBlock(state)
+  else if (left) placeBlock(state)
 }
 
 // Let the player move
@@ -151,5 +155,16 @@ function placeBlock (state) {
 
 // Break the block we're looking at
 function breakBlock (state) {
-  // TODO
+  var block = state.player.lookAtBlock
+  if (!block) return
+  var loc = block.location
+  var neighbors = [
+    state.world.getVox(loc.x + 1, loc.y, loc.z),
+    state.world.getVox(loc.x, loc.y + 1, loc.z),
+    state.world.getVox(loc.x - 1, loc.y, loc.z),
+    state.world.getVox(loc.x, loc.y - 1, loc.z),
+    state.world.getVox(loc.x, loc.y, loc.z + 1)
+  ]
+  var v = neighbors.includes(vox.INDEX.WATER) ? vox.INDEX.WATER : vox.INDEX.AIR
+  state.world.setVox(loc.x, loc.y, loc.z, v)
 }

@@ -58,6 +58,7 @@ env.shell.on('init', function () {
 var label = document.querySelector('label')
 var input = document.querySelector('input')
 var button = document.querySelector('button')
+var controls = document.querySelector('.controls')
 var canvas = document.querySelector('canvas')
 
 input.addEventListener('keyup', function () {
@@ -68,7 +69,9 @@ input.addEventListener('keyup', function () {
   }
   // TODO: auth, invites, signup
   var names = ['dc', 'feross', 'mikola', 'neil', 'lipi', 'noor', 'bcrypt', 'nobody']
-  button.classList.toggle('enabled', names.includes(input.value))
+  var ready = names.includes(input.value)
+  button.classList.toggle('show', ready)
+  controls.classList.toggle('show', ready)
 })
 
 button.addEventListener('click', function () {
