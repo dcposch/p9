@@ -14,7 +14,8 @@
 
 ## tech
 
-check out [client/index.js](src/client/index.js) and [server/index.js](src/server/index.js). both are short and sweet with lots of comments.
+check out [client/index.js](src/client/index.js) and [server/index.js](src/server/index.js).
+both are short and sweet with lots of comments.
 
 ### voxel representation and rendering
 

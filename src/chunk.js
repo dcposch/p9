@@ -105,12 +105,15 @@ function setVoxPacked (chunk, ix, iy, iz, v) {
 
   // If we found an existing quad that covers (ix, iy, iz), split it as needed
   if (q) {
+    var ix1 = ix + 1
+    var iy1 = iy + 1
+    var iz1 = iz + 1
     if (ix > q.x0) add.push({x0: q.x0, y0: q.y0, z0: q.z0, x1: ix, y1: q.y1, z1: q.z1, v: q.v})
-    if (ix + 1 < q.x1) add.push({x0: ix + 1, y0: q.y0, z0: q.z0, x1: q.x1, y1: q.y1, z1: q.z1, v: q.v})
-    if (iy > q.y0) add.push({x0: ix, y0: q.y0, z0: q.z0, x1: ix + 1, y1: iy, z1: q.z1, v: q.v})
-    if (iy + 1 < q.y1) add.push({x0: ix, y0: iy + 1, z0: q.z0, x1: ix + 1, y1: q.y1, z1: q.z1, v: q.v})
-    if (iz > q.z0) add.push({x0: ix, y0: iy, z0: q.z0, x1: ix + 1, y1: iy + 1, z1: iz, v: q.v})
-    if (iz + 1 < q.z1) add.push({x0: ix, y0: iy, z0: iz + 1, x1: ix + 1, y1: iy + 1, z1: q.z1, v: q.v})
+    if (ix1 < q.x1) add.push({x0: ix1, y0: q.y0, z0: q.z0, x1: q.x1, y1: q.y1, z1: q.z1, v: q.v})
+    if (iy > q.y0) add.push({x0: ix, y0: q.y0, z0: q.z0, x1: ix1, y1: iy, z1: q.z1, v: q.v})
+    if (iy1 < q.y1) add.push({x0: ix, y0: iy1, z0: q.z0, x1: ix1, y1: q.y1, z1: q.z1, v: q.v})
+    if (iz > q.z0) add.push({x0: ix, y0: iy, z0: q.z0, x1: ix1, y1: iy1, z1: iz, v: q.v})
+    if (iz1 < q.z1) add.push({x0: ix, y0: iy, z0: iz1, x1: ix1, y1: iy1, z1: q.z1, v: q.v})
 
     // Modify that existing quad to be air, so we'll delete it soon.
     data[q.i + 6] = 0

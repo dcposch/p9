@@ -48,6 +48,10 @@ everything is camelCased.
 
 the protocol aspires to minimalism.
 
-previous protocol designers have an annoying habit of inventing their own free-formed binary tagged data format. mongodb called theirs bson. minecraft has NDT. bittorrent has bencoding. all are gross one-offs. google has protobufs and facebook has thrift, and at least those are open standards in use beyond a single app or protocol.
+previous protocol designers have an annoying habit of inventing their own free-formed binary tagged
+data format. mongodb called theirs bson. minecraft has NDT. bittorrent has bencoding. all are gross
+one-offs. google has protobufs and facebook has thrift, and at least those are open standards in use
+beyond a single app or protocol.
 
-voxelwave just uses plain JSON for most message types. the few message types that comprise nearly all of the data transfer use fixed-format binary.
+voxelwave just uses plain JSON for most message types. the few message types that comprise nearly
+all of the data transfer use fixed-format binary.

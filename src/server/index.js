@@ -1,6 +1,8 @@
 var http = require('http')
 var WebSocketServer = require('ws').Server
 var express = require('express')
+var minimist = require('minimist')
+var fs = require('fs')
 var config = require('../config')
 var World = require('../world')
 var Client = require('./client')
@@ -15,12 +17,16 @@ var state = {
   perf: {
     lastTickTime: new Date().getTime(),
     tps: 0
-  }
+  },
+  config: null
 }
 
 main()
 
 function main () {
+  var args = minimist(process.argv.slice(2))
+  if (args.config) state.config = JSON.parse(fs.readFileSync(args.config, 'utf8'))
+
   // Generate the world around the origin, then on the fly around players
   gen.generateWorldAt(state.world, {x: 0, y: 0, z: 0})
 

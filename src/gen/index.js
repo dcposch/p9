@@ -71,7 +71,8 @@ function generateChunk (x, y, z) {
   if (z >= 128 || z < 0) return ret.pack()
 
   // Generate a Perlin heightmap
-  // https://web.archive.org/web/20160421115558/http://freespace.virgin.net/hugo.elias/models/m_perlin.htm
+  // https://web.archive.org/web/20160421115558/
+  // http://freespace.virgin.net/hugo.elias/models/m_perlin.htm
   var mountainAmp = function (rand, sx, sy) {
     var splash = 0.5 - 0.5 * Math.cos(Math.sqrt(sx * sx + sy * sy) / 50)
     return 100 * splash * (rand + 0.5)

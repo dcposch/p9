@@ -26,6 +26,9 @@ function addClient (client) {
     console.log('Removing client %d: %s', index, client.player.name)
     state.clients.splice(index, 1)
   })
+
+  client.send({type: 'handshake', serverVersion: config.SERVER.VERSION})
+  if (state.config) client.send({type: 'config', config: state.config})
 }
 
 // Talk to clients. Add

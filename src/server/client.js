@@ -1,5 +1,4 @@
 var EventEmitter = require('events')
-var config = require('../config')
 
 // Creates a new client handle from a new websocket connection
 module.exports = Client
@@ -34,7 +33,6 @@ function Client (ws) {
 
   ws.on('message', handleMessage.bind(this))
   ws.on('close', handleClose.bind(this))
-  ws.send(JSON.stringify({type: 'handshake', serverVersion: config.SERVER.VERSION}))
 }
 
 Client.prototype = Object.create(EventEmitter.prototype)

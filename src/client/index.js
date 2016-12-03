@@ -42,6 +42,7 @@ var state = window.state = {
   },
   world: new World(),
   socket: new Socket(),
+  config: null,
   error: null
 }
 
@@ -60,6 +61,16 @@ state.socket.on('binary', function (msg) {
   mesher.meshWorld(state.world)
 })
 
+state.socket.on('json', function (msg) {
+  switch (msg.type) {
+    case 'config':
+      state.config = msg.config
+      break
+    default:
+      console.error('Ignoring unknown message type ' + msg.type)
+  }
+})
+
 state.socket.on('close', function () {
   handleError('connection lost')
 })
@@ -69,7 +80,7 @@ env.shell.on('init', function () {
   console.log('WELCOME ~ VOXEL WORLD')
 })
 
-// Spash screen. Click to start
+// Spash screen
 var label = document.querySelector('label')
 var input = document.querySelector('input')
 var button = document.querySelector('button')
@@ -78,6 +89,7 @@ var controls = document.querySelector('.controls')
 var error = document.querySelector('.error')
 var splash = document.querySelector('.splash')
 
+// First, the player has to type in their name...
 input.addEventListener('keyup', function () {
   var name = input.value.replace(/[^A-Za-z]/g, '')
   if (name !== input.value) label.innerHTML = 'letters only'
@@ -85,28 +97,34 @@ input.addEventListener('keyup', function () {
   if (name !== input.value) input.value = name
 
   // TODO: auth, invites, signup
-  var names = ['dc', 'feross', 'mikola', 'neal', 'lipi', 'noor', 'bcrypt', 'visitor', 'pineapple express']
+  var names = ['dc', 'feross', 'mikola', 'neal', 'lipi', 'noor',
+    'bcrypt', 'visitor', 'pineapple express']
   var ready = names.includes(input.value)
   button.classList.toggle('show', ready)
   controls.classList.toggle('show', ready)
 })
 
+// ...then, click to start
 button.addEventListener('click', function () {
   env.shell.fullscreen = true
   env.shell.pointerLock = true
 
   state.player.name = input.value
   state.startTime = new Date().getTime()
-  sound.play('win95.mp3')
-  splash.remove()
 
+  splash.remove()
   canvas.addEventListener('click', function () {
     if (state.error) return
     env.shell.fullscreen = true
     env.shell.pointerLock = true
   })
+
+  var music = state.config && state.config.music
+  if (music) sound.play(music.url, music.time)
+  else sound.play('win95.mp3')
 })
 
+// Kill the game on error (eg 'connection lost'). Player has to refresh the page.
 function handleError (message) {
   console.log('Error: ' + message)
   state.error = {messsage: message}
@@ -177,5 +195,5 @@ env.regl.frame(function (context) {
     if (!drawDebug) drawDebug = require('./draw-debug')
     drawDebug(state)
   }
-  drawHitMarker({ color: [1, 1, 1, 0.5] })
+  if (env.shell.fullscreen) drawHitMarker({ color: [1, 1, 1, 0.5] })
 })
