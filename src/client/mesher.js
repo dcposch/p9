@@ -9,11 +9,13 @@ module.exports = {
 }
 
 // Working memory for meshChunk. Allocate once.
+var CB = config.CHUNK_BITS
 var CS = config.CHUNK_SIZE
 var CS3 = CS * CS * CS
 var verts = new Float32Array(CS3 * 3)
 var normals = new Float32Array(CS3 * 3)
 var uvs = new Float32Array(CS3 * 2)
+var checked = new Uint8Array(CS * CS)
 
 // Variables for meshWorld
 var MAX_REMESH_CHUNKS = 6
@@ -78,9 +80,9 @@ function meshChunk (chunk, world) {
   var count = meshBuffers(chunk, world)
 
   chunk.mesh = {
-    verts: env.regl.buffer(verts, count * 3),
-    normals: env.regl.buffer(normals, count * 3),
-    uvs: env.regl.buffer(uvs, count * 2),
+    verts: env.regl.buffer(new Float32Array(verts.buffer, 0, count * 3)),
+    normals: env.regl.buffer(new Float32Array(normals.buffer, 0, count * 3)),
+    uvs: env.regl.buffer(new Float32Array(uvs.buffer, 0, count * 2)),
     count: count,
     destroy: destroy
   }
@@ -111,7 +113,6 @@ function meshBuffers (chunk, world) {
     // Add the six faces (12 tris total) for the quad
     for (var fside = 0; fside <= 1; fside++) {
       // Figure out which faces we need to draw
-      var dir = fside ? 1 : -1
       var xface = fside ? (x1 - sideOffset) : (x0 + sideOffset)
       var yface = fside ? (y1 - sideOffset) : (y0 + sideOffset)
       var zface = fside ? z1 : z0
@@ -119,7 +120,7 @@ function meshBuffers (chunk, world) {
       var drawY = check(world, v, x0, fside ? y1 : (y0 - 1), z0, x1, fside ? (y1 + 1) : y0, z1)
       var drawZ = check(world, v, x0, y0, fside ? z1 : (z0 - 1), x1, y1, fside ? (z1 + 1) : z0)
 
-      // add vertices
+      // Add vertices
       if (drawX) {
         ivert += addXYZ(verts, ivert, xface, y0, z0)
         ivert += addXYZ(verts, ivert, xface, y1, z0)
@@ -148,6 +149,7 @@ function meshBuffers (chunk, world) {
       }
 
       // Add normals
+      var dir = fside ? 1 : -1
       if (drawX) for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, dir, 0, 0)
       if (drawY) for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, 0, dir, 0)
       if (drawZ) for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, 0, 0, dir)
@@ -167,14 +169,57 @@ function meshBuffers (chunk, world) {
 
 // Checks whether there are any seethru blocks in a given 3D quad *other than* vCompare
 function check (world, vCompare, x0, y0, z0, x1, y1, z1) {
-  for (var x = x0; x < x1; x++) {
-    for (var y = y0; y < y1; y++) {
-      for (var z = z0; z < z1; z++) {
-        var v = world.getVox(x, y, z)
-        if (v === vCompare) continue
-        if (v === vox.INDEX.AIR || v === vox.INDEX.WATER || v < 0) return true
+  var cx = x0 >> CB << CB
+  var cy = y0 >> CB << CB
+  var cz = z0 >> CB << CB
+  var chunk = world.getChunk(cx, cy, cz)
+  if (!chunk) return true
+
+  x0 = (x0 - cx) | 0
+  y0 = (y0 - cy) | 0
+  z0 = (z0 - cz) | 0
+  x1 = (x1 - cx) | 0
+  y1 = (y1 - cy) | 0
+  z1 = (z1 - cz) | 0
+  var wx = x1 - x0
+  var wy = y1 - y0
+  var wz = z1 - z0
+  checked.fill(0, 0, wx * wy * wz)
+  var n = chunk.length
+  var d = chunk.data
+  for (var i = 0; i < n; i += 8) {
+    var qx0 = d[i]
+    var qy0 = d[i + 1]
+    var qz0 = d[i + 2]
+    var qx1 = d[i + 3]
+    var qy1 = d[i + 4]
+    var qz1 = d[i + 5]
+    var overlaps = x0 < qx1 && x1 > qx0 && y0 < qy1 && y1 > qy0 && z0 < qz1 && z1 > qz0
+    var v = d[i + 6]
+    // If v is opaque (> 1) or matches vCompare, mark opaque blocks
+    if (v === vCompare || v > 1) {
+      if (!overlaps) continue
+      var ox0 = Math.max(x0, qx0) - x0
+      var oy0 = Math.max(y0, qy0) - y0
+      var oz0 = Math.max(z0, qz0) - z0
+      var ox1 = Math.min(x1, qx1) - x0
+      var oy1 = Math.min(y1, qy1) - y0
+      var oz1 = Math.min(z1, qz1) - z0
+      for (var ix = ox0; ix < ox1; ix++) {
+        for (var iy = oy0; iy < oy1; iy++) {
+          for (var iz = oz0; iz < oz1; iz++) {
+            checked[ix * wy * wz + iy * wz + iz] = 1
+          }
+        }
       }
+    } else {
+      // See if v is transparent and overaps the check region
+      if (overlaps) return true
     }
+  }
+  // See if there were any air blocks (not marked opaque)
+  for (i = 0; i < wx * wy * wz; i++) {
+    if (!checked[i]) return true
   }
   return false
 }
