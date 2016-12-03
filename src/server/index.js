@@ -7,7 +7,8 @@ var Client = require('./client')
 var gen = require('../gen')
 var FlexBuffer = require('../protocol/flex-buffer')
 var ChunkIO = require('../protocol/chunk-io')
-var serveMonitor = require('./serve-monitor')
+var monitor = require('./monitor')
+var api = require('./api')
 
 var CB = config.CHUNK_BITS
 
@@ -16,14 +17,13 @@ var wsServer = new WebSocketServer({server: httpServer})
 
 var state = {
   clients: [],
-  world: new World()
+  world: new World(),
+  tick: 0
 }
 
 // Generate the world around the origin, then on the fly around players
-console.time('world gen')
 gen.generateWorldAt(state.world, {x: 0, y: 0, z: 0})
-console.timeEnd('world gen')
-setInterval(gen.generateWorld.bind(null, state), 1000)
+tick()
 
 // Allocate once and re-use
 var buf = new FlexBuffer()
@@ -41,33 +41,11 @@ wsServer.on('connection', function (ws) {
   })
 })
 
-setInterval(tick, 100)
-
 function tick () {
-  var now = new Date().getTime()
-  var chunksToSend = []
-  for (var j = 0; j < state.clients.length; j++) {
-    chunksToSend.push([])
-  }
-  for (var i = 0; i < state.world.chunks.length; i++) {
-    var chunk = state.world.chunks[i]
-    if (chunk.dirty || !chunk.lastModified) {
-      chunk.dirty = false
-      chunk.lastModified = now
-    }
-    var key = chunk.getKey()
-    for (j = 0; j < state.clients.length; j++) {
-      var client = state.clients[j]
-      var cts = chunksToSend[j]
-      if (!isInRange(client, chunk)) continue // client doesn't need this chunk
-      if (client.chunksSent[key] >= chunk.lastModified) continue // client up-to-date
-      cts.push(chunk)
-      client.chunksSent[key] = now
-    }
-  }
-  for (j = 0; j < state.clients.length; j++) {
-    sendChunks(state.clients[j], chunksToSend[j])
-  }
+  // Update perf
+  state.tick++
+  if (state.tick % 10 === 0) gen.generateWorld(state)
+  api.tick()
 }
 
 function isInRange (client, chunk) {
@@ -106,7 +84,7 @@ function handleSet (cmd) {
 // Serve the client files
 var app = express()
 app.use(express.static('build'))
-app.use('/monitor', serveMonitor(state))
+app.use('/monitor', monitor.init(state))
 httpServer.on('request', app)
 
 httpServer.listen(config.SERVER.PORT, function () {

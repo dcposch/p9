@@ -2,14 +2,14 @@ var express = require('express')
 var util = require('util')
 var os = require('os')
 
-module.exports = serveMonitor
+module.exports = {init: init}
 
 // Singleton
 var self = null
 
 // Initializes the server resource monitor
 // Returns an Express route that serves status and stats
-function serveMonitor (state) {
+function init (state) {
   if (!state) throw new Error('state required')
   if (self) throw new Error('serveMonitor may only be called once')
 
