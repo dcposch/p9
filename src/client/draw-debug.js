@@ -25,7 +25,7 @@ module.exports = env.regl({
       var text = createDebugText(props)
       context2D.clearRect(0, 0, canvas.width, canvas.height)
       context2D.fillStyle = 'rgba(0, 0, 0, 0.5)'
-      context2D.fillRect(0, 0, canvas.width, 25.5 + 20 * text.length)
+      context2D.fillRect(0, 0, canvas.width, canvas.height)
       context2D.fillStyle = '#fff'
       for (var i = 0; i < text.length; i++) context2D.fillText(text[i], 10.5, 25.5 + 20 * i)
       texture(canvas)
@@ -47,7 +47,7 @@ module.exports = env.regl({
 function createHiddenCanvas () {
   var canvas = document.createElement('canvas')
   canvas.width = 450
-  canvas.height = 200
+  canvas.height = 150
   return canvas
 }
 
@@ -60,12 +60,11 @@ function createContext2D (canvas) {
 
 function createDebugText (state) {
   var ret = []
-  ret.push('P9 ' + version + ' - WASD, SHIFT, SPACE, L and R click')
+  ret.push('P9 ' + version)
 
   var loc = state.player.location
   var dir = state.player.direction
-  ret.push('Location: ' + loc.x.toFixed(1) + ', ' + loc.y.toFixed(1) + ', ' + loc.z.toFixed(1) +
-    ', ' + state.player.situation)
+  ret.push('Location: ' + pointToString(loc, 1) + ', ' + state.player.situation)
   ret.push('Azith: ' + toDeg(dir.azimuth) + '°, alt: ' + toDeg(dir.altitude) + '°, ' +
     'dzdt: ' + state.player.dzdt.toFixed(1))
 
@@ -75,20 +74,27 @@ function createDebugText (state) {
       ' MB, FPS: ' + Math.round(state.perf.fps))
   }
 
-  var totalVerts = state.world.chunks.map(function (chunk) {
-    return chunk.mesh ? chunk.mesh.count : 0
-  }).reduce(function (a, b) { return a + b }, 0)
+  var totalVerts = 0
+  var chunks = state.world.chunks
+  for (var i = 0; i < chunks.length; i++) {
+    var chunk = chunks[i]
+    totalVerts += chunk.mesh ? chunk.mesh.count : 0
+  }
   ret.push('Chunks: ' + state.world.chunks.length + ', verts: ' + totalVerts)
 
   if (state.player.lookAtBlock) {
     var b = state.player.lookAtBlock
-    var l = b.location
-    ret.push('Looking at: (' + l.x + ', ' + l.y + ', ' + l.z + ') ' + vox.TYPES[b.voxel].name)
+    ret.push('Looking at: ' + pointToString(b.location, 0) + ' ' + vox.TYPES[b.voxel].name)
   } else {
     ret.push('Looking at: sky')
   }
 
   return ret
+}
+
+// Returns "x,y,z". Displays d decimal points
+function pointToString (loc, d) {
+  return loc.x.toFixed(d) + ', ' + loc.y.toFixed(d) + ', ' + loc.z.toFixed(d)
 }
 
 // Radians to degrees, rounded to the nearest integer

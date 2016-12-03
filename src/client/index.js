@@ -11,7 +11,7 @@ var ChunkIO = require('../protocol/chunk-io')
 var env = require('./env')
 
 // Precompile regl commands, start loading resources
-var drawDebug = require('./draw-debug')
+var drawDebug = null
 var drawHitMarker = require('./draw-hit-marker')
 var drawWorld = require('./draw-world')
 
@@ -35,6 +35,10 @@ var state = window.state = {
   perf: {
     lastFrameTime: new Date().getTime(),
     fps: 0
+  },
+  debug: {
+    // Player can toggle the debug display
+    showHUD: false
   },
   world: new World(),
   socket: new Socket(),
@@ -169,6 +173,9 @@ env.regl.frame(function (context) {
   // Redraw the frame
   env.regl.clear({ color: [1, 1, 1, 1], depth: 1 })
   drawWorld(state)
-  drawDebug(state)
+  if (state.debug.showHUD) {
+    if (!drawDebug) drawDebug = require('./draw-debug')
+    drawDebug(state)
+  }
   drawHitMarker({ color: [1, 1, 1, 0.5] })
 })

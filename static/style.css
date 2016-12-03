@@ -10,9 +10,8 @@ body {
   font-family: pxl;
   letter-spacing: 0.15em;
   font-size: 30px;
-  padding: 40px 0;
   width: 600px;
-  margin: 0 auto;
+  margin: 40px auto;
   background: #fff;
 }
 
@@ -24,8 +23,8 @@ label {
   position: absolute;
   margin: 0;
   padding: 0;
-  top: 194px;
-  left: 141px;
+  top: 154px;
+  left: 101px;
   color: #fff;
 }
 
@@ -34,8 +33,8 @@ input {
   margin: 0;
   border: 0;
   padding: 40px 0 10px;
-  top: 220px;
-  left: 140px;
+  top: 180px;
+  left: 100px;
   width: 400px;
   font: 30px pxl;
   letter-spacing: 0.12em;
@@ -54,8 +53,8 @@ button {
   margin: 0;
   border: 0;
   padding: 0;
-  top: 380px;
-  left: 140px;
+  top: 340px;
+  left: 100px;
   width: 140px;
   height: 80px;
   background: url(pixel/go.png);
@@ -74,8 +73,8 @@ button:hover {
 .controls {
   display: none;
   position: absolute;
-  left: 60px;
-  top: 540px;
+  left: 20px;
+  top: 500px;
   color: #ffccf0;
 }
 

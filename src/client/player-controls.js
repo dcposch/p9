@@ -33,6 +33,8 @@ function tick (state, dt) {
 // Lets the player place and break blocks
 // TODO: let the player interact with items
 function interact (state) {
+  if (shell.press('3')) state.debug.showHUD = !state.debug.showHUD
+
   var left = shell.wasDown('mouse-left')
   var right = shell.wasDown('mouse-right')
   var shift = shell.wasDown('shift')
