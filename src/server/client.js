@@ -9,6 +9,7 @@ function Client (ws) {
 
   // A new client just connected, here's the websocket
   this.ws = ws
+  this.closed = false
   // Client version. Unknown at first, will be set during the handshake.
   this.clientVersion = null
   // See the client/index.js for details about player state
@@ -23,11 +24,17 @@ function Client (ws) {
   }
   // Keep track of what chunks we've sent to whom. Maps chunkKey to timestamp.
   this.chunksSent = {}
-  this.closed = false
+  // Track performance and bandwidth
+  this.perf = {
+    messagesSent: 0,
+    messagesReceived: 0,
+    bytesSent: 0,
+    bytesReceived: 0
+  }
 
   ws.on('message', handleMessage.bind(this))
   ws.on('close', handleClose.bind(this))
-  ws.send(JSON.stringify({serverVersion: config.SERVER.VERSION}))
+  ws.send(JSON.stringify({type: 'handshake', serverVersion: config.SERVER.VERSION}))
 }
 
 Client.prototype = Object.create(EventEmitter.prototype)
@@ -35,6 +42,8 @@ Client.prototype = Object.create(EventEmitter.prototype)
 Client.prototype.send = function (message) {
   if (this.closed) return console.error('Ignoring message, socket closed')
   if (!(message instanceof Uint8Array)) message = JSON.stringify(message)
+  this.perf.messagesSent++
+  this.perf.bytesSent += message.length
   this.ws.send(message)
 }
 
@@ -44,6 +53,8 @@ function handleClose () {
 }
 
 function handleMessage (data, flags) {
+  this.perf.messagesReceived++
+  this.perf.bytesReceived += data.length // Approximate. Doesn't count overhead or non-ASCII chars
   if (flags.binary) handleBinaryMessage(this, data)
   else handleJsonMessage(this, JSON.parse(data))
 }

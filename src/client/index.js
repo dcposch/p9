@@ -37,7 +37,8 @@ var state = window.state = {
     fps: 0
   },
   world: new World(),
-  socket: new Socket()
+  socket: new Socket(),
+  error: null
 }
 
 // Handle server messages
@@ -55,17 +56,23 @@ state.socket.on('binary', function (msg) {
   mesher.meshWorld(state.world)
 })
 
+state.socket.on('close', function () {
+  handleError('connection lost')
+})
+
 // Runs once: initialization
 env.shell.on('init', function () {
   console.log('WELCOME ~ VOXEL WORLD')
 })
 
-// Click to start
+// Spash screen. Click to start
 var label = document.querySelector('label')
 var input = document.querySelector('input')
 var button = document.querySelector('button')
-var controls = document.querySelector('.controls')
 var canvas = document.querySelector('canvas')
+var controls = document.querySelector('.controls')
+var error = document.querySelector('.error')
+var splash = document.querySelector('.splash')
 
 input.addEventListener('keyup', function () {
   var name = input.value.replace(/[^A-Za-z]/g, '')
@@ -87,18 +94,30 @@ button.addEventListener('click', function () {
   state.player.name = input.value
   state.startTime = new Date().getTime()
   sound.play('win95.mp3')
-  document.querySelector('.splash').remove()
+  splash.remove()
 
   canvas.addEventListener('click', function () {
+    if (state.error) return
     env.shell.fullscreen = true
     env.shell.pointerLock = true
   })
 })
 
+function handleError (message) {
+  console.log('Error: ' + message)
+  state.error = {messsage: message}
+  if (splash) splash.remove()
+  error.classList.add('show')
+  error.innerText = message
+  env.shell.fullscreen = false
+  env.shell.pointerLock = false
+}
+
 // Runs regularly, independent of frame rate
 env.shell.on('tick', function () {
   var startMs = new Date().getTime()
   env.resizeCanvasIfNeeded()
+  if (state.error) return
 
   // Block interactions
   picker.pick(state)

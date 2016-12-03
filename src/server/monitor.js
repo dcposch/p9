@@ -72,7 +72,10 @@ function handleGetIndex (req, res) {
   lines.push('')
   lines.push('## ' + clients.length + ' clients connected')
   clients.forEach(function (client) {
-    lines.push('- ' + client.player.name + ' at ' + coords(client.player.location))
+    lines.push(util.format('- %s at %s rx: %d msgs / %s tx: %d msgs / %s',
+      client.player.name, coords(client.player.location),
+      client.perf.messagesReceived, mb(client.perf.bytesReceived),
+      client.perf.messagesSent, mb(client.perf.bytesSent)))
   })
 
   res.set('content-type', 'text/plain')

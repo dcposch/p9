@@ -20,7 +20,7 @@ var state = {
 
 main()
 
-function main() {
+function main () {
   // Generate the world around the origin, then on the fly around players
   gen.generateWorldAt(state.world, {x: 0, y: 0, z: 0})
 
