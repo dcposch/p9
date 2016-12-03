@@ -85,7 +85,7 @@ input.addEventListener('keyup', function () {
   if (name !== input.value) input.value = name
 
   // TODO: auth, invites, signup
-  var names = ['dc', 'feross', 'mikola', 'neal', 'lipi', 'noor', 'bcrypt', 'nobody']
+  var names = ['dc', 'feross', 'mikola', 'neal', 'lipi', 'noor', 'bcrypt', 'visitor', 'pineapple express']
   var ready = names.includes(input.value)
   button.classList.toggle('show', ready)
   controls.classList.toggle('show', ready)
