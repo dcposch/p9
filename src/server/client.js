@@ -80,6 +80,6 @@ function handleUpdate (client, obj) {
   // TODO: doing this 10x per second per client is not ideal. use binary.
   // TODO: validation
   if (!client.player.name && obj.player.name) console.log('Player %s joined', obj.player.name)
-  client.player = obj.player
+  Object.assign(client.player, obj.player)
   client.emit('update', obj)
 }

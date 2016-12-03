@@ -31,15 +31,19 @@ function addClient (client) {
   if (state.config) client.send({type: 'config', config: state.config})
 }
 
-// Talk to clients. Add
+// Talk to clients. Bring them up to date on changes in their surroundings.
 function tick () {
   var now = new Date().getTime()
+
+  // Figure out which clients need which chunks.
+  // TODO: this runs in O(numClients * numChunks). Needs a better algorithm.
   var chunksToSend = []
   for (var j = 0; j < state.clients.length; j++) {
     chunksToSend.push([])
   }
-  for (var i = 0; i < state.world.chunks.length; i++) {
-    var chunk = state.world.chunks[i]
+  var chunks = state.world.chunks
+  for (var i = 0; i < chunks.length; i++) {
+    var chunk = chunks[i]
     if (chunk.dirty || !chunk.lastModified) {
       chunk.dirty = false
       chunk.lastModified = now
@@ -48,12 +52,14 @@ function tick () {
     for (j = 0; j < state.clients.length; j++) {
       var client = state.clients[j]
       var cts = chunksToSend[j]
-      if (!isInRange(client, chunk)) continue // client doesn't need this chunk
+      if (!isInRange(client, chunk)) continue // client too far away
       if (client.chunksSent[key] >= chunk.lastModified) continue // client up-to-date
       cts.push(chunk)
       client.chunksSent[key] = now
     }
   }
+
+  // Send chunk updates
   for (j = 0; j < state.clients.length; j++) {
     sendChunks(state.clients[j], chunksToSend[j])
   }
@@ -62,9 +68,9 @@ function tick () {
 function isInRange (client, chunk) {
   var loc = client.player.location
   if (!loc) return false
-  var dx = (chunk.x >> CB) - (client.x >> CB)
-  var dy = (chunk.y >> CB) - (client.y >> CB)
-  var dz = (chunk.z >> CB) - (client.z >> CB)
+  var dx = (chunk.x >> CB) - (loc.x >> CB)
+  var dy = (chunk.y >> CB) - (loc.y >> CB)
+  var dz = (chunk.z >> CB) - (loc.z >> CB)
   var r2 = dx * dx + dy * dy + dz * dz
   var rmax = config.WORLD_GEN.CHUNK_RADIUS
   return r2 < rmax * rmax
@@ -72,6 +78,7 @@ function isInRange (client, chunk) {
 
 function sendChunks (client, chunks) {
   if (!chunks.length) return
+  console.log('Sending %d chunks to %s', chunks.length, client.player.name)
   buf.reset()
   ChunkIO.write(buf, chunks)
   client.send(buf.slice())

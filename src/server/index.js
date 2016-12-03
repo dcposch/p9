@@ -27,9 +27,6 @@ function main () {
   var args = minimist(process.argv.slice(2))
   if (args.config) state.config = JSON.parse(fs.readFileSync(args.config, 'utf8'))
 
-  // Generate the world around the origin, then on the fly around players
-  gen.generateWorldAt(state.world, {x: 0, y: 0, z: 0})
-
   // Serve the voxelwave API
   api.init(state)
   var httpServer = http.createServer()
@@ -57,7 +54,6 @@ function main () {
 // Update the world, handle client commands, send client updates
 function tick () {
   // Track performance
-  state.tick++
   var now = new Date().getTime()
   var dt = (now - state.perf.lastTickTime) / 1000
   state.perf.tps = 0.99 * state.perf.tps + 0.01 / dt // Exponential moving average
@@ -70,5 +66,6 @@ function tick () {
   api.tick()
 
   // Run up to 10 ticks per second, depending on server load
-  setTimeout(tick, 100)
+  setTimeout(tick, 2000) // DBG one tick every two seconds to debug client side prediction
+  state.tick++
 }

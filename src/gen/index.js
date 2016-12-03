@@ -27,11 +27,22 @@ var chunksTravelled = {}
 
 // Generate chunks in a radius around each player
 function generateWorld (state) {
+  var startMs = new Date().getTime()
+  var numChunks = state.world.chunks.length
+
+  // Make sure we've generated around the origin (0,0,0)
+  generateWorldAt(state.world, {x: 0, y: 0, z: 0})
+
+  // Make sure we've generated around each player's current location
   for (var i = 0; i < state.clients.length; i++) {
     var client = state.clients[i]
     if (!client.player || !client.player.location) continue
     generateWorldAt(state.world, client.player.location)
   }
+
+  var elapsedMs = new Date().getTime() - startMs
+  var numNewChunks = state.world.chunks.length - numChunks
+  if (numNewChunks > 0) console.log('Generated %d chunks in %dms', numNewChunks, elapsedMs)
 }
 
 // Generate any missing chunks in a radius around a point
