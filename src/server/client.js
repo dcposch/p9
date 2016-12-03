@@ -33,7 +33,7 @@ function Client (ws) {
 Client.prototype = Object.create(EventEmitter.prototype)
 
 Client.prototype.send = function (message) {
-  if (this.closed) return console.error('ignoring message, socket closed')
+  if (this.closed) return console.error('Ignoring message, socket closed')
   if (!(message instanceof Uint8Array)) message = JSON.stringify(message)
   this.ws.send(message)
 }
@@ -49,7 +49,7 @@ function handleMessage (data, flags) {
 }
 
 function handleBinaryMessage (client, data) {
-  console.log('DBG UNIMPLEMENTED binary message ' + data.length)
+  console.error('Ignoring unimplemented binary message, length ' + data.length)
 }
 
 function handleJsonMessage (client, obj) {
@@ -59,7 +59,7 @@ function handleJsonMessage (client, obj) {
     case 'update':
       return handleUpdate(client, obj)
     default:
-      console.error('ignoring unknown message type ' + obj.type)
+      console.error('Ignoring unknown message type ' + obj.type)
   }
 }
 
@@ -70,7 +70,7 @@ function handleHandshake (client, obj) {
 function handleUpdate (client, obj) {
   // TODO: doing this 10x per second per client is not ideal. use binary.
   // TODO: validation
-  if (client.player.name !== obj.player.name) console.log('%s joined', obj.player.name)
+  if (!client.player.name) console.log('Player %s joined', obj.player.name)
   client.player = obj.player
   client.emit('update', obj)
 }

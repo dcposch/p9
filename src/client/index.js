@@ -69,12 +69,12 @@ var canvas = document.querySelector('canvas')
 
 input.addEventListener('keyup', function () {
   var name = input.value.replace(/[^A-Za-z]/g, '')
-  if (name !== input.value) {
-    input.value = name
-    label.innerHTML = 'letters only'
-  }
+  if (name !== input.value) label.innerHTML = 'letters only'
+  name = name.toLowerCase()
+  if (name !== input.value) input.value = name
+
   // TODO: auth, invites, signup
-  var names = ['dc', 'feross', 'mikola', 'neil', 'lipi', 'noor', 'bcrypt', 'nobody']
+  var names = ['dc', 'feross', 'mikola', 'neal', 'lipi', 'noor', 'bcrypt', 'nobody']
   var ready = names.includes(input.value)
   button.classList.toggle('show', ready)
   controls.classList.toggle('show', ready)
@@ -118,7 +118,7 @@ env.shell.on('tick', function () {
     player: state.player,
     commands: state.pendingCommands
   })
-  if (state.pendingCommands.length) console.log('sent %d commands', state.pendingCommands.length)
+  if (state.pendingCommands.length) console.log('Sent %d commands', state.pendingCommands.length)
   state.pendingCommands.length = 0
 
   var elapsedMs = Math.round(new Date().getTime() - startMs)

@@ -77,7 +77,7 @@ function compareOrWriteBuffer (t, buf, filepath) {
     if (e.code !== 'ENOENT') return t.fail(e)
     fs.mkdirpSync(path.dirname(fullPath))
     fs.writeFileSync(fullPath, buf)
-    console.error('created ' + filepath)
+    console.error('Created ' + filepath)
   }
 }
 

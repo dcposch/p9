@@ -1,14 +1,34 @@
+var config = require('../config')
+var FlexBuffer = require('../protocol/flex-buffer')
+var ChunkIO = require('../protocol/chunk-io')
+
 module.exports = {
   init: init,
+  addClient: addClient,
   tick: tick
 }
 
+var CB = config.CHUNK_BITS
+
+// Allocate once and re-use
+var buf = new FlexBuffer()
 var state = null
 
 function init (s) {
   state = s
 }
 
+function addClient (client) {
+  state.clients.push(client)
+  client.on('update', handleUpdate)
+  client.on('close', function () {
+    var index = state.clients.indexOf(client)
+    console.log('Removing client %d: %s', index, client.player.name)
+    state.clients.splice(index, 1)
+  })
+}
+
+// Talk to clients. Add
 function tick () {
   var now = new Date().getTime()
   var chunksToSend = []
@@ -34,4 +54,37 @@ function tick () {
   for (j = 0; j < state.clients.length; j++) {
     sendChunks(state.clients[j], chunksToSend[j])
   }
+}
+
+function isInRange (client, chunk) {
+  var loc = client.player.location
+  if (!loc) return false
+  var dx = (chunk.x >> CB) - (client.x >> CB)
+  var dy = (chunk.y >> CB) - (client.y >> CB)
+  var dz = (chunk.z >> CB) - (client.z >> CB)
+  var r2 = dx * dx + dy * dy + dz * dz
+  var rmax = config.WORLD_GEN.CHUNK_RADIUS
+  return r2 < rmax * rmax
+}
+
+function sendChunks (client, chunks) {
+  if (!chunks.length) return
+  buf.reset()
+  ChunkIO.write(buf, chunks)
+  client.send(buf.slice())
+}
+
+function handleUpdate (message) {
+  message.commands.forEach(function (command) {
+    switch (command.type) {
+      case 'set':
+        return handleSet(command)
+      default:
+        console.error('Ignoring unknown command type ' + command.type)
+    }
+  })
+}
+
+function handleSet (cmd) {
+  state.world.setVox(cmd.x, cmd.y, cmd.z, cmd.v)
 }
