@@ -88,5 +88,5 @@ function percent (v) {
 }
 
 function coords (v) {
-  return v.x + ', ' + v.y + ', ' + v.z
+  return Math.floor(v.x) + ', ' + Math.floor(v.y) + ', ' + Math.floor(v.z)
 }
