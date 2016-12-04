@@ -21,7 +21,7 @@ module.exports = {
     'nav-jump': ['space']
   },
   GRAPHICS: {
-    CHUNK_DRAW_RADIUS: 6, // Draw this many chunks in every direction from the player
+    CHUNK_DRAW_RADIUS: 10, // Draw this many chunks in every direction from the player
     MAX_ANISOTROPIC: 0 // Disable anisotropic filtering
   },
   PHYSICS: {
@@ -29,7 +29,7 @@ module.exports = {
     GRAVITY: 30 // Twice Earth gravity, 20ms^-2, each voxel is 1 m^3
   },
   WORLD_GEN: {
-    CHUNK_RADIUS: 6 // Generate this many chunk in every direction from every player
+    CHUNK_RADIUS: 10 // Generate this many chunk in every direction from every player
   },
   CLIENT: {
     VERSION: 0
