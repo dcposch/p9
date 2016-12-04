@@ -9,6 +9,7 @@ var Client = require('./client')
 var gen = require('../gen')
 var monitor = require('./monitor')
 var api = require('./api')
+var persist = require('./persist')
 
 var state = {
   clients: [],
@@ -18,7 +19,7 @@ var state = {
     lastTickTime: new Date().getTime(),
     tps: 0
   },
-  config: null
+  config: {}
 }
 
 main()
@@ -26,6 +27,8 @@ main()
 function main () {
   var args = minimist(process.argv.slice(2))
   if (args.config) state.config = JSON.parse(fs.readFileSync(args.config, 'utf8'))
+  if (state.config.saveFile) persist.load(state.config.saveFile, state.world, onLoad)
+  else process.nextTick(onLoad)
 
   // Serve the voxelwave API
   api.init(state)
@@ -47,6 +50,12 @@ function main () {
   httpServer.listen(config.SERVER.PORT, function () {
     console.log('Listening on ' + JSON.stringify(httpServer.address()))
   })
+}
+
+// World is done loading from file
+function onLoad (err) {
+  if (err && err.code === 'ENOENT') console.log('No save file yet, will be created...')
+  else if (err) console.error(err)
 
   tick()
 }
@@ -54,10 +63,16 @@ function main () {
 // Update the world, handle client commands, send client updates
 function tick () {
   // Track performance
-  var now = new Date().getTime()
-  var dt = (now - state.perf.lastTickTime) / 1000
+  var now = new Date()
+  var lastTick = new Date(state.perf.lastTickTime)
+  var dt = (now.getTime() - state.perf.lastTickTime) / 1000
   state.perf.tps = 0.99 * state.perf.tps + 0.01 / dt // Exponential moving average
-  state.perf.lastTickTime = now
+  state.perf.lastTickTime = now.getTime()
+
+  // Save the world to a file, every hour on the hour
+  var isQuarterHour = (now.getMinutes() !== lastTick.getMinutes()) && (now.getMinutes() % 15 === 0)
+  var saveFile = state.config.saveFile
+  if (isQuarterHour && saveFile) persist.save(saveFile, state.world)
 
   // Generate new areas of the world on demand, as players explore them
   // if (state.tick % 10 === 0) gen.generateWorld(state)

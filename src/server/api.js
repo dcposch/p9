@@ -28,7 +28,7 @@ function addClient (client) {
   })
 
   client.send({type: 'handshake', serverVersion: config.SERVER.VERSION})
-  if (state.config) client.send({type: 'config', config: state.config})
+  if (state.config.client) client.send({type: 'config', config: state.config.client})
 }
 
 // Talk to clients. Bring them up to date on changes in their surroundings.
