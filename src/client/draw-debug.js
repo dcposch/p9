@@ -80,7 +80,8 @@ function createDebugText (state) {
     var chunk = chunks[i]
     totalVerts += chunk.mesh ? chunk.mesh.count : 0
   }
-  ret.push('Chunks: ' + state.world.chunks.length + ', verts: ' + totalVerts)
+  ret.push('Chunks: ' + state.world.chunks.length + ', verts: ' + k(totalVerts) +
+    ', draw ' + state.perf.draw.chunks + ' / ' + k(state.perf.draw.verts))
 
   if (state.player.lookAtBlock) {
     var b = state.player.lookAtBlock
@@ -90,6 +91,11 @@ function createDebugText (state) {
   }
 
   return ret
+}
+
+// Returns eg "25k" for 25181
+function k (v) {
+  return Math.round(v / 1000) + 'k'
 }
 
 // Returns "x,y,z". Displays d decimal points

@@ -35,7 +35,8 @@ var state = window.state = {
   pendingChunkUpdates: [],
   perf: {
     lastFrameTime: new Date().getTime(),
-    fps: 0
+    fps: 0,
+    draw: {chunks: 0, verts: 0}
   },
   debug: {
     // Player can toggle the debug display
@@ -169,7 +170,7 @@ env.regl.frame(function (context) {
 
   // Track FPS
   var now = new Date().getTime()
-  var dt = (now - state.perf.lastFrameTime) / 1000
+  var dt = Math.max(now - state.perf.lastFrameTime, 1) / 1000
   state.perf.fps = 0.99 * state.perf.fps + 0.01 / dt // Exponential moving average
   state.perf.lastFrameTime = now
 
@@ -182,8 +183,8 @@ env.regl.frame(function (context) {
   // Catch up on work immediately *after* the frame ships to keep consistent fps
   setTimeout(postFrame, 0)
 })
- 
-function render() {
+
+function render () {
   env.regl.clear({ color: [1, 1, 1, 1], depth: 1 })
   drawWorld(state)
   if (state.debug.showHUD) {

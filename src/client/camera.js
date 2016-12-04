@@ -5,7 +5,8 @@ var mat4 = require('gl-mat4')
 // (The model matrix must be multiplied in separately. Voxel chunks are already in world
 // coordinates, so they don't need one.)
 module.exports = {
-  updateMatrix: updateMatrix
+  updateMatrix: updateMatrix,
+  getMatrix: getMatrix
 }
 
 // View, projection, and combined matrices
@@ -40,4 +41,12 @@ function updateMatrix (context, props) {
   mat4.multiply(mat, pmat, vmat)
 
   return mat
+}
+
+// Gets the latest view matrix, projection matrix, or combined (multiplied)
+function getMatrix (which) {
+  if (which === 'view') return vmat
+  else if (which === 'projection') return pmat
+  else if (which === 'combined') return mat
+  else throw new Error('unknown matrix ' + which)
 }
