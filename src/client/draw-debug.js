@@ -47,7 +47,7 @@ module.exports = env.regl({
 function createHiddenCanvas () {
   var canvas = document.createElement('canvas')
   canvas.width = 450
-  canvas.height = 150
+  canvas.height = 170
   return canvas
 }
 
@@ -89,6 +89,8 @@ function createDebugText (state) {
   } else {
     ret.push('Looking at: sky')
   }
+
+  ret.push('Placing ' + vox.TYPES[state.controls.placing].name)
 
   return ret
 }

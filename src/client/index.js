@@ -6,6 +6,7 @@ var Socket = require('./socket')
 var config = require('../config')
 var World = require('../world')
 var ChunkIO = require('../protocol/chunk-io')
+var vox = require('../vox')
 
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
@@ -30,6 +31,9 @@ var state = window.state = {
     situation: 'airborne',
     // Which block we're looking at. {location: {x,y,z}, side: {nx,ny,nz}, voxel}
     lookAtBlock: null
+  },
+  controls: {
+    placing: vox.INDEX.STONE
   },
   pendingCommands: [],
   pendingChunkUpdates: [],
