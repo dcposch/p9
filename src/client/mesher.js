@@ -31,6 +31,17 @@ function meshWorld (world, loc) {
 
   // Find chunks that need to be meshed
   world.chunks.forEach(function (c) {
+    // If a chunk is too far away to draw, don't mesh it
+    // If it's even further than that, unload from GPU
+    var maxDraw = config.GRAPHICS.CHUNK_DRAW_RADIUS * CS
+    var d2 = getDistSquared(c, loc)
+    if (d2 > maxDraw * maxDraw * 2 && c.mesh) {
+      c.mesh.destroy()
+      c.mesh = null
+      c.dirty = true
+    }
+    if (d2 > maxDraw * maxDraw) return
+
     if (!c.dirty) return
     c.dirty = false
 
@@ -57,10 +68,7 @@ function meshWorld (world, loc) {
       delete chunkPriority[key]
       return
     }
-    var dx = loc.x - chunk.x
-    var dy = loc.y - chunk.y
-    var dz = loc.z - chunk.z
-    var d2 = dx * dx + dy * dy + dz * dz
+    var d2 = getDistSquared(chunk, loc)
     chunksToMesh.push({priority: chunkPriority[key], chunk: chunk, d2: d2})
   })
   if (chunksToMesh.length === 0) return // Nothing to do
@@ -342,6 +350,13 @@ function check (world, vCompare, x0, y0, z0, x1, y1, z1) {
     if (!checked[i]) return true
   }
   return false
+}
+
+function getDistSquared (chunk, loc) {
+  var dx = loc.x - chunk.x
+  var dy = loc.y - chunk.y
+  var dz = loc.z - chunk.z
+  return dx * dx + dy * dy + dz * dz
 }
 
 function lookupSAT (arr, x0, y0, z0, x1, y1, z1) {

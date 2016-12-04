@@ -60,12 +60,13 @@ function tick () {
   state.perf.lastTickTime = now
 
   // Generate new areas of the world on demand, as players explore them
-  if (state.tick % 10 === 0) gen.generateWorld(state)
+  // if (state.tick % 10 === 0) gen.generateWorld(state)
+  gen.generateWorld(state)
 
   // Talk to clients
   api.tick()
 
   // Run up to 10 ticks per second, depending on server load
-  setTimeout(tick, 2000) // DBG one tick every two seconds to debug client side prediction
+  setTimeout(tick, 1000) // DBG one tick per second to debug client side prediction
   state.tick++
 }
