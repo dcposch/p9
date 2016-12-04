@@ -20,7 +20,7 @@ var checked = new Uint8Array(CS * CS)
 // Variables for meshWorld
 var MAX_QUADS_PER_RUN = 1000
 var chunkPriority = {}
-var chunkTransparency = {}
+var chunkCache = {}
 var numChecks = 0
 var numQuadsVisited = 0
 var numPreproc = 0
@@ -47,7 +47,7 @@ function meshWorld (world, loc) {
 
     // Remesh the dirty chunks ASAP
     var key = c.getKey()
-    chunkTransparency[key] = null
+    chunkCache[key] = null
     chunkPriority[key] = 3
 
     // Remesh adjacent chunks soon
@@ -88,7 +88,7 @@ function meshWorld (world, loc) {
 
   // Preprocess for performance
   chunksToMesh.forEach(function (obj) {
-    if (obj.priority === 3) markTransparency(obj.chunk)
+    if (obj.priority === 3) unpack(obj.chunk)
   })
   var preprocessMs = new Date().getTime()
 
@@ -114,10 +114,9 @@ function meshWorld (world, loc) {
   numQuadsVisited = 0
 }
 
-// Cache where a given chunk is transparent. Creates a 3D summed area table (SAT).
-// Stores a CS^3 array of cumulative sums of num opaque blocks.
-// This allows O(1) lookup of whether a region is opaque later.
-function markTransparency (chunk) {
+// Convert list of quads to flat array of voxels
+// Cache unpacked chunk contents
+function unpack (chunk) {
   if (!chunk.packed) throw new Error('chunk must be packed')
   var data = chunk.data
   var n = chunk.length
@@ -125,14 +124,14 @@ function markTransparency (chunk) {
 
   numPreproc++
   var key = chunk.getKey()
-  var trans = chunkTransparency[key]
-  if (!trans) {
-    trans = chunkTransparency[key] = new Uint16Array(CS * CS * CS) // 64KB per block... fail
+  var voxels = chunkCache[key]
+  if (!voxels) {
+    voxels = chunkCache[key] = new Uint8Array(CS * CS * CS) // 64KB per block... fail
   } else {
-    trans.fill(0)
+    voxels.fill(0)
   }
 
-  // First, mark quads
+  // Mark each quad
   for (var ci = 0; ci < n; ci++) {
     var index = ci * 8
     var x0 = data[index]
@@ -142,31 +141,11 @@ function markTransparency (chunk) {
     var y1 = data[index + 4]
     var z1 = data[index + 5]
     var v = data[index + 6]
-    if (v <= 1) continue // Only mark opaque quads
     for (var x = x0; x < x1; x++) {
       for (var y = y0; y < y1; y++) {
         for (var z = z0; z < z1; z++) {
-          trans[(x << CB << CB) + (y << CB) + z] = 1
+          voxels[(x << CB << CB) + (y << CB) + z] = v
         }
-      }
-    }
-  }
-
-  // Then, compute cumulative sums
-  var xstride = 1 << CB << CB
-  var ystride = 1 << CB
-  for (x = 0; x < CS; x++) {
-    for (y = 0; y < CS; y++) {
-      for (z = 0; z < CS; z++) {
-        index = (x << CB << CB) + (y << CB) + z
-        var aboveX = x === 0 ? 0 : trans[index - xstride]
-        var aboveY = y === 0 ? 0 : trans[index - ystride]
-        var aboveZ = z === 0 ? 0 : trans[index - 1]
-        var aboveXY = (x === 0 || y === 0) ? 0 : trans[index - xstride - ystride]
-        var aboveXZ = (x === 0 || z === 0) ? 0 : trans[index - xstride - 1]
-        var aboveYZ = (y === 0 || z === 0) ? 0 : trans[index - ystride - 1]
-        var aboveXYZ = (x === 0 || y === 0 || z === 0) ? 0 : trans[index - xstride - ystride - 1]
-        trans[index] += aboveX + aboveY + aboveZ - aboveXY - aboveYZ - aboveXZ + aboveXYZ
       }
     }
   }
@@ -295,15 +274,18 @@ function check (world, vCompare, x0, y0, z0, x1, y1, z1) {
   var wy = y1 - y0
   var wz = z1 - z0
 
-  // Fast path: O(1) transparency lookup from the precomputed array
-  var trans = chunkTransparency[chunk.getKey()]
-  if (trans) {
-    // Summed area table lookup
-    var numOpaque = lookupSAT(trans, x0, y0, z0, x1, y1, z1)
-    if (numOpaque > (wx * wy * wz)) {
-      throw new Error('precompute fail')
+  // Fast path
+  var voxels = chunkCache[chunk.getKey()]
+  if (voxels) {
+    for (var ix = x0; ix < x1; ix++) {
+      for (var iy = y0; iy < y1; iy++) {
+        for (var iz = z0; iz < z1; iz++) {
+          var v = voxels[(ix << CB << CB) + (iy << CB) + iz]
+          if (v !== vCompare && v <= 1) return true
+        }
+      }
     }
-    return numOpaque < (wx * wy * wz)
+    return false
   }
 
   // Slow path:
@@ -319,7 +301,7 @@ function check (world, vCompare, x0, y0, z0, x1, y1, z1) {
     var qx1 = d[index + 3]
     var qy1 = d[index + 4]
     var qz1 = d[index + 5]
-    var v = d[index + 6]
+    v = d[index + 6]
 
     var overlaps = x0 < qx1 && x1 > qx0 && y0 < qy1 && y1 > qy0 && z0 < qz1 && z1 > qz0
 
@@ -332,9 +314,9 @@ function check (world, vCompare, x0, y0, z0, x1, y1, z1) {
       var ox1 = Math.min(x1, qx1) - x0
       var oy1 = Math.min(y1, qy1) - y0
       var oz1 = Math.min(z1, qz1) - z0
-      for (var ix = ox0; ix < ox1; ix++) {
-        for (var iy = oy0; iy < oy1; iy++) {
-          for (var iz = oz0; iz < oz1; iz++) {
+      for (ix = ox0; ix < ox1; ix++) {
+        for (iy = oy0; iy < oy1; iy++) {
+          for (iz = oz0; iz < oz1; iz++) {
             checked[ix * wy * wz + iy * wz + iz] = 1
           }
         }
@@ -357,24 +339,6 @@ function getDistSquared (chunk, loc) {
   var dy = loc.y - chunk.y
   var dz = loc.z - chunk.z
   return dx * dx + dy * dy + dz * dz
-}
-
-function lookupSAT (arr, x0, y0, z0, x1, y1, z1) {
-  var t000 = lookupSatVal(arr, x0, y0, z0)
-  var t001 = lookupSatVal(arr, x0, y0, z1)
-  var t010 = lookupSatVal(arr, x0, y1, z0)
-  var t011 = lookupSatVal(arr, x0, y1, z1)
-  var t100 = lookupSatVal(arr, x1, y0, z0)
-  var t101 = lookupSatVal(arr, x1, y0, z1)
-  var t110 = lookupSatVal(arr, x1, y1, z0)
-  var t111 = lookupSatVal(arr, x1, y1, z1)
-  return t111 - t110 - t101 - t011 + t100 + t010 + t001 - t000
-}
-
-function lookupSatVal (arr, x, y, z) {
-  if (x < 0 || y < 0 || z < 0 || x > CS || y > CS || z > CS) throw new Error('sat fail')
-  if (x === 0 || y === 0 || z === 0) return 0
-  return arr[((x - 1) << CB << CB) + ((y - 1) << CB) + z - 1]
 }
 
 function addXYZ (arr, i, a, b, c) {
