@@ -20,20 +20,25 @@ var checked = new Uint8Array(CS * CS)
 // Variables for meshWorld
 var MAX_REMESH_CHUNKS = 6
 var chunksToMesh = {}
-var chunkPlanes = {}
+var chunkTransparency = {}
 var numChecks = 0
 var numQuadsVisited = 0
+var numPreproc = 0
 
 // Meshes all dirty chunks in the visible world, and lazily remeshes adjacent chunks
 function meshWorld (world) {
   var startMs = new Date().getTime()
 
-  // Mesh
+  // Find chunks that need to be meshed
   var dirtyChunks = world.chunks.filter(function (chunk) {
     return (chunk.data && !chunk.mesh) || chunk.dirty
   })
-  // Preprocessing for performance: figure out which quads cover which planes in each chunk
-  // dirtyChunks.forEach(markPlanes)
+
+  // Preprocess for performance
+  dirtyChunks.forEach(markTransparency)
+  var preprocessMs = new Date().getTime()
+
+  // Mesh
   dirtyChunks.forEach(function (c) {
     // Mesh chunk now
     meshChunk(c, world)
@@ -67,37 +72,40 @@ function meshWorld (world) {
     delete chunksToMesh[key]
     if (numRemeshed >= MAX_REMESH_CHUNKS) break
   }
+  var meshMs = new Date().getTime()
 
-  var elapsedMs = new Date().getTime() - startMs
-
-  // Initial load.
+  // Initial load. Tested on a 2016 12" Macbook running on half battery:
   // Baseline: Meshed 895 chunks, remeshed 0 in 591ms <always ~600>, 152517 checks 40m quads visited
   // Planes: Meshed 895 chunks, remeshed 0 in 397ms <always ~400>, 152517 checks 7m quads visited
-  console.log('Meshed %d chunks, remeshed %d in %dms, %d checks %dm quads visited',
-    dirtyChunks.length, numRemeshed, elapsedMs, numChecks, Math.round(numQuadsVisited / 1e6))
+  // SAT: Meshed 895 + 0 in 412ms, preproc 144 in 223ms, 110 checks 0m quads visited
+  // SAT >100: Meshed 895 + 0 in 371ms, preproc 117 in 207ms, 9594 checks 1m quads visited
+  console.log('Meshed %d + %d in %dms, preproc %d in %dms, %d checks %dm quads visited',
+    dirtyChunks.length, numRemeshed, meshMs - startMs, numPreproc, preprocessMs - startMs,
+    numChecks, Math.round(numQuadsVisited / 1e6))
+  numPreproc = 0
   numChecks = 0
   numQuadsVisited = 0
 }
 
-// Figure out which quads intersect which axis aligned planes
-// For example a 1x1x1 quad containing just (2,3,4) intersects x-plane 2, y-plane 3, z-plane 4
-function markPlanes (chunk) {
+// Cache where a given chunk is transparent. Creates a 3D summed area table (SAT).
+// Stores a CS^3 array of cumulative sums of num opaque blocks.
+// This allows O(1) lookup of whether a region is opaque later.
+function markTransparency (chunk) {
   if (!chunk.packed) throw new Error('chunk must be packed')
   var data = chunk.data
   var n = chunk.length
+  if (n === 0) return
 
+  numPreproc++
   var key = chunk.getKey()
-  var planes = chunkPlanes[key]
-  if (!planes) {
-    planes = chunkPlanes[key] = {x: new Array(CS), y: new Array(CS), z: new Array(CS)}
+  var trans = chunkTransparency[key]
+  if (!trans) {
+    trans = chunkTransparency[key] = new Uint16Array(CS * CS * CS) // 64KB per block... fail
+  } else {
+    trans.fill(0)
   }
 
-  for (var i = 0; i < CS; i++) {
-    planes.x[i] = []
-    planes.y[i] = []
-    planes.z[i] = []
-  }
-
+  // First, mark quads
   for (var ci = 0; ci < n; ci++) {
     var index = ci * 8
     var x0 = data[index]
@@ -106,9 +114,34 @@ function markPlanes (chunk) {
     var x1 = data[index + 3]
     var y1 = data[index + 4]
     var z1 = data[index + 5]
-    for (var x = x0; x < x1; x++) planes.x[x].push(ci)
-    for (var y = y0; y < y1; y++) planes.y[y].push(ci)
-    for (var z = z0; z < z1; z++) planes.z[z].push(ci)
+    var v = data[index + 6]
+    if (v <= 1) continue // Only mark opaque quads
+    for (var x = x0; x < x1; x++) {
+      for (var y = y0; y < y1; y++) {
+        for (var z = z0; z < z1; z++) {
+          trans[(x << CB << CB) + (y << CB) + z] = 1
+        }
+      }
+    }
+  }
+
+  // Then, compute cumulative sums
+  var xstride = 1 << CB << CB
+  var ystride = 1 << CB
+  for (x = 0; x < CS; x++) {
+    for (y = 0; y < CS; y++) {
+      for (z = 0; z < CS; z++) {
+        index = (x << CB << CB) + (y << CB) + z
+        var aboveX = x === 0 ? 0 : trans[index - xstride]
+        var aboveY = y === 0 ? 0 : trans[index - ystride]
+        var aboveZ = z === 0 ? 0 : trans[index - 1]
+        var aboveXY = (x === 0 || y === 0) ? 0 : trans[index - xstride - ystride]
+        var aboveXZ = (x === 0 || z === 0) ? 0 : trans[index - xstride - 1]
+        var aboveYZ = (y === 0 || z === 0) ? 0 : trans[index - ystride - 1]
+        var aboveXYZ = (x === 0 || y === 0 || z === 0) ? 0 : trans[index - xstride - ystride - 1]
+        trans[index] += aboveX + aboveY + aboveZ - aboveXY - aboveYZ - aboveXZ + aboveXYZ
+      }
+    }
   }
 }
 
@@ -223,9 +256,6 @@ function check (world, vCompare, x0, y0, z0, x1, y1, z1) {
   var chunk = world.getChunk(cx, cy, cz)
   if (!chunk) return true
 
-  // var planes = chunkPlanes[chunk.getKey()]
-  // if (!chunkPlanes) throw new Error('planes missing for ' + chunk.getKey())
-
   // The region (x0, y0, z0) to (x1, y1, v1) is entirely in one plane
   // This means we can intersection test it against typically <10 quads instead of hundreds
   // It also means at least one of wx, wy, or wz below must be equal to 1
@@ -238,20 +268,24 @@ function check (world, vCompare, x0, y0, z0, x1, y1, z1) {
   var wx = x1 - x0
   var wy = y1 - y0
   var wz = z1 - z0
-  /* var quadList
-  if (wx === 1) quadList = planes.x[x0]
-  else if (wy === 1) quadList = planes.y[y0]
-  else if (wz === 1) quadList = planes.z[z0]
-  else throw new Error('invalid check region') */
 
+  // Fast path: O(1) transparency lookup from the precomputed array
+  var trans = chunkTransparency[chunk.getKey()]
+  if (trans) {
+    // Summed area table lookup
+    var numOpaque = lookupSAT(trans, x0, y0, z0, x1, y1, z1)
+    if (numOpaque > (wx * wy * wz)) {
+      throw new Error('precompute fail')
+    }
+    return numOpaque < (wx * wy * wz)
+  }
+
+  // Slow path:
   // Check the region, mark `checked` for each voxel, find out if the region contains air
   checked.fill(0, 0, wx * wy * wz)
   numChecks++
-  numQuadsVisited += chunk.length / 8 // quadList.length
+  numQuadsVisited += chunk.length / 8
   var d = chunk.data
-  var i
-  // for (var i = 0; i < quadList.length; i++) {
-  //  var index = quadList[i] * 8
   for (var index = 0; index < chunk.length; index += 8) {
     var qx0 = d[index]
     var qy0 = d[index + 1]
@@ -286,10 +320,28 @@ function check (world, vCompare, x0, y0, z0, x1, y1, z1) {
   }
 
   // See if there were any air blocks (not marked opaque)
-  for (i = 0; i < wx * wy * wz; i++) {
+  for (var i = 0; i < wx * wy * wz; i++) {
     if (!checked[i]) return true
   }
   return false
+}
+
+function lookupSAT (arr, x0, y0, z0, x1, y1, z1) {
+  var t000 = lookupSatVal(arr, x0, y0, z0)
+  var t001 = lookupSatVal(arr, x0, y0, z1)
+  var t010 = lookupSatVal(arr, x0, y1, z0)
+  var t011 = lookupSatVal(arr, x0, y1, z1)
+  var t100 = lookupSatVal(arr, x1, y0, z0)
+  var t101 = lookupSatVal(arr, x1, y0, z1)
+  var t110 = lookupSatVal(arr, x1, y1, z0)
+  var t111 = lookupSatVal(arr, x1, y1, z1)
+  return t111 - t110 - t101 - t011 + t100 + t010 + t001 - t000
+}
+
+function lookupSatVal (arr, x, y, z) {
+  if (x < 0 || y < 0 || z < 0 || x > CS || y > CS || z > CS) throw new Error('sat fail')
+  if (x === 0 || y === 0 || z === 0) return 0
+  return arr[((x - 1) << CB << CB) + ((y - 1) << CB) + z - 1]
 }
 
 function addXYZ (arr, i, a, b, c) {
