@@ -32,6 +32,7 @@ var state = window.state = {
     lookAtBlock: null
   },
   pendingCommands: [],
+  pendingChunkUpdates: [],
   perf: {
     lastFrameTime: new Date().getTime(),
     fps: 0
@@ -48,16 +49,8 @@ var state = window.state = {
 
 // Handle server messages
 state.socket.on('binary', function (msg) {
-  var chunks = ChunkIO.read(msg)
-  chunks.forEach(function (chunk) {
-    // TODO: state.world.replaceChunk
-    var c = state.world.getChunk(chunk.x, chunk.y, chunk.z)
-    if (!c) return state.world.addChunk(chunk)
-    c.data = chunk.data
-    c.length = chunk.length
-    c.dirty = true
-  })
-  console.log('Read %d chunks', chunks.length)
+  state.pendingChunkUpdates = ChunkIO.read(msg)
+  console.log('Read %d chunks', state.pendingChunkUpdates.length)
 })
 
 state.socket.on('json', function (msg) {
@@ -184,11 +177,13 @@ env.regl.frame(function (context) {
   // While out of fullscreen, the game is paused
   if (env.shell.fullscreen) playerControls.tick(state, dt)
 
-  mesher.meshWorld(state.world, state.player.location)
+  if (state.startTime) render()
 
-  if (!state.startTime) return
-
-  // Redraw the frame
+  // Catch up on work immediately *after* the frame ships to keep consistent fps
+  setTimeout(postFrame, 0)
+})
+ 
+function render() {
   env.regl.clear({ color: [1, 1, 1, 1], depth: 1 })
   drawWorld(state)
   if (state.debug.showHUD) {
@@ -196,4 +191,24 @@ env.regl.frame(function (context) {
     drawDebug(state)
   }
   if (env.shell.fullscreen) drawHitMarker({ color: [1, 1, 1, 0.5] })
-})
+}
+
+function postFrame () {
+  var chunks = state.pendingChunkUpdates
+
+  if (chunks.length > 0) {
+    chunks.forEach(function (chunk) {
+      // TODO: state.world.replaceChunk
+      var c = state.world.getChunk(chunk.x, chunk.y, chunk.z)
+      if (!c) return state.world.addChunk(chunk)
+      c.data = chunk.data
+      c.length = chunk.length
+      c.dirty = true
+    })
+    chunks.length = 0
+
+    // TODO: prediction, so that blocks don't pop into and out of existence
+  } else {
+    mesher.meshWorld(state.world, state.player.location)
+  }
+}
