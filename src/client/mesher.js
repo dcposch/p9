@@ -18,60 +18,79 @@ var uvs = new Float32Array(CS3 * 2)
 var checked = new Uint8Array(CS * CS)
 
 // Variables for meshWorld
-var MAX_REMESH_CHUNKS = 6
-var chunksToMesh = {}
+var MAX_QUADS_PER_RUN = 1000
+var chunkPriority = {}
 var chunkTransparency = {}
 var numChecks = 0
 var numQuadsVisited = 0
 var numPreproc = 0
 
-// Meshes all dirty chunks in the visible world, and lazily remeshes adjacent chunks
-function meshWorld (world) {
+// Meshes dirty chunks. Schedules chunks for meshing based on a priority algorithm.
+function meshWorld (world, loc) {
   var startMs = new Date().getTime()
 
   // Find chunks that need to be meshed
-  var dirtyChunks = world.chunks.filter(function (chunk) {
-    return (chunk.data && !chunk.mesh) || chunk.dirty
+  world.chunks.forEach(function (c) {
+    if (!c.dirty) return
+    c.dirty = false
+
+    // Remesh the dirty chunks ASAP
+    var key = c.getKey()
+    chunkTransparency[key] = null
+    chunkPriority[key] = 3
+
+    // Remesh adjacent chunks soon
+    chunkPriority[[c.x + CS, c.y, c.z].join(',')] |= 1
+    chunkPriority[[c.x - CS, c.y, c.z].join(',')] |= 1
+    chunkPriority[[c.x, c.y + CS, c.z].join(',')] |= 1
+    chunkPriority[[c.x, c.y - CS, c.z].join(',')] |= 1
+    chunkPriority[[c.x, c.y, c.z + CS].join(',')] |= 1
+    chunkPriority[[c.x, c.y, c.z - CS].join(',')] |= 1
   })
 
+  // Find the ones highest priority and closest to the player
+  var chunksToMesh = []
+  Object.keys(chunkPriority)
+  .forEach(function (key) {
+    var chunk = world.chunkTable[key]
+    if (!chunk) {
+      delete chunkPriority[key]
+      return
+    }
+    var dx = loc.x - chunk.x
+    var dy = loc.y - chunk.y
+    var dz = loc.z - chunk.z
+    var d2 = dx * dx + dy * dy + dz * dz
+    chunksToMesh.push({priority: chunkPriority[key], chunk: chunk, d2: d2})
+  })
+  if (chunksToMesh.length === 0) return // Nothing to do
+
+  chunksToMesh.sort(function (a, b) {
+    var dPriority = b.priority - a.priority // Largest priority first
+    if (dPriority !== 0) return dPriority
+    return a.d2 - b.d2 // Smallest distance first
+  })
+
+  // Limit how many chunks we'll remesh per frame so we can keep our fps solid
+  var numQuads = 0
+  for (var i = 0; i < chunksToMesh.length; i++) {
+    numQuads += chunksToMesh[i].chunk.length >> 3
+    if (numQuads > MAX_QUADS_PER_RUN) chunksToMesh.length = i + 1
+  }
+
   // Preprocess for performance
-  dirtyChunks.forEach(markTransparency)
+  chunksToMesh.forEach(function (obj) {
+    if (obj.priority === 3) markTransparency(obj.chunk)
+  })
   var preprocessMs = new Date().getTime()
 
   // Mesh
-  dirtyChunks.forEach(function (c) {
-    // Mesh chunk now
-    meshChunk(c, world)
-    // Remesh adjacent chunks soon
-    chunksToMesh[[c.x + CS, c.y, c.z].join(',')] = true
-    chunksToMesh[[c.x - CS, c.y, c.z].join(',')] = true
-    chunksToMesh[[c.x, c.y + CS, c.z].join(',')] = true
-    chunksToMesh[[c.x, c.y - CS, c.z].join(',')] = true
-    chunksToMesh[[c.x, c.y, c.z + CS].join(',')] = true
-    chunksToMesh[[c.x, c.y, c.z - CS].join(',')] = true
+  var counts = [0, 0, 0, 0]
+  chunksToMesh.forEach(function (obj) {
+    counts[obj.priority]++
+    meshChunk(obj.chunk, world)
+    delete chunkPriority[obj.chunk.getKey()]
   })
-  // Don't remesh the dirty chunks themselves, those are already done
-  dirtyChunks.forEach(function (c) {
-    delete chunksToMesh[[c.x, c.y, c.z].join(',')]
-  })
-
-  // Quit if there's nothing new to do
-  var keysToMesh = Object.keys(chunksToMesh)
-  if (dirtyChunks.length === 0 && keysToMesh.length === 0) return
-
-  // Remesh chunks
-  var numRemeshed = 0
-  for (var i = 0; i < keysToMesh.length; i++) {
-    var key = keysToMesh[i]
-    var coords = key.split(',').map(Number)
-    var chunk = world.getChunk(coords[0], coords[1], coords[2])
-    if (chunk) {
-      meshChunk(chunk, world)
-      numRemeshed++
-    }
-    delete chunksToMesh[key]
-    if (numRemeshed >= MAX_REMESH_CHUNKS) break
-  }
   var meshMs = new Date().getTime()
 
   // Initial load. Tested on a 2016 12" Macbook running on half battery:
@@ -80,7 +99,7 @@ function meshWorld (world) {
   // SAT: Meshed 895 + 0 in 412ms, preproc 144 in 223ms, 110 checks 0m quads visited
   // SAT >100: Meshed 895 + 0 in 371ms, preproc 117 in 207ms, 9594 checks 1m quads visited
   console.log('Meshed %d + %d in %dms, preproc %d in %dms, %d checks %dm quads visited',
-    dirtyChunks.length, numRemeshed, meshMs - startMs, numPreproc, preprocessMs - startMs,
+    counts[3], counts[1], meshMs - startMs, numPreproc, preprocessMs - startMs,
     numChecks, Math.round(numQuadsVisited / 1e6))
   numPreproc = 0
   numChecks = 0
@@ -151,7 +170,6 @@ function meshChunk (chunk, world) {
   if (!chunk.data) return
   if (!chunk.packed) throw new Error('must pack chunk before meshing')
 
-  chunk.dirty = false
   if (chunk.mesh) chunk.mesh.destroy()
 
   // Fills 'verts', 'normals', and 'uvs'

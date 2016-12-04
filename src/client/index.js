@@ -58,7 +58,6 @@ state.socket.on('binary', function (msg) {
     c.dirty = true
   })
   console.log('Read %d chunks', chunks.length)
-  mesher.meshWorld(state.world)
 })
 
 state.socket.on('json', function (msg) {
@@ -174,7 +173,6 @@ env.regl.frame(function (context) {
   // TODO: draw all visible chunks
   // TODO: draw all objects
   // TODO: draw HUD (inventory, hotbar, health bar, etc)
-  if (!state.startTime) return
 
   // Track FPS
   var now = new Date().getTime()
@@ -186,7 +184,9 @@ env.regl.frame(function (context) {
   // While out of fullscreen, the game is paused
   if (env.shell.fullscreen) playerControls.tick(state, dt)
 
-  mesher.meshWorld(state.world)
+  mesher.meshWorld(state.world, state.player.location)
+
+  if (!state.startTime) return
 
   // Redraw the frame
   env.regl.clear({ color: [1, 1, 1, 1], depth: 1 })
