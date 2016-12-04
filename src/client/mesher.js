@@ -8,7 +8,7 @@ module.exports = {
   meshChunk: meshChunk
 }
 
-// Working memory for meshChunk. Allocate once.
+// Variables for meshChunk. Allocate once.
 var CB = config.CHUNK_BITS
 var CS = config.CHUNK_SIZE
 var CS3 = CS * CS * CS
@@ -19,7 +19,10 @@ var checked = new Uint8Array(CS * CS)
 
 // Variables for meshWorld
 var MAX_REMESH_CHUNKS = 6
-var mapToMesh = {}
+var chunksToMesh = {}
+var chunkPlanes = {}
+var numChecks = 0
+var numQuadsVisited = 0
 
 // Meshes all dirty chunks in the visible world, and lazily remeshes adjacent chunks
 function meshWorld (world) {
@@ -29,24 +32,26 @@ function meshWorld (world) {
   var dirtyChunks = world.chunks.filter(function (chunk) {
     return (chunk.data && !chunk.mesh) || chunk.dirty
   })
+  // Preprocessing for performance: figure out which quads cover which planes in each chunk
+  // dirtyChunks.forEach(markPlanes)
   dirtyChunks.forEach(function (c) {
     // Mesh chunk now
     meshChunk(c, world)
     // Remesh adjacent chunks soon
-    mapToMesh[[c.x + CS, c.y, c.z].join(',')] = true
-    mapToMesh[[c.x - CS, c.y, c.z].join(',')] = true
-    mapToMesh[[c.x, c.y + CS, c.z].join(',')] = true
-    mapToMesh[[c.x, c.y - CS, c.z].join(',')] = true
-    mapToMesh[[c.x, c.y, c.z + CS].join(',')] = true
-    mapToMesh[[c.x, c.y, c.z - CS].join(',')] = true
+    chunksToMesh[[c.x + CS, c.y, c.z].join(',')] = true
+    chunksToMesh[[c.x - CS, c.y, c.z].join(',')] = true
+    chunksToMesh[[c.x, c.y + CS, c.z].join(',')] = true
+    chunksToMesh[[c.x, c.y - CS, c.z].join(',')] = true
+    chunksToMesh[[c.x, c.y, c.z + CS].join(',')] = true
+    chunksToMesh[[c.x, c.y, c.z - CS].join(',')] = true
   })
   // Don't remesh the dirty chunks themselves, those are already done
   dirtyChunks.forEach(function (c) {
-    delete mapToMesh[[c.x, c.y, c.z].join(',')]
+    delete chunksToMesh[[c.x, c.y, c.z].join(',')]
   })
 
   // Quit if there's nothing new to do
-  var keysToMesh = Object.keys(mapToMesh)
+  var keysToMesh = Object.keys(chunksToMesh)
   if (dirtyChunks.length === 0 && keysToMesh.length === 0) return
 
   // Remesh chunks
@@ -59,12 +64,52 @@ function meshWorld (world) {
       meshChunk(chunk, world)
       numRemeshed++
     }
-    delete mapToMesh[key]
+    delete chunksToMesh[key]
     if (numRemeshed >= MAX_REMESH_CHUNKS) break
   }
 
   var elapsedMs = new Date().getTime() - startMs
-  console.log('Meshed %d chunks, remeshed %d in %dms', dirtyChunks.length, numRemeshed, elapsedMs)
+
+  // Initial load.
+  // Baseline: Meshed 895 chunks, remeshed 0 in 591ms <always ~600>, 152517 checks 40m quads visited
+  // Planes: Meshed 895 chunks, remeshed 0 in 397ms <always ~400>, 152517 checks 7m quads visited
+  console.log('Meshed %d chunks, remeshed %d in %dms, %d checks %dm quads visited',
+    dirtyChunks.length, numRemeshed, elapsedMs, numChecks, Math.round(numQuadsVisited / 1e6))
+  numChecks = 0
+  numQuadsVisited = 0
+}
+
+// Figure out which quads intersect which axis aligned planes
+// For example a 1x1x1 quad containing just (2,3,4) intersects x-plane 2, y-plane 3, z-plane 4
+function markPlanes (chunk) {
+  if (!chunk.packed) throw new Error('chunk must be packed')
+  var data = chunk.data
+  var n = chunk.length
+
+  var key = chunk.getKey()
+  var planes = chunkPlanes[key]
+  if (!planes) {
+    planes = chunkPlanes[key] = {x: new Array(CS), y: new Array(CS), z: new Array(CS)}
+  }
+
+  for (var i = 0; i < CS; i++) {
+    planes.x[i] = []
+    planes.y[i] = []
+    planes.z[i] = []
+  }
+
+  for (var ci = 0; ci < n; ci++) {
+    var index = ci * 8
+    var x0 = data[index]
+    var y0 = data[index + 1]
+    var z0 = data[index + 2]
+    var x1 = data[index + 3]
+    var y1 = data[index + 4]
+    var z1 = data[index + 5]
+    for (var x = x0; x < x1; x++) planes.x[x].push(ci)
+    for (var y = y0; y < y1; y++) planes.y[y].push(ci)
+    for (var z = z0; z < z1; z++) planes.z[z].push(ci)
+  }
 }
 
 // Meshes a chunk, exposed surfaces only, creating a regl object.
@@ -88,15 +133,18 @@ function meshChunk (chunk, world) {
   }
 }
 
+// Profiling shows this is the most critical path.
+// May run hundreds of times in a single frame, allocating 1000+ WebGL buffers
 function meshBuffers (chunk, world) {
   var data = chunk.data
+  var n = chunk.length
   var ivert = 0
   var inormal = 0
   var iuv = 0
   var i
 
   // Loop thru the packed representation (list of quads)
-  for (var index = 0; index < chunk.length; index += 8) {
+  for (var index = 0; index < n; index += 8) {
     var x0 = chunk.x + data[index]
     var y0 = chunk.y + data[index + 1]
     var z0 = chunk.z + data[index + 2]
@@ -167,7 +215,7 @@ function meshBuffers (chunk, world) {
   return ivert / 3
 }
 
-// Checks whether there are any seethru blocks in a given 3D quad *other than* vCompare
+// Checks whether there are any seethru blocks in a given 3D quad other than vCompare
 function check (world, vCompare, x0, y0, z0, x1, y1, z1) {
   var cx = x0 >> CB << CB
   var cy = y0 >> CB << CB
@@ -175,6 +223,12 @@ function check (world, vCompare, x0, y0, z0, x1, y1, z1) {
   var chunk = world.getChunk(cx, cy, cz)
   if (!chunk) return true
 
+  // var planes = chunkPlanes[chunk.getKey()]
+  // if (!chunkPlanes) throw new Error('planes missing for ' + chunk.getKey())
+
+  // The region (x0, y0, z0) to (x1, y1, v1) is entirely in one plane
+  // This means we can intersection test it against typically <10 quads instead of hundreds
+  // It also means at least one of wx, wy, or wz below must be equal to 1
   x0 = (x0 - cx) | 0
   y0 = (y0 - cy) | 0
   z0 = (z0 - cz) | 0
@@ -184,18 +238,31 @@ function check (world, vCompare, x0, y0, z0, x1, y1, z1) {
   var wx = x1 - x0
   var wy = y1 - y0
   var wz = z1 - z0
+  /* var quadList
+  if (wx === 1) quadList = planes.x[x0]
+  else if (wy === 1) quadList = planes.y[y0]
+  else if (wz === 1) quadList = planes.z[z0]
+  else throw new Error('invalid check region') */
+
+  // Check the region, mark `checked` for each voxel, find out if the region contains air
   checked.fill(0, 0, wx * wy * wz)
-  var n = chunk.length
+  numChecks++
+  numQuadsVisited += chunk.length / 8 // quadList.length
   var d = chunk.data
-  for (var i = 0; i < n; i += 8) {
-    var qx0 = d[i]
-    var qy0 = d[i + 1]
-    var qz0 = d[i + 2]
-    var qx1 = d[i + 3]
-    var qy1 = d[i + 4]
-    var qz1 = d[i + 5]
+  var i
+  // for (var i = 0; i < quadList.length; i++) {
+  //  var index = quadList[i] * 8
+  for (var index = 0; index < chunk.length; index += 8) {
+    var qx0 = d[index]
+    var qy0 = d[index + 1]
+    var qz0 = d[index + 2]
+    var qx1 = d[index + 3]
+    var qy1 = d[index + 4]
+    var qz1 = d[index + 5]
+    var v = d[index + 6]
+
     var overlaps = x0 < qx1 && x1 > qx0 && y0 < qy1 && y1 > qy0 && z0 < qz1 && z1 > qz0
-    var v = d[i + 6]
+
     // If v is opaque (> 1) or matches vCompare, mark opaque blocks
     if (v === vCompare || v > 1) {
       if (!overlaps) continue
@@ -217,6 +284,7 @@ function check (world, vCompare, x0, y0, z0, x1, y1, z1) {
       if (overlaps) return true
     }
   }
+
   // See if there were any air blocks (not marked opaque)
   for (i = 0; i < wx * wy * wz; i++) {
     if (!checked[i]) return true
