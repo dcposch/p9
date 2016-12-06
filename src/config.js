@@ -11,7 +11,7 @@ module.exports = {
   SPEED_WALK: 5,
   SPEED_JUMP: 10,
   SPEED_SPRINT_JUMP: 15,
-  MOUSE_SENSITIVITY: 0.01, // Radians per pixel
+  MOUSE_SENSITIVITY: 0.005, // Radians per pixel
   KEYBINDINGS: {
     'nav-forward': ['W', 'up'],
     'nav-left': ['A', 'left'],

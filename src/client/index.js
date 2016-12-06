@@ -17,7 +17,7 @@ var drawHitMarker = require('./draw-hit-marker')
 var drawWorld = require('./draw-world')
 
 // All game state lives here
-var state = window.state = {
+var state = {
   startTime: 0,
   player: {
     // Block coordinates of the player's head (the camera). +Z is up. When facing +X, +Y is left.
@@ -95,7 +95,7 @@ input.addEventListener('keyup', function () {
 
   // TODO: auth, invites, signup
   var names = ['dc', 'feross', 'mikola', 'neal', 'lipi', 'noor',
-    'bcrypt', 'visitor', 'pineapple express']
+    'bcrypt', 'visitor', 'pineapple express', 'won']
   var ready = names.includes(input.value)
   button.classList.toggle('show', ready)
   controls.classList.toggle('show', ready)
@@ -217,3 +217,7 @@ function postFrame () {
     mesher.meshWorld(state.world, state.player.location)
   }
 }
+
+// Power user tools
+window.state = state
+window.config = config
