@@ -103,3 +103,7 @@ canvas {
   position: absolute;
   top: 0;
 }
+
+canvas.fullscreen {
+  width: 100%
+}

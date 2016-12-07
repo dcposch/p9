@@ -5,6 +5,7 @@ var config = require('../config')
 var canvas = document.querySelector('#gl')
 var INITIAL_W = canvas.width
 var INITIAL_H = canvas.height
+var FULLSCREEN_W = 960
 
 module.exports = {
   canvas: canvas,
@@ -32,11 +33,18 @@ window.env = env
 
 // Resize the canvas when going into or out of fullscreen
 function resizeCanvasIfNeeded () {
-  var w = env.shell.fullscreen ? window.innerWidth : INITIAL_W
-  var h = env.shell.fullscreen ? window.innerHeight : INITIAL_H
+  var w = INITIAL_W
+  var h = INITIAL_H
+  if (env.shell.fullscreen) {
+    w = FULLSCREEN_W
+    h = FULLSCREEN_W * Math.min(1.0, window.innerHeight / window.innerWidth)
+  }
+
   if (env.canvas.width !== w || env.canvas.height !== h) {
     env.canvas.width = w
     env.canvas.height = h
     console.log('Set canvas size %d x %d', w, h)
   }
+
+  env.canvas.classList.toggle('fullscreen', env.shell.fullscreen)
 }
