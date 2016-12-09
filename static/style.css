@@ -1,8 +1,6 @@
 @font-face {
   font-family: 'pxl';
-  font-style: normal;
-  font-weight: 400;
-  src: url(pixel/pxl.ttf) format('ttf');
+  src: url('pixel/pxl.ttf');
 }
 
 body {
@@ -105,5 +103,5 @@ canvas {
 }
 
 canvas.fullscreen {
-  width: 100%
+  width: 100%;
 }
