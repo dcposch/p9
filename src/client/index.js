@@ -88,7 +88,7 @@ var splash = document.querySelector('.splash')
 
 // First, the player has to type in their name...
 input.addEventListener('keyup', function () {
-  var name = input.value.replace(/[^A-Za-z]/g, '')
+  var name = input.value.replace(/[^A-Za-z ]/g, '')
   if (name !== input.value) label.innerHTML = 'letters only'
   name = name.toLowerCase()
   if (name !== input.value) input.value = name
