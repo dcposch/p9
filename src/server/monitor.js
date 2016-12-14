@@ -11,7 +11,7 @@ var self = null
 // Returns an Express route that serves status and stats
 function init (state) {
   if (!state) throw new Error('state required')
-  if (self) throw new Error('serveMonitor may only be called once')
+  if (self) throw new Error('monitor.init() may only be called once')
 
   self = {
     state: state,
@@ -38,7 +38,7 @@ function update () {
   self.lastTime = self.time
   self.time = now.getTime()
   self.lastCpuUsage = self.cpuUsage
-  self.cpuUsage = process.cpuUsage(self.lastCpuUsage)
+  self.cpuUsage = process.cpuUsage()
 }
 
 // Shows an overview of how the server is doing
@@ -52,9 +52,10 @@ function handleGetIndex (req, res) {
 
   if (self.lastTime) {
     var dt = (self.time - self.lastTime) * 1000 // in microseconds
-    var cpu = self.cpuUsage
+    var cpuUser = self.cpuUsage.user - self.lastCpuUsage.user
+    var cpuSys = self.cpuUsage.system - self.lastCpuUsage.system
     lines.push(util.format('CPU app %s sys %s cores %d',
-      percent(cpu.user / dt), percent(cpu.system / dt), self.cpus.length))
+      percent(cpuUser / dt), percent(cpuSys / dt), self.cpus.length))
   }
 
   var memTotal = os.totalmem()
@@ -67,6 +68,8 @@ function handleGetIndex (req, res) {
   var chunkTotal = 0
   for (var i = 0; i < chunks; i++) chunkTotal += chunks[i].length
   lines.push('Chunks ' + chunks.length + ' total ' + mb(chunkTotal))
+
+  lines.push('TPS ' + self.state.perf.tps.toFixed(1))
 
   var clients = self.state.clients
   lines.push('')
