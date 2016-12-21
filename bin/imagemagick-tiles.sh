@@ -4,6 +4,7 @@ echo "Usage: imagemagick-tiles.sh <convert command> -- <tile1> ..."
 echo "Example: imagemagick-tiles.sh -modulate 100,80,100 -- tile-water-*.png"
 echo "You may want to run this command from within static/tiles/p9"
 
+dir=$(dirname "${BASH_SOURCE[0]}")
 convert=""
 dash=false
 for arg in "$@"
@@ -19,4 +20,8 @@ do
     convert="$convert $arg"
   fi
 done
+
+echo "Rebuilding texture atlas..."
+$dir/create-atlas.sh
+
 echo "Done!"

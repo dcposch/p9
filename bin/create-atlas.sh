@@ -3,7 +3,9 @@
 # Requires ImageMagick
 # brew install imagemagick
 
-cd static/tiles/p9
+dir=$(dirname "${BASH_SOURCE[0]}")/..
+
+cd $dir/static/tiles/p9
 
 OUT=../../textures/atlas-p9.png
 W1=tile-water-1.png
