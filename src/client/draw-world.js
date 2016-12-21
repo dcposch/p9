@@ -3,6 +3,7 @@ var config = require('../config')
 var shaders = require('./shaders')
 var camera = require('./camera')
 var vec3 = require('gl-vec3')
+var textures = require('./textures')
 
 // Draws the voxels.
 // Does not draw the player or UI overlays.
@@ -12,9 +13,9 @@ var CS = config.CHUNK_SIZE
 
 // Start loading resources immediately
 var chunkScopeCommand, chunkCommand
-var textureAtlas
 var meshes = []
-loadResources(createCommands)
+// TODO: rename createCommands() to init or something, don't call at require time
+createCommands()
 
 // Draw voxel chunks, once resources are loaded.
 function drawWorld (state) {
@@ -75,25 +76,6 @@ function chunkOutsideFrustum (matCombined, chunk) {
   return true
 }
 
-// Loads resources. Calls back when done
-function loadResources (cb) {
-  // Load voxel atlas texture
-  var aniso = Math.min(env.regl.limits.maxAnisotropic, config.GRAPHICS.MAX_ANISOTROPIC)
-  var image = new window.Image()
-  image.src = 'textures/atlas-p9.png'
-  image.onload = function () {
-    console.log('Loaded ' + image.src)
-    textureAtlas = env.regl.texture({
-      min: 'nearest',
-      aniso: aniso,
-      mag: 'nearest',
-      data: image
-    })
-    cb()
-  }
-  console.log('Voxel texture: %s, aniso: %d', image.src, aniso)
-}
-
 function createCommands () {
   chunkScopeCommand = drawChunksScope()
   chunkCommand = drawChunk()
@@ -104,7 +86,7 @@ function drawChunksScope () {
   return env.regl({
     uniforms: {
       uMatrix: camera.updateMatrix,
-      uAtlas: textureAtlas,
+      uAtlas: textures.loaded.atlas,
       uLightDir: [0.6, 0.48, 0.64],
       uLightDiffuse: [1, 1, 0.9],
       uLightAmbient: [0.6, 0.6, 0.6],

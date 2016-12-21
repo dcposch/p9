@@ -11,7 +11,7 @@ var texture = env.regl.texture(canvas)
 // Overlays white text onto the top left corner of the screen.
 module.exports = env.regl({
   vert: shaders.vert.uvClip,
-  frag: shaders.frag.sprite,
+  frag: shaders.frag.texture,
   attributes: {
     aVertexPosition: function (context) {
       var w = canvas.width / context.viewportWidth * 2

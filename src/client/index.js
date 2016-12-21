@@ -7,14 +7,19 @@ var config = require('../config')
 var World = require('../world')
 var ChunkIO = require('../protocol/chunk-io')
 var vox = require('../vox')
+var textures = require('./textures')
 
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
 
 // Precompile regl commands, start loading resources
-var drawDebug = null
-var drawHitMarker = require('./draw-hit-marker')
-var drawWorld = require('./draw-world')
+var drawDebug, drawHitMarker, drawWorld
+
+textures.loadAll(function (err) {
+  if (err) return handleError('failed to load textures')
+  drawHitMarker = require('./draw-hit-marker')
+  drawWorld = require('./draw-world')
+})
 
 // All game state lives here
 var state = {
@@ -124,7 +129,7 @@ button.addEventListener('click', function () {
 // Kill the game on error (eg 'connection lost'). Player has to refresh the page.
 function handleError (message) {
   console.log('Error: ' + message)
-  state.error = {messsage: message}
+  state.error = {message: message}
   if (splash) splash.remove()
   error.classList.add('show')
   error.innerText = message
