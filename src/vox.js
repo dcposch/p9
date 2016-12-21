@@ -1,9 +1,10 @@
 // Usage:
-// VOX.TYPES[1] // { name: 'WATER', ... }
+// VOX.TYPES[1] // { name: 'WATER', uv, sideOffset, ... }
 // VOX.INDEX.WATER // equals 1
 var VOX = {
   isSolid: isSolid
 }
+
 module.exports = VOX
 
 // Checks whether a given block index is solid (on-world and not air or water)

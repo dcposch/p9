@@ -194,7 +194,7 @@ function meshBuffers (chunk, world) {
     // Get uvs, etc
     var voxType = vox.TYPES[v]
     if (!voxType) throw new Error('unsupported voxel type ' + v)
-    var sideOffset = voxType.sideOffset || 0
+    var sideOffset = voxType.sideOffset
 
     // Add the six faces (12 tris total) for the quad
     for (var fside = 0; fside <= 1; fside++) {

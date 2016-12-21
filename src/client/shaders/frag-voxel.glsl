@@ -13,7 +13,7 @@ uniform vec3 uLightAmbient;
 uniform vec4 uDepthFog;
 uniform float uAnimateT;
 
-const vec2 UV_WATER = vec2(13, 12);
+const vec2 UV_WATER = vec2(0, 0);
 
 const float TILE_SIZE = 1.0 / 32.0;
 
@@ -43,9 +43,10 @@ vec4 computeTexColor () {
   vec2 uv;
   if (vUV == UV_WATER) {
     vec3 q = floor(p);
-    float t = floor(uAnimateT * 2.0);
-    float frame = mod(dot(q.xyz, q.yzx) + dot(q.xyz, q.zxy) + q.x + q.y + q.z + t, 4.0);
-    uv = vec2(vUV.x + 1.0 + floor(frame / 2.0), vUV.y + mod(frame, 2.0));
+    float t = floor(uAnimateT);
+    float frame = mod(dot(q.xyz, q.yzx) + dot(q.xyz, q.zxy) + q.x + q.y + q.z + t, 6.0);
+    frame = min(frame, 3.0);
+    uv = vec2(vUV.x + frame, vUV.y);
   } else {
     uv = vUV;
   }
