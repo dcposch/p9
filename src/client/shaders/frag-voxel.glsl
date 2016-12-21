@@ -11,6 +11,9 @@ uniform vec3 uLightDir;
 uniform vec3 uLightDiffuse;
 uniform vec3 uLightAmbient;
 uniform vec4 uDepthFog;
+uniform float uAnimateT;
+
+const vec2 UV_WATER = vec2(13, 12);
 
 const float TILE_SIZE = 1.0 / 32.0;
 
@@ -35,7 +38,19 @@ vec4 computeTexColor () {
   float u = dot(vec3(p.x, p.y, p.x), abs(vec3(n.z, n.x, n.y)));
   float v = dot(vec3(-p.z, p.y, -p.z), abs(vec3(n.y, n.z, n.x)));
   vec2 tileUV = fract(vec2(u, v));
-  return sampleTileAtlas(vUV, tileUV);
+
+  // Animate water
+  vec2 uv;
+  if (vUV == UV_WATER) {
+    vec3 q = floor(p);
+    float t = floor(uAnimateT * 2.0);
+    float frame = mod(dot(q.xyz, q.yzx) + dot(q.xyz, q.zxy) + q.x + q.y + q.z + t, 4.0);
+    uv = vec2(vUV.x + 1.0 + floor(frame / 2.0), vUV.y + mod(frame, 2.0));
+  } else {
+    uv = vUV;
+  }
+
+  return sampleTileAtlas(uv, tileUV);
 }
 
 // Computes the combined ambient and direct lighting. There is no diffuse light.

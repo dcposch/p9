@@ -80,7 +80,7 @@ function loadResources (cb) {
   // Load voxel atlas texture
   var aniso = Math.min(env.regl.limits.maxAnisotropic, config.GRAPHICS.MAX_ANISOTROPIC)
   var image = new window.Image()
-  image.src = 'textures/isabella.png'
+  image.src = 'textures/atlas-p9.png'
   image.onload = function () {
     console.log('Loaded ' + image.src)
     textureAtlas = env.regl.texture({
@@ -108,6 +108,9 @@ function drawChunksScope () {
       uLightDir: [0.6, 0.48, 0.64],
       uLightDiffuse: [1, 1, 0.9],
       uLightAmbient: [0.6, 0.6, 0.6],
+      uAnimateT: function (context) {
+        return context.time
+      },
       uDepthFog: function (context, props) {
         var secs = (new Date().getTime() - props.startTime) * 0.001
         var t = 1.0 - Math.exp(-secs * 0.1)

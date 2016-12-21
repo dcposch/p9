@@ -12,94 +12,37 @@ function isSolid (v) {
   return v > 1
 }
 
+function VoxType (name, uv, sideOffset) {
+  this.name = name
+  this.uv = Array.isArray(uv) ? {side: uv, top: uv, bottom: uv} : uv
+  this.sideOffset = sideOffset || 0
+}
+
 // Voxel (block) types
 // The index will be used for serialization over the network and to disk.
 // Once that's supported, new block types may only be appended to the end.
 VOX.TYPES = [
-  {
-    name: 'AIR'
-  },
-  {
-    name: 'WATER',
-    uv: {side: [13, 12], top: [13, 12], bottom: [13, 12]}
-  },
-  {
-    name: 'GRASS',
-    uv: {side: [3, 0], top: [1, 9], bottom: [2, 0]}
-  },
-  {
-    name: 'STONE',
-    uv: {side: [1, 0], top: [1, 0], bottom: [1, 0]}
-  },
-  {
-    name: 'RED',
-    uv: {side: [1, 8], top: [1, 8], bottom: [1, 8]}
-  },
-  {
-    name: 'PINK',
-    uv: {side: [2, 8], top: [2, 8], bottom: [2, 8]}
-  },
-  {
-    name: 'DARK_GREEN',
-    uv: {side: [1, 9], top: [1, 9], bottom: [1, 9]}
-  },
-  {
-    name: 'LIGHT_GREEN',
-    uv: {side: [2, 9], top: [2, 9], bottom: [2, 9]}
-  },
-  {
-    name: 'BROWN',
-    uv: {side: [1, 10], top: [1, 10], bottom: [1, 10]}
-  },
-  {
-    name: 'YELLOW',
-    uv: {side: [2, 10], top: [2, 10], bottom: [2, 10]}
-  },
-  {
-    name: 'DARK_BLUE',
-    uv: {side: [1, 11], top: [1, 11], bottom: [1, 11]}
-  },
-  {
-    name: 'LIGHT_BLUE',
-    uv: {side: [2, 11], top: [2, 11], bottom: [2, 11]}
-  },
-  {
-    name: 'DARK_PURPLE',
-    uv: {side: [1, 12], top: [1, 12], bottom: [1, 12]}
-  },
-  {
-    name: 'LIGHT_PURPLE',
-    uv: {side: [2, 12], top: [2, 12], bottom: [2, 12]}
-  },
-  {
-    name: 'CACTUS',
-    uv: {side: [6, 4], top: [5, 4], bottom: [7, 4]},
-    sideOffset: 1 / 16
-  },
-  {
-    name: 'LEAVES',
-    uv: {side: [4, 12], top: [4, 12], bottom: [4, 12]}
-  },
-  {
-    name: 'POPLAR',
-    uv: {side: [5, 7], top: [5, 1], bottom: [5, 1]}
-  },
-  {
-    name: 'STRIPE_WOOD',
-    uv: {side: [7, 12], top: [5, 1], bottom: [5, 1]}
-  },
-  {
-    name: 'PLANT_1',
-    uv: {side: [8, 10], top: [8, 10], bottom: [8, 10]}
-  },
-  {
-    name: 'PLANT_2',
-    uv: {side: [9, 10], top: [9, 10], bottom: [9, 10]}
-  },
-  {
-    name: 'PLANT_3',
-    uv: {side: [10, 10], top: [10, 10], bottom: [10, 10]}
-  }
+  new VoxType('AIR'),
+  new VoxType('WATER', [0, 0]),
+  new VoxType('GRASS', {side: [0, 0], top: [0, 0], bottom: [0, 0]}),
+  new VoxType('STONE', [4, 0]),
+  new VoxType('RED', [10, 0]),
+  new VoxType('PINK', [9, 0]),
+  new VoxType('DARK_GREEN', [12, 0]),
+  new VoxType('LIGHT_GREEN', [11, 0]),
+  new VoxType('BROWN', [1, 0]),
+  new VoxType('YELLOW', [15, 0]),
+  new VoxType('DARK_BLUE', [14, 0]),
+  new VoxType('LIGHT_BLUE', [13, 0]),
+  new VoxType('DARK_PURPLE', [8, 0]),
+  new VoxType('LIGHT_PURPLE', [7, 0]),
+  new VoxType('CACTUS', [0, 0], 1 / 16),
+  new VoxType('LEAVES', [0, 0]),
+  new VoxType('POPLAR', [0, 0]),
+  new VoxType('STRIPE_WOOD', {side: [5, 0], top: [6, 0], bottom: [6, 0]}),
+  new VoxType('PLANT_1', [1, 1]),
+  new VoxType('PLANT_2', [1, 2]),
+  new VoxType('PLANT_3', [1, 3])
 ]
 
 // Get the index of each block type
