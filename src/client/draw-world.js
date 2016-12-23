@@ -11,19 +11,16 @@ module.exports = drawWorld
 
 var CS = config.CHUNK_SIZE
 
-// Start loading resources immediately
-var chunkScopeCommand, chunkCommand
+// TODO: use init() or something, don't call at require time
+var chunkCommand = drawChunk()
+
+// Allocate once, update every frame in cullChunks()
 var meshes = []
-// TODO: rename createCommands() to init or something, don't call at require time
-createCommands()
 
 // Draw voxel chunks, once resources are loaded.
 function drawWorld (state) {
-  if (!chunkScopeCommand) return
-  chunkScopeCommand(state, function () {
-    cullChunks(state)
-    chunkCommand(meshes)
-  })
+  cullChunks(state)
+  chunkCommand(meshes)
 }
 
 // Figure out which chunks we have to draw
@@ -76,35 +73,6 @@ function chunkOutsideFrustum (matCombined, chunk) {
   return true
 }
 
-function createCommands () {
-  chunkScopeCommand = drawChunksScope()
-  chunkCommand = drawChunk()
-}
-
-// Draw all loaded chunks efficiently
-function drawChunksScope () {
-  return env.regl({
-    uniforms: {
-      uMatrix: camera.updateMatrix,
-      uAtlas: textures.loaded.atlas,
-      uLightDir: [0.6, 0.48, 0.64],
-      uLightDiffuse: [1, 1, 0.9],
-      uLightAmbient: [0.6, 0.6, 0.6],
-      uAnimateT: function (context) {
-        return context.time
-      },
-      uDepthFog: function (context, props) {
-        var secs = (new Date().getTime() - props.startTime) * 0.001
-        var t = 1.0 - Math.exp(-secs * 0.1)
-        return [1.0, 1.0, 1.0, 400.0 * t]
-      }
-    },
-    blend: {
-      enable: false
-    }
-  })
-}
-
 // Creates a regl command that draws a voxel chunk
 function drawChunk () {
   return env.regl({
@@ -113,10 +81,13 @@ function drawChunk () {
     // profile: true,
     vert: shaders.vert.uvWorld,
     frag: shaders.frag.voxel,
+    uniforms: {
+      uAtlas: textures.loaded.atlas
+    },
     attributes: {
-      aVertexPosition: env.regl.prop('verts'),
-      aVertexNormal: env.regl.prop('normals'),
-      aVertexUV: env.regl.prop('uvs')
+      aPosition: env.regl.prop('verts'),
+      aNormal: env.regl.prop('normals'),
+      aUV: env.regl.prop('uvs')
     },
     count: env.regl.prop('count')
   })

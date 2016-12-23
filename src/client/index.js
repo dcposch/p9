@@ -8,21 +8,24 @@ var World = require('../world')
 var ChunkIO = require('../protocol/chunk-io')
 var vox = require('../vox')
 var textures = require('./textures')
-var Player = require('./models/player')
 
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
 
 // Precompile regl commands, start loading resources
-var drawDebug, drawHitMarker, drawWorld
-
-var testPlayer = new Player()
-testPlayer.location = { x: -68, y: 0, z: 30 }
+var drawScope, drawDebug, drawHitMarker, drawWorld
+var testPlayer
 
 textures.loadAll(function (err) {
   if (err) return handleError('failed to load textures')
+  drawScope = require('./draw-scope')
   drawHitMarker = require('./draw-hit-marker')
   drawWorld = require('./draw-world')
+
+  // TODO
+  var Player = require('./models/player')
+  testPlayer = new Player()
+  testPlayer.location = { x: -68, y: 0, z: 30 }
 })
 
 // All game state lives here
@@ -199,13 +202,18 @@ env.regl.frame(function (context) {
 
 function render () {
   env.regl.clear({ color: [1, 1, 1, 1], depth: 1 })
-  drawWorld(state)
+  if (!drawScope) return
+  drawScope(state, function () {
+    drawWorld(state)
+    testPlayer.draw()
+  })
   if (state.debug.showHUD) {
     if (!drawDebug) drawDebug = require('./draw-debug')
     drawDebug(state)
   }
-  testPlayer.draw()
-  if (env.shell.fullscreen) drawHitMarker({ color: [1, 1, 1, 0.5] })
+  if (env.shell.fullscreen) {
+    drawHitMarker({ color: [1, 1, 1, 0.5] })
+  }
 }
 
 function postFrame () {

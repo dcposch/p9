@@ -9,7 +9,7 @@ module.exports = env.regl({
   vert: shaders.vert.colorClip,
   frag: shaders.frag.color,
   attributes: {
-    aVertexPosition: function (context, props) {
+    aPosition: function (context, props) {
       var w = CROSSHAIR_RADIUS / context.viewportWidth * 2
       var h = CROSSHAIR_RADIUS / context.viewportHeight * 2
       // Bump it a half pixel to prevent blur
@@ -17,7 +17,7 @@ module.exports = env.regl({
       var hh = 1 / context.viewportHeight
       return [[w + hw, hh], [-w + hw, hh], [hw, h + hh], [hw, -h + hh]]
     },
-    aVertexColor: function (context, props) {
+    aColor: function (context, props) {
       return [props.color, props.color, props.color, props.color]
     }
   },

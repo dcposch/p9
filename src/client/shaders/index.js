@@ -10,7 +10,6 @@ module.exports = {
   frag: {
     color: fs.readFileSync(require.resolve('./frag-color.glsl'), 'utf8'),
     texture: fs.readFileSync(require.resolve('./frag-texture.glsl'), 'utf8'),
-    texLight: fs.readFileSync(require.resolve('./frag-tex-light.glsl'), 'utf8'),
     voxel: fs.readFileSync(require.resolve('./frag-voxel.glsl'), 'utf8')
   }
 }

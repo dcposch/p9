@@ -13,7 +13,7 @@ module.exports = env.regl({
   vert: shaders.vert.uvClip,
   frag: shaders.frag.texture,
   attributes: {
-    aVertexPosition: function (context) {
+    aPosition: function (context) {
       var w = canvas.width / context.viewportWidth * 2
       var h = canvas.height / context.viewportHeight * 2
       return [[-1, 1], [-1 + w, 1], [-1 + w, 1 - h], [-1 + w, 1 - h], [-1, 1 - h], [-1, 1]]

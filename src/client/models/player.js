@@ -16,6 +16,7 @@ var meshTemplate = makeMesh()
 var bufferUVs = regl.buffer(meshTemplate.uvs) // same for all players
 
 function Player () {
+  this.scale = 0.1
   this.location = {x: 0, y: 0, z: 0}
   // Azimuth 0 points in the +Y direction.
   // Altitude 0 points straight ahead. +PI/2 points up at the sky (+Z). -PI/2 points down.
@@ -58,7 +59,7 @@ Player.prototype.destroy = function () {
 }
 
 Player.draw = regl({
-  frag: shaders.frag.texLight,
+  frag: shaders.frag.texture,
   vert: shaders.vert.uvWorld,
   attributes: {
     aPosition: function (context, props) { return props.player.buffers.verts },
@@ -66,7 +67,7 @@ Player.draw = regl({
     aUV: bufferUVs
   },
   uniforms: {
-    uTexture: textures.player
+    uTexture: textures.loaded.player
   },
   count: meshTemplate.verts.length
 })
@@ -109,7 +110,6 @@ function axisAligned (x, y, z, w, d, h, u, v) {
 
 function getUVs (x, y, z, w, d, h, u, v) {
   function makeUV (iu, iv, iw, ih) {
-    console.log([iu / 64, iv / 32, (iu + iw) / 64, (iv + ih) / 32])
     return [iu / 64, iv / 32, (iu + iw) / 64, (iv + ih) / 32]
   }
   return [
