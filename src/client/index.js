@@ -36,7 +36,7 @@ var state = {
     // Altitude ranges from -pi/2 (looking straight down) to pi/2 (up). 0 looks straight ahead.
     direction: { azimuth: 0, altitude: 0 },
     // Physics
-    dzdt: 0,
+    velocity: { x: 0, y: 0, z: 0 },
     // Situation can also be 'on-ground', 'suffocating'
     situation: 'airborne',
     // Which block we're looking at. {location: {x,y,z}, side: {nx,ny,nz}, voxel}
@@ -89,6 +89,7 @@ function handleConfig (msg) {
 }
 
 function handleObjects (msg) {
+  var now = new Date().getTime()
   var keys = {}
 
   // Create and update new objects
@@ -98,6 +99,9 @@ function handleObjects (msg) {
     if (!obj) obj = state.objects[info.key] = createObject(info)
     obj.location = info.location
     obj.direction = info.direction
+    obj.velocity = info.velocity
+    obj.situation = info.situation
+    obj.lastUpdateMs = now
   })
 
   // Delete objects that no longer exist or are too far away
@@ -183,9 +187,10 @@ function handleError (message) {
 
 // Runs regularly, independent of frame rate
 env.shell.on('tick', function () {
-  var startMs = new Date().getTime()
   env.resizeCanvasIfNeeded()
   if (state.error) return
+
+  var startMs = new Date().getTime()
 
   // Block interactions
   picker.pick(state)
@@ -212,6 +217,22 @@ env.shell.on('tick', function () {
   if (elapsedMs > 1000 * config.TICK_INTERVAL) console.log('Slow tick: %d ms', elapsedMs)
 })
 
+function predictObjects (dt, now) {
+  Object.keys(state.objects).forEach(function (key) {
+    if (key === 'self') return
+    var obj = state.objects[key]
+    // Don't extrapolate too far. If there's too much lag, it's better for objects to stop moving
+    // than to teleport through blocks.
+    if (obj.lastUpdateMs - now > config.MAX_EXTRAPOLATE_MS) return
+    var loc = obj.location
+    var vel = obj.velocity
+    if (obj.situation === 'airborne') vel.z -= config.PHYSICS.GRAVITY * dt
+    loc.x += vel.x * dt
+    loc.y += vel.y * dt
+    loc.z += vel.z * dt
+  })
+}
+
 // Renders each frame. Should run at 60Hz.
 // Stops running if the canvas is not visible, for example because the window is minimized.
 env.regl.frame(function (context) {
@@ -227,11 +248,14 @@ env.regl.frame(function (context) {
   state.perf.fps = 0.99 * state.perf.fps + 0.01 / dt // Exponential moving average
   state.perf.lastFrameTime = now
 
-  // Handle player input, physics, update player position, direction, and velocity
-  // While out of fullscreen, the game is paused
-  if (env.shell.fullscreen) playerControls.tick(state, dt)
-
-  if (state.startTime) render()
+  if (state.startTime) {
+    // Handle player input, physics, update player position, direction, and velocity
+    playerControls.tick(state, dt)
+    // Prediction: extrapolate object positions from latest server update
+    predictObjects(dt, now)
+    // Draw the frame
+    render()
+  }
 
   // Catch up on work immediately *after* the frame ships to keep consistent fps
   setTimeout(postFrame, 0)

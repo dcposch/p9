@@ -54,18 +54,22 @@ function interact (state) {
 function navigate (player, dt) {
   var loc = player.location
   var dir = player.direction
+  var vel = player.velocity
 
   // Directional input (WASD) always works
   var speed = shell.wasDown('nav-sprint') ? config.SPEED_SPRINT : config.SPEED_WALK
-  var dist = speed * dt
-  if (shell.wasDown('nav-forward')) move(loc, dist, dir.azimuth, 0)
-  if (shell.wasDown('nav-back')) move(loc, dist, dir.azimuth + Math.PI, 0)
-  if (shell.wasDown('nav-left')) move(loc, dist, dir.azimuth + Math.PI * 0.5, 0)
-  if (shell.wasDown('nav-right')) move(loc, dist, dir.azimuth + Math.PI * 1.5, 0)
+  vel.x = 0
+  vel.y = 0
+  if (shell.wasDown('nav-forward')) move(vel, speed, dir.azimuth, 0)
+  if (shell.wasDown('nav-back')) move(vel, speed, dir.azimuth + Math.PI, 0)
+  if (shell.wasDown('nav-left')) move(vel, speed, dir.azimuth + Math.PI * 0.5, 0)
+  if (shell.wasDown('nav-right')) move(vel, speed, dir.azimuth + Math.PI * 1.5, 0)
+  loc.x += vel.x * dt
+  loc.y += vel.y * dt
 
   // Jumping (space) only works if we're on solid ground
   if (shell.wasDown('nav-jump') && player.situation === 'on-ground') {
-    player.dzdt = shell.wasDown('nav-sprint') ? config.SPEED_SPRINT_JUMP : config.SPEED_JUMP
+    vel.z = shell.wasDown('nav-sprint') ? config.SPEED_SPRINT_JUMP : config.SPEED_JUMP
     player.situation = 'airborne'
   }
 }
@@ -93,6 +97,7 @@ function look (player) {
 function simulate (state, dt) {
   var player = state.player
   var loc = player.location
+  var vel = player.velocity
 
   // Horizontal collision
   HORIZONTAL_COLLISION_DIRS.forEach(function (dir) {
@@ -102,35 +107,37 @@ function simulate (state, dt) {
     if (dir[0] < 0) loc.x = Math.floor(loc.x) + PW + EPS
     if (dir[1] > 0) loc.y = Math.ceil(loc.y) - PW - EPS
     if (dir[1] < 0) loc.y = Math.floor(loc.y) + PW + EPS
+    if (dir[0] !== 0) vel.x = 0
+    if (dir[1] !== 0) vel.y = 0
   })
 
   // Gravity
-  player.dzdt -= config.PHYSICS.GRAVITY * dt
+  vel.z -= config.PHYSICS.GRAVITY * dt
 
   // Vertical collision
   var underfoot = collide(state, loc.x, loc.y, loc.z - PH - EPS)
   var legs = collide(state, loc.x, loc.y, loc.z - PW - EPS)
   var head = collide(state, loc.x, loc.y, loc.z + PW - EPS)
   if (head && underfoot) {
-    player.dzdt = 0
+    vel.z = 0
     player.situation = 'suffocating'
   } else if (head) {
-    player.dzdt = 0
+    vel.z = 0
     player.situation = 'airborne'
     loc.z = Math.floor(loc.z - PH - EPS) + PH
   } else if (legs) {
-    player.dzdt = 0
+    vel.z = 0
     player.situation = 'on-ground'
     loc.z = Math.ceil(loc.z - PW - EPS) + PH
-  } else if (underfoot && player.dzdt <= 0) {
-    player.dzdt = 0
+  } else if (underfoot && vel.z <= 0) {
+    vel.z = 0
     player.situation = 'on-ground'
     loc.z = Math.ceil(loc.z - PH - EPS) + PH
   } else {
     player.situation = 'airborne'
   }
 
-  loc.z += player.dzdt * dt
+  loc.z += vel.z * dt
 }
 
 // Returns true if (x, y, z) is unpassable (either in a block or off the world)

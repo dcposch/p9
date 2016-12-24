@@ -20,6 +20,7 @@ module.exports = {
     'nav-sprint': ['shift'],
     'nav-jump': ['space']
   },
+  MAX_EXTRAPOLATE_MS: 100,
   GRAPHICS: {
     CHUNK_DRAW_RADIUS: 10, // Draw this many chunks in every direction from the player
     MAX_ANISOTROPIC: 0 // Disable anisotropic filtering

@@ -63,8 +63,10 @@ function createDebugText (state) {
   ret.push('P9 ' + version)
 
   var loc = state.player.location
+  var vel = state.player.velocity
   var dir = state.player.direction
-  ret.push('Location: ' + pointToString(loc, 1) + ', ' + state.player.situation)
+  ret.push('Location: ' + pointToString(loc, 1) + ', d/dt ' + pointToString(vel, 1) +
+    ', ' + state.player.situation)
   ret.push('Azith: ' + toDeg(dir.azimuth) + '°, alt: ' + toDeg(dir.altitude) + '°, ' +
     'dzdt: ' + state.player.dzdt.toFixed(1))
 

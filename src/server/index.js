@@ -76,13 +76,14 @@ function tick () {
   if (isQuarterHour && saveFile) persist.save(saveFile, state.world)
 
   // Generate new areas of the world on demand, as players explore them
-  // if (state.tick % 10 === 0) gen.generateWorld(state)
-  gen.generateWorld(state)
+  if (state.tick % 10 === 0) gen.generateWorld(state)
 
   // Talk to clients
-  api.tick()
+  // DBG only one chunk update per second to debug client side prediction
+  if (state.tick % 10 === 0) api.updateChunks(now.getTime())
+  api.updateObjects(now.getTime())
 
   // Run up to 10 ticks per second, depending on server load
-  setTimeout(tick, 1000) // DBG one tick per second to debug client side prediction
+  setTimeout(tick, 100)
   state.tick++
 }

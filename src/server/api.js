@@ -5,7 +5,8 @@ var ChunkIO = require('../protocol/chunk-io')
 module.exports = {
   init: init,
   addClient: addClient,
-  tick: tick
+  updateChunks: updateChunks,
+  updateObjects: updateObjects
 }
 
 var CB = config.CHUNK_BITS
@@ -31,13 +32,7 @@ function addClient (client) {
   if (state.config.client) client.send({type: 'config', config: state.config.client})
 }
 
-// Talk to clients. Bring them up to date on changes in their surroundings.
-function tick () {
-  var now = new Date().getTime()
-  updateObjects(now)
-  updateChunks(now)
-}
-
+// Tell each client about objects around them, including other players
 function updateObjects (now) {
   // TODO: this runs in O(numClients ^ 2). Needs a better algorithm.
   var n = state.clients.length
@@ -58,7 +53,9 @@ function updateObjects (now) {
         key: 'player-' + b.name,
         name: b.name,
         location: b.location,
-        direction: {azimuth: dir.azimuth, altitude: 0}
+        direction: {azimuth: dir.azimuth, altitude: 0},
+        velocity: b.velocity,
+        situation: b.situation
       })
     }
 
@@ -66,6 +63,7 @@ function updateObjects (now) {
   }
 }
 
+// Tell each client about the blocks around them. Send chunks where a voxel has changed.
 function updateChunks (now) {
   // Figure out which clients need which chunks.
   // TODO: this runs in O(numClients * numChunks). Needs a better algorithm.
@@ -110,7 +108,6 @@ function isInRange (a, b) {
 
 function sendObjects (client, objects) {
   if (!objects.length) return
-  console.log('Sending %d objects to %s', objects.length, client.player.name)
   client.send({
     type: 'objects',
     objects: objects

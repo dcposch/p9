@@ -17,7 +17,7 @@ function Client (ws) {
     name: 'unknown',
     location: { x: 0, y: 0, z: 0 },
     direction: { azimuth: 0, altitude: 0 },
-    dzdt: 0,
+    velocity: { x: 0, y: 0, z: 0 },
     situation: 'airborne',
     lookAtBlock: null
   }
