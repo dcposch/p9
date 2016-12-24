@@ -34,7 +34,39 @@ function addClient (client) {
 // Talk to clients. Bring them up to date on changes in their surroundings.
 function tick () {
   var now = new Date().getTime()
+  updateObjects(now)
+  updateChunks(now)
+}
 
+function updateObjects (now) {
+  // TODO: this runs in O(numClients ^ 2). Needs a better algorithm.
+  var n = state.clients.length
+  for (var i = 0; i < n; i++) {
+    var client = state.clients[i]
+    var a = client.player
+    var objsToSend = []
+
+    for (var j = 0; j < n; j++) {
+      if (j === i) continue
+      var b = state.clients[j].player
+      if (!a.location || !b.location) continue
+      if (!isInRange(a.location, b.location)) continue
+
+      var dir = b.direction
+      objsToSend.push({
+        type: 'player',
+        key: 'player-' + b.name,
+        name: b.name,
+        location: b.location,
+        direction: {azimuth: dir.azimuth, altitude: 0}
+      })
+    }
+
+    sendObjects(client, objsToSend)
+  }
+}
+
+function updateChunks (now) {
   // Figure out which clients need which chunks.
   // TODO: this runs in O(numClients * numChunks). Needs a better algorithm.
   var chunksToSend = []
@@ -52,7 +84,9 @@ function tick () {
     for (j = 0; j < state.clients.length; j++) {
       var client = state.clients[j]
       var cts = chunksToSend[j]
-      if (!isInRange(client, chunk)) continue // client too far away
+      var loc = client.player.location
+      if (!loc) continue
+      if (!isInRange(loc, chunk)) continue // client too far away
       if (client.chunksSent[key] >= chunk.lastModified) continue // client up-to-date
       cts.push(chunk)
       client.chunksSent[key] = now
@@ -65,15 +99,22 @@ function tick () {
   }
 }
 
-function isInRange (client, chunk) {
-  var loc = client.player.location
-  if (!loc) return false
-  var dx = (chunk.x >> CB) - (loc.x >> CB)
-  var dy = (chunk.y >> CB) - (loc.y >> CB)
-  var dz = (chunk.z >> CB) - (loc.z >> CB)
+function isInRange (a, b) {
+  var dx = (b.x >> CB) - (a.x >> CB)
+  var dy = (b.y >> CB) - (a.y >> CB)
+  var dz = (b.z >> CB) - (a.z >> CB)
   var r2 = dx * dx + dy * dy + dz * dz
   var rmax = config.WORLD_GEN.CHUNK_RADIUS
   return r2 < rmax * rmax
+}
+
+function sendObjects (client, objects) {
+  if (!objects.length) return
+  console.log('Sending %d objects to %s', objects.length, client.player.name)
+  client.send({
+    type: 'objects',
+    objects: objects
+  })
 }
 
 function sendChunks (client, chunks) {

@@ -11,21 +11,21 @@ module.exports = Player
 var mat = mat4.create() // matrix to translate, rotate, and scale each model
 
 var S = config.PLAYER_HEIGHT / 28 // scale factor
-var E = 0
 var meshParts = {
-  head: axisAligned(-8, -4, -4, 8, 8, 8, 0, 0),
-  body: axisAligned(-6, -4, -16, 4, 8, 12, 16, 16),
-  armR: axisAligned(-6, -8 - E, -16, 4, 4, 12, 40, 16),
-  armL: axisAligned(-6, +4 + E, -16, 4, 4, 12, 32, 48),
-  legR: axisAligned(-6, -4 - E, -28 - E, 4, 4, 12, 0, 16),
-  legL: axisAligned(-6, +0 + E, -28 - E, 4, 4, 12, 16, 48)
+  head: axisAligned(-9, -4, -4, 8, 8, 8, 0, 0),
+  body: axisAligned(-7, -4, -16, 4, 8, 12, 16, 16),
+  armR: axisAligned(-7, -8, -16, 4, 4, 12, 40, 16),
+  armL: axisAligned(-7, 4, -16, 4, 4, 12, 32, 48),
+  legR: axisAligned(-7, -4, -28, 4, 4, 12, 0, 16),
+  legL: axisAligned(-7, 0, -28, 4, 4, 12, 16, 48)
 }
 
 var meshTemplate = makeMesh()
 
 var bufferUVs = regl.buffer(meshTemplate.uvs) // same for all players
 
-function Player () {
+function Player (name) {
+  this.name = name
   this.scale = S
   this.location = {x: 0, y: 0, z: 0}
   // Azimuth 0 points in the +Y direction.

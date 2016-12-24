@@ -14,6 +14,7 @@ var env = require('./env')
 
 // Precompile regl commands, start loading resources
 var drawScope, drawDebug, drawHitMarker, drawWorld
+var Player
 
 textures.loadAll(function (err) {
   if (err) return handleError('failed to load textures')
@@ -22,9 +23,7 @@ textures.loadAll(function (err) {
   drawWorld = require('./draw-world')
 
   // TODO
-  var Player = require('./models/player')
-  state.testPlayer = new Player()
-  state.testPlayer.location = { x: -68, y: 0, z: 16.5 }
+  Player = require('./models/player')
 })
 
 // All game state lives here
@@ -57,6 +56,7 @@ var state = {
     // Player can toggle the debug display
     showHUD: false
   },
+  objects: {},
   world: new World(),
   socket: new Socket(),
   config: null,
@@ -72,8 +72,9 @@ state.socket.on('binary', function (msg) {
 state.socket.on('json', function (msg) {
   switch (msg.type) {
     case 'config':
-      state.config = msg.config
-      break
+      return handleConfig(msg)
+    case 'objects':
+      return handleObjects(msg)
     default:
       console.error('Ignoring unknown message type ' + msg.type)
   }
@@ -82,6 +83,40 @@ state.socket.on('json', function (msg) {
 state.socket.on('close', function () {
   handleError('connection lost')
 })
+
+function handleConfig (msg) {
+  state.config = msg.config
+}
+
+function handleObjects (msg) {
+  var keys = {}
+
+  // Create and update new objects
+  msg.objects.forEach(function (info) {
+    keys[info.key] = true
+    var obj = state.objects[info.key]
+    if (!obj) obj = state.objects[info.key] = createObject(info)
+    obj.location = info.location
+    obj.direction = info.direction
+  })
+
+  // Delete objects that no longer exist or are too far away
+  Object.keys(state.objects).forEach(function (key) {
+    if (keys[key]) return
+    if (key === 'self') return
+    state.objects[key].destroy()
+    delete state.objects[key]
+  })
+}
+
+function createObject (info) {
+  switch (info.type) {
+    case 'player':
+      return new Player(info.name)
+    default:
+      throw new Error('unrecognized object type ' + info.type)
+  }
+}
 
 // Runs once: initialization
 env.shell.on('init', function () {
@@ -119,6 +154,9 @@ button.addEventListener('click', function () {
 
   state.player.name = input.value
   state.startTime = new Date().getTime()
+  state.objects.self = new Player(state.player.name)
+  state.objects.self.location = state.player.location
+  state.objects.self.direction = state.player.direction
 
   splash.remove()
   canvas.addEventListener('click', function () {
@@ -204,7 +242,9 @@ function render () {
   if (!drawScope) return
   drawScope(state, function () {
     drawWorld(state)
-    state.testPlayer.draw()
+    Object.keys(state.objects).forEach(function (key) {
+      state.objects[key].draw()
+    })
   })
   if (state.debug.showHUD) {
     if (!drawDebug) drawDebug = require('./draw-debug')
