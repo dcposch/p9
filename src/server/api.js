@@ -45,6 +45,7 @@ function updateObjects (now) {
       if (j === i) continue
       var b = state.clients[j].player
       if (!a.location || !b.location) continue
+      if (!b.name) continue
       if (!isInRange(a.location, b.location)) continue
 
       var dir = b.direction

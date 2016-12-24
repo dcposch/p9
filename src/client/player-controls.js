@@ -19,15 +19,15 @@ var HORIZONTAL_COLLISION_DIRS = [
 ]
 
 // Calculates player physics. Lets the player move and look around.
-function tick (state, dt) {
+function tick (state, dt, isPaused) {
   // If dt is too large, simulate in smaller increments
   // This prevents glitches like jumping through a block, getting stuck inside a block, etc
   for (var t = 0.0; t < dt; t += config.PHYSICS.MAX_DT) {
     var stepDt = Math.min(config.PHYSICS.MAX_DT, dt - t)
-    navigate(state.player, stepDt)
+    if (!isPaused) navigate(state.player, stepDt)
     simulate(state, stepDt)
   }
-  look(state.player)
+  if (!isPaused) look(state.player)
 }
 
 // Lets the player place and break blocks

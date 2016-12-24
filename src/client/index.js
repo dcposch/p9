@@ -250,7 +250,7 @@ env.regl.frame(function (context) {
 
   if (state.startTime) {
     // Handle player input, physics, update player position, direction, and velocity
-    playerControls.tick(state, dt)
+    playerControls.tick(state, dt, !env.shell.fullscreen)
     // Prediction: extrapolate object positions from latest server update
     predictObjects(dt, now)
     // Draw the frame
