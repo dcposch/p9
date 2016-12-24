@@ -42,8 +42,8 @@ VOX.TYPES = [
   new VoxType('POPLAR', [0, 0]),
   new VoxType('STRIPE_WOOD', {side: [5, 0], top: [6, 0], bottom: [6, 0]}),
   new VoxType('PLANT_1', [1, 1]),
-  new VoxType('PLANT_2', [1, 2]),
-  new VoxType('PLANT_3', [1, 3])
+  new VoxType('PLANT_2', [2, 1]),
+  new VoxType('PLANT_3', [3, 1])
 ]
 
 // Get the index of each block type
