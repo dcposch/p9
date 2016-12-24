@@ -1,4 +1,3 @@
-var validate = require('./validate')
 var Mesh = require('./mesh')
 var vec3 = require('gl-vec3')
 var vec2 = require('gl-vec2')
@@ -7,9 +6,6 @@ module.exports = Poly8
 
 // Represents an 8-point polyhedron
 function Poly8 (verts, uvs) {
-  validate(verts, 3, 8)
-  if (uvs) validate(uvs, 4, 6)
-
   this.verts = verts
   this.uvs = uvs
   this.aabb = computeAABB(verts)
@@ -33,7 +29,7 @@ Poly8.prototype.createMesh = function () {
 
   // Create six faces...
   for (var i = 0; i < 6; i++) {
-    // TODO: accurate normals? probably unnecessary unless we add specular lights
+    // TODO: accurate normals?
     var nx = i >> 1 === 0 ? 1 - i % 2 * 2 : 0
     var ny = i >> 1 === 1 ? 1 - i % 2 * 2 : 0
     var nz = i >> 1 === 2 ? 1 - i % 2 * 2 : 0
@@ -51,7 +47,8 @@ Poly8.prototype.createMesh = function () {
 
       norms.push(vec3.clone([nx, ny, nz]))
 
-      var uv = faceUVs ? [faceUVs[vi[0] * 2], faceUVs[vi[1] * 2 + 1]] : vi
+      // TODO: draw indexed triangles? saves 2 / 6 vertex shader invocations
+      var uv = faceUVs ? faceUVs[vi[0] * 2 + vi[1]] : vi
       uvs.push(vec2.clone(uv))
     }
   }

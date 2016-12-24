@@ -11,7 +11,7 @@ module.exports = {
 function loadAll (cb) {
   var tex = {}
   tex.atlas = load('textures/atlas-p9.png')
-  tex.player = load('textures/player-default-skin.png')
+  tex.player = load('textures/skin-herobrine.png')
 
   var keys = Object.keys(tex)
   var promises = keys.map(function (key) { return tex[key] })

@@ -24,7 +24,7 @@ module.exports = env.regl({
     uTexture: function (context, props) {
       var text = createDebugText(props)
       context2D.clearRect(0, 0, canvas.width, canvas.height)
-      context2D.fillStyle = 'rgba(0, 0, 0, 0.5)'
+      context2D.fillStyle = 'rgba(0, 0, 0, 0.6)'
       context2D.fillRect(0, 0, canvas.width, canvas.height)
       context2D.fillStyle = '#fff'
       for (var i = 0; i < text.length; i++) context2D.fillText(text[i], 10.5, 25.5 + 20 * i)

@@ -14,7 +14,6 @@ var env = require('./env')
 
 // Precompile regl commands, start loading resources
 var drawScope, drawDebug, drawHitMarker, drawWorld
-var testPlayer
 
 textures.loadAll(function (err) {
   if (err) return handleError('failed to load textures')
@@ -24,8 +23,8 @@ textures.loadAll(function (err) {
 
   // TODO
   var Player = require('./models/player')
-  testPlayer = new Player()
-  testPlayer.location = { x: -68, y: 0, z: 30 }
+  state.testPlayer = new Player()
+  state.testPlayer.location = { x: -68, y: 0, z: 16.5 }
 })
 
 // All game state lives here
@@ -205,7 +204,7 @@ function render () {
   if (!drawScope) return
   drawScope(state, function () {
     drawWorld(state)
-    testPlayer.draw()
+    state.testPlayer.draw()
   })
   if (state.debug.showHUD) {
     if (!drawDebug) drawDebug = require('./draw-debug')
