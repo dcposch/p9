@@ -65,10 +65,9 @@ function createDebugText (state) {
   var loc = state.player.location
   var vel = state.player.velocity
   var dir = state.player.direction
-  ret.push('Location: ' + pointToString(loc, 1) + ', d/dt ' + pointToString(vel, 1) +
+  ret.push('Location: ' + pointToString(loc, 1) + ', d/dt ' + pointToString(vel, 0))
+  ret.push('Azith: ' + toDeg(dir.azimuth) + '°, alt: ' + toDeg(dir.altitude) + '°' +
     ', ' + state.player.situation)
-  ret.push('Azith: ' + toDeg(dir.azimuth) + '°, alt: ' + toDeg(dir.altitude) + '°, ' +
-    'dzdt: ' + state.player.dzdt.toFixed(1))
 
   var mem = window.performance.memory
   if (mem) {

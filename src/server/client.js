@@ -30,6 +30,7 @@ function Client (ws) {
     bytesSent: 0,
     bytesReceived: 0
   }
+  this.error = null
 
   ws.on('message', handleMessage.bind(this))
   ws.on('close', handleClose.bind(this))
@@ -43,6 +44,17 @@ Client.prototype.send = function (message) {
   this.perf.messagesSent++
   this.perf.bytesSent += message.length
   this.ws.send(message)
+}
+
+Client.prototype.die = function (error) {
+  if (this.error) return
+  this.error = error
+  this.send({type: 'error', error: error})
+  setTimeout(this.destroy.bind(this), 1000)
+}
+
+Client.prototype.destroy = function () {
+  this.ws.close()
 }
 
 function handleClose () {

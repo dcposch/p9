@@ -79,6 +79,7 @@ function tick () {
   if (state.tick % 10 === 0) gen.generateWorld(state)
 
   // Talk to clients
+  api.tick()
   // DBG only one chunk update per second to debug client side prediction
   if (state.tick % 10 === 0) api.updateChunks(now.getTime())
   api.updateObjects(now.getTime())

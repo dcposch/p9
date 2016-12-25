@@ -4,6 +4,7 @@ var ChunkIO = require('../protocol/chunk-io')
 
 module.exports = {
   init: init,
+  tick: tick,
   addClient: addClient,
   updateChunks: updateChunks,
   updateObjects: updateObjects
@@ -30,6 +31,13 @@ function addClient (client) {
 
   client.send({type: 'handshake', serverVersion: config.SERVER.VERSION})
   if (state.config.client) client.send({type: 'config', config: state.config.client})
+}
+
+function tick () {
+  state.clients.forEach(function (client) {
+    var loc = client.player.location
+    if (loc && loc.z < -100) client.die({message: 'you fell'})
+  })
 }
 
 // Tell each client about objects around them, including other players

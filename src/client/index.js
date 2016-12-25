@@ -75,6 +75,8 @@ state.socket.on('json', function (msg) {
       return handleConfig(msg)
     case 'objects':
       return handleObjects(msg)
+    case 'error':
+      return handleError(msg.error.message)
     default:
       console.error('Ignoring unknown message type ' + msg.type)
   }
@@ -177,6 +179,7 @@ button.addEventListener('click', function () {
 // Kill the game on error (eg 'connection lost'). Player has to refresh the page.
 function handleError (message) {
   console.log('Error: ' + message)
+  if (state.error) return
   state.error = {message: message}
   if (splash) splash.remove()
   error.classList.add('show')
