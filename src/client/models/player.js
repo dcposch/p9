@@ -30,6 +30,7 @@ function Player (name) {
   this.name = name
   this.scale = S
   this.location = {x: 0, y: 0, z: 0}
+  this.velocity = {x: 0, y: 0, z: 0}
   // Azimuth 0 points in the +Y direction.
   // Altitude 0 points straight ahead. +PI/2 points up at the sky (+Z). -PI/2 points down.
   this.direction = {azimuth: 0, altitude: 0}
@@ -39,6 +40,9 @@ function Player (name) {
     armR: {rot: [0, 0, 0], center: [-5, -4, -4]},
     legL: {rot: [0, 0, 0], center: [-5, 2, -16]},
     legR: {rot: [0, 0, 0], center: [-5, -2, -16]}
+  }
+  this.props = {
+    walk: 0
   }
 
   this.mesh = meshTemplate.clone()
@@ -57,6 +61,28 @@ Player.prototype.intersect = function (aabb) {
 Player.prototype.draw = function () {
   var loc = this.location
   var dir = this.direction
+  var vel = this.velocity
+
+  // Update bones
+  // TODO: move this to a separate tick function
+  var props = this.props
+  var dStand = 0.1
+  var dWalk = 0.05
+  var speed2 = vel.x * vel.x + vel.y * vel.y
+  if (speed2 === 0) {
+    // Stand
+    if (props.walk < Math.PI && props.walk > dStand) props.walk -= dStand
+    else if (props.walk > Math.PI && props.walk < 2 * Math.PI - dStand) props.walk += dStand
+  } else {
+    // Walk
+    props.walk = (props.walk + dWalk) % (2 * Math.PI)
+  }
+  this.bones.armL.rot[1] = Math.sin(props.walk)
+  this.bones.armR.rot[1] = -Math.sin(props.walk)
+  this.bones.legL.rot[1] = -Math.sin(props.walk)
+  this.bones.legR.rot[1] = Math.sin(props.walk)
+  // Look
+  this.bones.head.rot[1] = Math.min(1, Math.max(-1, -props.altitude))
 
   // Update the mesh
   // TODO: do this in a vert shader using ANGLE_instanced_arrays?

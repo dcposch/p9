@@ -64,7 +64,9 @@ function updateObjects (now) {
         location: b.location,
         direction: {azimuth: dir.azimuth, altitude: 0},
         velocity: b.velocity,
-        situation: b.situation
+        situation: b.situation,
+        // TODO: just send the bones?
+        props: {altitude: dir.altitude}
       })
     }
 

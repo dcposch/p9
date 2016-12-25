@@ -22,7 +22,7 @@ textures.loadAll(function (err) {
   drawHitMarker = require('./draw-hit-marker')
   drawWorld = require('./draw-world')
 
-  // TODO
+  // TODO: use init(), not a delayed require()
   Player = require('./models/player')
 })
 
@@ -91,6 +91,8 @@ function handleConfig (msg) {
 }
 
 function handleObjects (msg) {
+  if (!Player) return
+
   var now = new Date().getTime()
   var keys = {}
 
@@ -103,6 +105,7 @@ function handleObjects (msg) {
     obj.direction = info.direction
     obj.velocity = info.velocity
     obj.situation = info.situation
+    Object.assign(obj.props, info.props)
     obj.lastUpdateMs = now
   })
 
@@ -161,7 +164,11 @@ button.addEventListener('click', function () {
   state.player.name = input.value
   state.startTime = new Date().getTime()
   state.objects.self = new Player(state.player.name)
+
+  // TODO: separate camera from model location
+  // for now, a dirty hack: reference equals, so that physics automatically updates both
   state.objects.self.location = state.player.location
+  state.objects.self.velocity = state.player.velocity
   state.objects.self.direction = state.player.direction
 
   splash.remove()
