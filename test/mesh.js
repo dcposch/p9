@@ -23,9 +23,9 @@ test('create a mesh', function (t) {
   t.end()
 })
 
-test('copy a mesh', function (t) {
+test('clone a mesh', function (t) {
   var m1 = new Mesh(verts, norms, uvs)
-  var m2 = m1.copy()
+  var m2 = m1.clone()
   t.notEqual(m2.verts, m1.verts)
   t.notEqual(m2.norms, m1.norms)
   t.notEqual(m2.uvs, m1.uvs)

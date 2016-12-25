@@ -3,12 +3,14 @@ var shaders = require('../shaders')
 var textures = require('../textures')
 var Poly8 = require('../geometry/poly8')
 var Mesh = require('../geometry/mesh')
-var mat4 = require('gl-mat4')
 var config = require('../../config')
+var mat4 = require('gl-mat4')
+var mat3 = require('gl-mat3')
 
 module.exports = Player
 
 var mat = mat4.create() // matrix to translate, rotate, and scale each model
+var matN = mat3.create()
 
 var S = config.PLAYER_HEIGHT / 28 // scale factor
 var meshParts = {
@@ -31,7 +33,15 @@ function Player (name) {
   // Azimuth 0 points in the +Y direction.
   // Altitude 0 points straight ahead. +PI/2 points up at the sky (+Z). -PI/2 points down.
   this.direction = {azimuth: 0, altitude: 0}
-  this.mesh = meshTemplate.copy()
+  this.bones = {
+    head: {rot: [0, 0, 0], center: [-5, 0, 0]},
+    armL: {rot: [0, 0, 0], center: [-5, 4, -4]},
+    armR: {rot: [0, 0, 0], center: [-5, -4, -4]},
+    legL: {rot: [0, 0, 0], center: [-5, 2, -16]},
+    legR: {rot: [0, 0, 0], center: [-5, -2, -16]}
+  }
+
+  this.mesh = meshTemplate.clone()
   // Allocate buffers once, update the contents each frame
   // Usage stream lets WebGL know we'll be updating the buffers often.
   this.buffers = {
@@ -49,12 +59,20 @@ Player.prototype.draw = function () {
   var dir = this.direction
 
   // Update the mesh
+  // TODO: do this in a vert shader using ANGLE_instanced_arrays?
+  Mesh.copyPart(this.mesh, meshParts.body)
+  moveBone(this.mesh, meshParts.head, this.bones.head)
+  moveBone(this.mesh, meshParts.armL, this.bones.armL)
+  moveBone(this.mesh, meshParts.armR, this.bones.armR)
+  moveBone(this.mesh, meshParts.legL, this.bones.legL)
+  moveBone(this.mesh, meshParts.legR, this.bones.legR)
+
   mat4.identity(mat)
   mat4.translate(mat, mat, [loc.x, loc.y, loc.z])
   mat4.rotateZ(mat, mat, dir.azimuth)
   mat4.rotateX(mat, mat, dir.altitude)
   mat4.scale(mat, mat, [this.scale, this.scale, this.scale])
-  Mesh.transform(this.mesh, meshTemplate, mat)
+  Mesh.transform(this.mesh, this.mesh, mat, matN)
 
   // Update buffers
   this.buffers.verts.subdata(this.mesh.verts)
@@ -81,6 +99,17 @@ Player.draw = regl({
   },
   count: meshTemplate.verts.length
 })
+
+function moveBone (mesh, part, bone) {
+  var c = bone.center
+  mat4.identity(mat)
+  mat4.translate(mat, mat, c)
+  mat4.rotateX(mat, mat, bone.rot[0])
+  mat4.rotateY(mat, mat, bone.rot[1])
+  mat4.rotateZ(mat, mat, bone.rot[2])
+  mat4.translate(mat, mat, [-c[0], -c[1], -c[2]])
+  Mesh.transformPart(mesh, part, mat, matN, part.offset)
+}
 
 function makeMesh () {
   var meshes = [
