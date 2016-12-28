@@ -1,4 +1,11 @@
-var mat4 = require('gl-mat4')
+var mat4 = {
+  create: require('gl-mat4/create'),
+  identity: require('gl-mat4/identity'),
+  rotate: require('gl-mat4/rotate'),
+  translate: require('gl-mat4/translate'),
+  perspective: require('gl-mat4/perspective'),
+  multiply: require('gl-mat4/multiply')
+}
 
 // Projects the world from 3D to 2D
 // Calculates the view and projection matrices based on player location and orientation

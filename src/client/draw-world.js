@@ -2,8 +2,11 @@ var env = require('./env')
 var config = require('../config')
 var shaders = require('./shaders')
 var camera = require('./camera')
-var vec3 = require('gl-vec3')
 var textures = require('./textures')
+var vec3 = {
+  create: require('gl-vec3/create'),
+  transformMat4: require('gl-vec3/transformMat4')
+}
 
 // Draws the voxels.
 // Does not draw the player or UI overlays.

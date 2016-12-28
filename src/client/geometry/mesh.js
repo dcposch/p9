@@ -1,6 +1,13 @@
 var validate = require('./validate')
-var vec3 = require('gl-vec3')
-var vec2 = require('gl-vec2')
+var vec3 = {
+  clone: require('gl-vec3/clone'),
+  transformMat3: require('gl-vec3/transformMat3'),
+  transformMat4: require('gl-vec3/transformMat4'),
+  copy: require('gl-vec3/copy')
+}
+var vec2 = {
+  clone: require('gl-vec2/clone')
+}
 
 module.exports = Mesh
 

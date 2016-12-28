@@ -4,8 +4,18 @@ var textures = require('../textures')
 var Poly8 = require('../geometry/poly8')
 var Mesh = require('../geometry/mesh')
 var config = require('../../config')
-var mat4 = require('gl-mat4')
-var mat3 = require('gl-mat3')
+var mat4 = {
+  create: require('gl-mat4/create'),
+  identity: require('gl-mat4/identity'),
+  translate: require('gl-mat4/translate'),
+  rotateX: require('gl-mat4/rotateX'),
+  rotateY: require('gl-mat4/rotateY'),
+  rotateZ: require('gl-mat4/rotateZ'),
+  scale: require('gl-mat4/scale')
+}
+var mat3 = {
+  create: require('gl-mat3/create')
+}
 
 module.exports = Player
 

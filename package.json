@@ -10,7 +10,9 @@
     "lint": "npm run clean && npm run lint-js && npm run lint-css",
     "test": "npm run lint && node ./test",
     "watch": "watchify --debug -t brfs src/client -o build/bundle.js",
-    "build": "npm run clean && mkdirp build && browserify -t brfs src/client > build/bundle.js",
+    "build": "npm run -s browserify | npm run -s uglify > build/bundle.js",
+    "browserify": "browserify -t brfs src/client",
+    "uglify": "uglifyjs -c -m",
     "start": "npm run build && node ./src/server"
   },
   "repository": {
@@ -37,6 +39,7 @@
   "devDependencies": {
     "brfs": "^1.4.3",
     "browserify": "^13.1.0",
+    "find-requires": "^0.2.2",
     "fs-extra": "^1.0.0",
     "google-closure-compiler-js": "^20161201.0.0",
     "http-server": "^0.9.0",
@@ -47,6 +50,8 @@
     "stylelint": "^7.3.1",
     "stylelint-config-standard": "^15.0.0",
     "tape": "^4.6.2",
+    "uglify-js": "^2.7.5",
+    "walk-sync": "^0.3.1",
     "watchify": "^3.8.0"
   }
 }
