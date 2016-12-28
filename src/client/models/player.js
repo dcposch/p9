@@ -19,43 +19,53 @@ var mat3 = {
 
 module.exports = Player
 
-var mat = mat4.create() // matrix to translate, rotate, and scale each model
+// Matrices to translate, rotate, and scale each model
+var mat = mat4.create()
 var matN = mat3.create()
 
-var S = config.PLAYER_HEIGHT / 28 // scale factor
+// Scale factor from model to world coordinates
+var SCALE = config.PLAYER_HEIGHT / 28
+
+// Mesh templates. Every individual player mesh is a copy of the template
 var meshParts = {
-  head: axisAligned(-9, -4, -4, 8, 8, 8, 0, 0),
-  body: axisAligned(-7, -4, -16, 4, 8, 12, 16, 16),
-  armR: axisAligned(-7, -8, -16, 4, 4, 12, 40, 16),
-  armL: axisAligned(-7, 4, -16, 4, 4, 12, 32, 48),
-  legR: axisAligned(-7, -4, -28, 4, 4, 12, 0, 16),
-  legL: axisAligned(-7, 0, -28, 4, 4, 12, 16, 48)
+  head: axisAligned(-4, -4, -4, 8, 8, 8, 0, 0),
+  body: axisAligned(-2, -4, -16, 4, 8, 12, 16, 16),
+  armR: axisAligned(-2, -8, -16, 4, 4, 12, 40, 16),
+  armL: axisAligned(-2, 4, -16, 4, 4, 12, 32, 48),
+  legR: axisAligned(-2, -4, -28, 4, 4, 12, 0, 16),
+  legL: axisAligned(-2, 0, -28, 4, 4, 12, 16, 48)
 }
 
 var meshTemplate = makeMesh()
 
-var bufferUVs = regl.buffer(meshTemplate.uvs) // same for all players
+// Vertex positions and normals vary from player to player, but UVs are shared
+var bufferUVs = regl.buffer(meshTemplate.uvs)
 
 function Player (name) {
-  this.name = name
-  this.scale = S
+  // Common to all objects
+  this.type = 'player'
+  this.key = null
   this.location = {x: 0, y: 0, z: 0}
   this.velocity = {x: 0, y: 0, z: 0}
-  // Azimuth 0 points in the +Y direction.
-  // Altitude 0 points straight ahead. +PI/2 points up at the sky (+Z). -PI/2 points down.
-  this.direction = {azimuth: 0, altitude: 0}
-  this.bones = {
-    head: {rot: [0, 0, 0], center: [-5, 0, 0]},
-    armL: {rot: [0, 0, 0], center: [-5, 4, -4]},
-    armR: {rot: [0, 0, 0], center: [-5, -4, -4]},
-    legL: {rot: [0, 0, 0], center: [-5, 2, -16]},
-    legR: {rot: [0, 0, 0], center: [-5, -2, -16]}
-  }
+
+  // Specific to Player
   this.props = {
+    name: null,
+    direction: {azimuth: 0, altitude: 0},
+    situation: 'airborne',
     walk: 0
   }
 
+  this.bones = {
+    head: {rot: [0, 0, 0], center: [0, 0, 0]},
+    armL: {rot: [0, 0, 0], center: [0, 4, -4]},
+    armR: {rot: [0, 0, 0], center: [0, -4, -4]},
+    legL: {rot: [0, 0, 0], center: [0, 2, -16]},
+    legR: {rot: [0, 0, 0], center: [0, -2, -16]}
+  }
+
   this.mesh = meshTemplate.clone()
+
   // Allocate buffers once, update the contents each frame
   // Usage stream lets WebGL know we'll be updating the buffers often.
   this.buffers = {
@@ -68,31 +78,40 @@ Player.prototype.intersect = function (aabb) {
   return false // TODO
 }
 
-Player.prototype.draw = function () {
-  var loc = this.location
-  var dir = this.direction
+Player.prototype.tick = function (dt) {
   var vel = this.velocity
+  var props = this.props
 
   // Update bones
-  // TODO: move this to a separate tick function
-  var props = this.props
-  var dStand = 0.1
-  var dWalk = 0.05
-  var speed2 = vel.x * vel.x + vel.y * vel.y
-  if (speed2 === 0) {
+  var dStand = 0.15
+  var speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y)
+  if (speed === 0) {
     // Stand
     if (props.walk < Math.PI && props.walk > dStand) props.walk -= dStand
     else if (props.walk > Math.PI && props.walk < 2 * Math.PI - dStand) props.walk += dStand
   } else {
     // Walk
+    var dWalk = speed * dt * 1.5
     props.walk = (props.walk + dWalk) % (2 * Math.PI)
   }
+
+  var legAngle = Math.sin(props.walk)
+  this.bones.legL.rot[1] = -legAngle
+  this.bones.legR.rot[1] = legAngle
+  this.bones.legL.center[0] = legAngle > 0 ? -2 : 2
+  this.bones.legR.center[0] = legAngle < 0 ? -2 : 2
+
   this.bones.armL.rot[1] = Math.sin(props.walk)
   this.bones.armR.rot[1] = -Math.sin(props.walk)
-  this.bones.legL.rot[1] = -Math.sin(props.walk)
-  this.bones.legR.rot[1] = Math.sin(props.walk)
+
   // Look
-  this.bones.head.rot[1] = Math.min(1, Math.max(-1, -props.altitude))
+  this.bones.head.rot[1] = Math.min(1, Math.max(-1, -props.direction.altitude))
+}
+
+Player.prototype.draw = function () {
+  var loc = this.location
+  var azimuth = this.props.direction.azimuth
+  var altitude = 0 // Player head moves, body stays level
 
   // Update the mesh
   // TODO: do this in a vert shader using ANGLE_instanced_array?
@@ -105,9 +124,9 @@ Player.prototype.draw = function () {
 
   mat4.identity(mat)
   mat4.translate(mat, mat, [loc.x, loc.y, loc.z])
-  mat4.rotateZ(mat, mat, dir.azimuth)
-  mat4.rotateX(mat, mat, dir.altitude)
-  mat4.scale(mat, mat, [this.scale, this.scale, this.scale])
+  mat4.rotateZ(mat, mat, azimuth)
+  mat4.rotateY(mat, mat, -altitude)
+  mat4.scale(mat, mat, [SCALE, SCALE, SCALE])
   Mesh.transform(this.mesh, this.mesh, mat, matN)
 
   // Update buffers
@@ -185,15 +204,3 @@ function getUVs (x, y, z, w, d, h, u, v, tw, th) {
     makeUV(u + w, v, d, w, true) // z1 face: top
   ]
 }
-
-// TODO: Part class?
-// var head = new Part([32, 4], [-4, -4, -8], [8, 8, 8], [0, 15, -3]);
-// var neck = new Part([0, 0], [-3, -3, -3], [6, 6, 6], [0, 15, 0]);
-// var body = new Part([0, 12], [-5, -4, -6], [10, 8, 12], [0, 15, 9]);
-// var leg = new Part([18, 0], [-15, -1, -1], [16, 2, 2], [-4, 15, 2]);
-// function Part (uv, offset, dims, rotationPoint) {
-//   this.uv = uv
-//   this.offset = offset
-//   this.dims = dims
-//   this.rotationPoint = rotationPoint
-// }

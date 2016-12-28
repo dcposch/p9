@@ -33,15 +33,19 @@ function tick (state, dt, isPaused) {
 // Lets the player place and break blocks
 // TODO: let the player interact with items
 function interact (state) {
+  var p = state.player
+
+  if (shell.press('2')) p.camera = p.camera === 'first-person' ? 'third-person' : 'first-person'
+
   if (shell.press('3')) state.debug.showHUD = !state.debug.showHUD
 
-  if (shell.wasDown('4')) state.player.placing = vox.INDEX.YELLOW
-  else if (shell.wasDown('5')) state.player.placing = vox.INDEX.RED
-  else if (shell.wasDown('6')) state.player.placing = vox.INDEX.PINK
-  else if (shell.wasDown('7')) state.player.placing = vox.INDEX.LIGHT_GREEN
-  else if (shell.wasDown('8')) state.player.placing = vox.INDEX.LIGHT_BLUE
-  else if (shell.wasDown('9')) state.player.placing = vox.INDEX.LIGHT_PURPLE
-  else if (shell.wasDown('0')) state.player.placing = vox.INDEX.STONE
+  if (shell.wasDown('4')) p.placing = vox.INDEX.YELLOW
+  else if (shell.wasDown('5')) p.placing = vox.INDEX.RED
+  else if (shell.wasDown('6')) p.placing = vox.INDEX.PINK
+  else if (shell.wasDown('7')) p.placing = vox.INDEX.LIGHT_GREEN
+  else if (shell.wasDown('8')) p.placing = vox.INDEX.LIGHT_BLUE
+  else if (shell.wasDown('9')) p.placing = vox.INDEX.LIGHT_PURPLE
+  else if (shell.wasDown('0')) p.placing = vox.INDEX.STONE
 
   var left = shell.wasDown('mouse-left')
   var right = shell.wasDown('mouse-right')

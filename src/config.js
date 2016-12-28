@@ -7,10 +7,10 @@ module.exports = {
   CHUNK_BITS: CHUNK_BITS,
   PLAYER_WIDTH: 0.5, // You can't get closer than 0.5 meters (blocks) from a block
   PLAYER_HEIGHT: 1.5, // The player's head (the camera) is 1.5 blocks above the feet
-  SPEED_SPRINT: 15, // Blocks per second
+  SPEED_SPRINT: 9, // Blocks per second
   SPEED_WALK: 5,
-  SPEED_JUMP: 10,
-  SPEED_SPRINT_JUMP: 15,
+  SPEED_JUMP: 9,
+  SPEED_SPRINT_JUMP: 14,
   MOUSE_SENSITIVITY: 0.005, // Radians per pixel
   KEYBINDINGS: {
     'nav-forward': ['W', 'up'],

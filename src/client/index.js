@@ -35,7 +35,9 @@ var state = {
     // Which block we're looking at: {location: {x,y,z}, side: {nx,ny,nz}, voxel}
     lookAtBlock: null,
     // Which kind of block we're placing
-    placing: vox.INDEX.STONE
+    placing: vox.INDEX.STONE,
+    // Camera can also be 'third-person'
+    camera: 'first-person'
   },
   pendingCommands: [],
   pendingChunkUpdates: [],
@@ -234,7 +236,7 @@ env.regl.frame(function (context) {
     // Prediction: extrapolate object positions from latest server update
     predictObjects(dt, now)
     // Draw the frame
-    render()
+    render(dt)
   }
 
   // Catch up on work immediately *after* the frame ships to keep consistent fps
@@ -242,6 +244,13 @@ env.regl.frame(function (context) {
 })
 
 function predictObjects (dt, now) {
+  // Our own player object gets special treatment
+  var self = state.objects.self
+  self.location = state.player.location
+  self.velocity = state.player.velocity
+  self.props.direction = state.player.direction
+
+  // All other object positions are extrapolated from the latest server position + velocity
   Object.keys(state.objects).forEach(function (key) {
     if (key === 'self') return
     var obj = state.objects[key]
@@ -257,20 +266,22 @@ function predictObjects (dt, now) {
   })
 }
 
-function render () {
+function render (dt) {
   env.regl.clear({ color: [1, 1, 1, 1], depth: 1 })
   if (!drawScope) return
   drawScope(state, function () {
     drawWorld(state)
     Object.keys(state.objects).forEach(function (key) {
-      state.objects[key].draw()
+      var obj = state.objects[key]
+      obj.tick(dt)
+      obj.draw()
     })
   })
   if (state.debug.showHUD) {
     if (!drawDebug) drawDebug = require('./draw-debug')
     drawDebug(state)
   }
-  if (env.shell.fullscreen) {
+  if (state.player.camera === 'first-person') {
     drawHitMarker({ color: [1, 1, 1, 0.5] })
   }
   // TODO: draw HUD (inventory, hotbar, health bar, etc)

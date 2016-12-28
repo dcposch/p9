@@ -56,17 +56,18 @@ function updateObjects (now) {
       if (!b.name) continue
       if (!isInRange(a.location, b.location)) continue
 
-      var dir = b.direction
       objsToSend.push({
+        // Common to all objects
         type: 'player',
         key: 'player-' + b.name,
-        name: b.name,
         location: b.location,
-        direction: {azimuth: dir.azimuth, altitude: 0},
         velocity: b.velocity,
-        situation: b.situation,
-        // TODO: just send the bones?
-        props: {altitude: dir.altitude}
+        // Specific to the player object
+        props: {
+          name: b.name,
+          direction: b.direction,
+          situation: b.situation
+        }
       })
     }
 
