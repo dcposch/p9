@@ -8,13 +8,13 @@
     "lint-js": "standard",
     "lint-css": "stylelint **/*.css --config node_modules/stylelint-config-standard/index.js",
     "lint": "npm run clean && npm run lint-js && npm run lint-css",
-    "test": "npm run lint && node ./test",
+    "test": "npm run lint && npm run build && node ./test",
     "watch": "watchify --debug -t brfs src/client -o build/bundle.js",
     "build": "rimraf build && mkdirp build && npm run -s browserify | npm run -s uglify > build/bundle.js",
     "browserify": "browserify -t brfs src/client",
     "uglify": "uglifyjs -c -m",
     "show-bloat": "browserify --full-paths src/client | discify --open",
-    "start": "npm run build && node ./src/server"
+    "start": "npm run watch & node ./src/server"
   },
   "repository": {
     "type": "git",
