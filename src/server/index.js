@@ -10,6 +10,7 @@ var gen = require('../gen')
 var monitor = require('./monitor')
 var api = require('./api')
 var persist = require('./persist')
+var compression = require('compression')
 
 var state = {
   clients: [],
@@ -43,6 +44,7 @@ function main () {
 
   // Serve the client files
   var app = express()
+  app.use(compression())
   app.use(express.static('build'))
   app.use(express.static('static'))
   app.use('/monitor', monitor.init(state))
