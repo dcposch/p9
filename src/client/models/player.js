@@ -3,6 +3,7 @@ var shaders = require('../shaders')
 var textures = require('../textures')
 var Poly8 = require('../geometry/poly8')
 var Mesh = require('../geometry/mesh')
+var coordinates = require('../geometry/coordinates')
 var config = require('../../config')
 var mat4 = {
   create: require('gl-mat4/create'),
@@ -81,18 +82,19 @@ Player.prototype.intersect = function (aabb) {
 Player.prototype.tick = function (dt) {
   var vel = this.velocity
   var props = this.props
+  var cdir = coordinates.toCartesian(props.direction.azimuth, 0, 1)
 
   // Update bones
   var dStand = 0.15
-  var speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y)
-  if (speed === 0) {
+  var forwardSpeed = cdir[0] * vel.x + cdir[1] * vel.y
+  if (Math.abs(forwardSpeed) < 1) {
     // Stand
     if (props.walk < Math.PI && props.walk > dStand) props.walk -= dStand
     else if (props.walk > Math.PI && props.walk < 2 * Math.PI - dStand) props.walk += dStand
   } else {
     // Walk
-    var dWalk = speed * dt * 1.5
-    props.walk = (props.walk + dWalk) % (2 * Math.PI)
+    var dWalk = forwardSpeed * dt * 1.5
+    props.walk = (props.walk + dWalk + 2 * Math.PI) % (2 * Math.PI)
   }
 
   var legAngle = Math.sin(props.walk)
