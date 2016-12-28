@@ -1,5 +1,5 @@
 module.exports = {
-  play
+  play: play
 }
 
 var fs = require('fs')

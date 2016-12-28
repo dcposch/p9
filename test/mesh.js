@@ -35,6 +35,20 @@ test('clone a mesh', function (t) {
   t.end()
 })
 
+test('combine meshes', function (t) {
+  var m1 = new Mesh(verts, norms, uvs)
+  var m2 = new Mesh(verts, norms, uvs)
+  var m3 = Mesh.combine([m1, m2])
+  t.equal(m1.parent, m3)
+  t.equal(m2.parent, m3)
+  t.equal(m1.offset, 0)
+  t.equal(m2.offset, 3)
+  t.deepEqual(m3.verts, [].concat(verts, verts))
+  t.deepEqual(m3.norms, [].concat(norms, norms))
+  t.deepEqual(m3.uvs, [].concat(uvs, uvs))
+  t.end()
+})
+
 test('invalid args', function (t) {
   t.throws(function () {
     t.notOk(new Mesh(verts, norms))

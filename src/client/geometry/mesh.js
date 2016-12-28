@@ -38,9 +38,9 @@ Mesh.combine = function (meshes) {
   meshes.forEach(function (mesh) {
     mesh.parent = ret
     mesh.offset = ret.verts.length
-    ret.verts.push(...mesh.verts)
-    ret.norms.push(...mesh.norms)
-    ret.uvs.push(...mesh.uvs)
+    Array.prototype.push.apply(ret.verts, mesh.verts)
+    Array.prototype.push.apply(ret.norms, mesh.norms)
+    Array.prototype.push.apply(ret.uvs, mesh.uvs)
   })
   return ret
 }

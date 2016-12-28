@@ -25,7 +25,6 @@ var FACE = [[0, 0], [0, 1], [1, 0], [1, 0], [0, 1], [1, 1]]
 // Creates a mesh with six quads, two triangles each, like the six faces of a cube
 Poly8.prototype.createMesh = function () {
   var mesh = new Mesh()
-  var {verts, norms, uvs} = mesh
 
   // Create six faces...
   for (var i = 0; i < 6; i++) {
@@ -43,13 +42,13 @@ Poly8.prototype.createMesh = function () {
       var iy = i >> 1 === 1 ? i % 2 : vi[i >> 2]
       var iz = i >> 1 === 2 ? i % 2 : vi[1]
       var vert = this.verts[ix * 4 + iy * 2 + iz]
-      verts.push(vec3.clone(vert))
+      mesh.verts.push(vec3.clone(vert))
 
-      norms.push(vec3.clone([nx, ny, nz]))
+      mesh.norms.push(vec3.clone([nx, ny, nz]))
 
       // TODO: draw indexed triangles? saves 2 / 6 vertex shader invocations
       var uv = faceUVs ? faceUVs[vi[0] * 2 + vi[1]] : vi
-      uvs.push(vec2.clone(uv))
+      mesh.uvs.push(vec2.clone(uv))
     }
   }
 

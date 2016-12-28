@@ -2,8 +2,8 @@ var env = require('./env')
 var config = require('../config')
 
 module.exports = {
-  load,
-  loadAll,
+  load: load,
+  loadAll: loadAll,
   loaded: {}
 }
 

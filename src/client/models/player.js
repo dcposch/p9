@@ -1,4 +1,4 @@
-var {regl} = require('../env')
+var regl = require('../env').regl
 var shaders = require('../shaders')
 var textures = require('../textures')
 var Poly8 = require('../geometry/poly8')
