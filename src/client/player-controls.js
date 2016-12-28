@@ -165,7 +165,7 @@ function placeBlock (state) {
     [0, -1].includes(bz - Math.floor(p.z))
   if (intersectsPlayer) return
 
-  return setBlock(state, bx, by, bz, state.players.placing)
+  return setBlock(state, bx, by, bz, state.player.placing)
 }
 
 // Break the block we're looking at
