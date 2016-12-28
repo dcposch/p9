@@ -91,7 +91,7 @@ function createDebugText (state) {
     ret.push('Looking at: sky')
   }
 
-  ret.push('Placing ' + vox.TYPES[state.controls.placing].name)
+  ret.push('Placing ' + vox.TYPES[state.player.placing].name)
 
   return ret
 }

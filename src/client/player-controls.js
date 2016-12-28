@@ -35,13 +35,13 @@ function tick (state, dt, isPaused) {
 function interact (state) {
   if (shell.press('3')) state.debug.showHUD = !state.debug.showHUD
 
-  if (shell.wasDown('4')) state.controls.placing = vox.INDEX.YELLOW
-  else if (shell.wasDown('5')) state.controls.placing = vox.INDEX.RED
-  else if (shell.wasDown('6')) state.controls.placing = vox.INDEX.PINK
-  else if (shell.wasDown('7')) state.controls.placing = vox.INDEX.LIGHT_GREEN
-  else if (shell.wasDown('8')) state.controls.placing = vox.INDEX.LIGHT_BLUE
-  else if (shell.wasDown('9')) state.controls.placing = vox.INDEX.LIGHT_PURPLE
-  else if (shell.wasDown('0')) state.controls.placing = vox.INDEX.STONE
+  if (shell.wasDown('4')) state.player.placing = vox.INDEX.YELLOW
+  else if (shell.wasDown('5')) state.player.placing = vox.INDEX.RED
+  else if (shell.wasDown('6')) state.player.placing = vox.INDEX.PINK
+  else if (shell.wasDown('7')) state.player.placing = vox.INDEX.LIGHT_GREEN
+  else if (shell.wasDown('8')) state.player.placing = vox.INDEX.LIGHT_BLUE
+  else if (shell.wasDown('9')) state.player.placing = vox.INDEX.LIGHT_PURPLE
+  else if (shell.wasDown('0')) state.player.placing = vox.INDEX.STONE
 
   var left = shell.wasDown('mouse-left')
   var right = shell.wasDown('mouse-right')
@@ -165,7 +165,7 @@ function placeBlock (state) {
     [0, -1].includes(bz - Math.floor(p.z))
   if (intersectsPlayer) return
 
-  return setBlock(state, bx, by, bz, state.controls.placing)
+  return setBlock(state, bx, by, bz, state.players.placing)
 }
 
 // Break the block we're looking at

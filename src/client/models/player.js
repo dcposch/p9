@@ -85,7 +85,7 @@ Player.prototype.draw = function () {
   this.bones.head.rot[1] = Math.min(1, Math.max(-1, -props.altitude))
 
   // Update the mesh
-  // TODO: do this in a vert shader using ANGLE_instanced_arrays?
+  // TODO: do this in a vert shader using ANGLE_instanced_array?
   Mesh.copyPart(this.mesh, meshParts.body)
   moveBone(this.mesh, meshParts.head, this.bones.head)
   moveBone(this.mesh, meshParts.armL, this.bones.armL)
@@ -121,7 +121,7 @@ Player.draw = regl({
     aUV: bufferUVs
   },
   uniforms: {
-    uTexture: textures.loaded.player
+    uTexture: function () { return textures.loaded.player }
   },
   count: meshTemplate.verts.length
 })

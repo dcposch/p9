@@ -12,37 +12,29 @@ var textures = require('./textures')
 // Find the canvas, initialize regl and game-shell
 var env = require('./env')
 
-// Precompile regl commands, start loading resources
-var drawScope, drawDebug, drawHitMarker, drawWorld
-var Player
-
-textures.loadAll(function (err) {
-  if (err) return handleError('failed to load textures')
-  drawScope = require('./draw-scope')
-  drawHitMarker = require('./draw-hit-marker')
-  drawWorld = require('./draw-world')
-
-  // TODO: use init(), not a delayed require()
-  Player = require('./models/player')
-})
+// Precompile regl commands
+var drawScope = require('./draw-scope')
+var drawHitMarker = require('./draw-hit-marker')
+var drawWorld = require('./draw-world')
+var drawDebug = null // Created on-demand
+var Player = require('./models/player')
 
 // All game state lives here
 var state = {
   startTime: 0,
   player: {
-    // Block coordinates of the player's head (the camera). +Z is up. When facing +X, +Y is left.
+    // Block coordinates of the player's head. +Z is up. When facing +X, +Y is left.
     location: { x: -68, y: 0, z: 30 },
-    // Azimuth ranges from 0 (looking down the +X axis) to 2*pi. Azimuth pi/2 looks at +Y.
-    // Altitude ranges from -pi/2 (looking straight down) to pi/2 (up). 0 looks straight ahead.
+    // Azimuth ranges from 0 (looking at +X) to 2*pi. Azimuth pi/2 looks at +Y.
+    // Altitude ranges from -pi/2 (looking straight down) to pi/2 (up, +Z). 0 looks straight ahead.
     direction: { azimuth: 0, altitude: 0 },
     // Physics
     velocity: { x: 0, y: 0, z: 0 },
     // Situation can also be 'on-ground', 'suffocating'
     situation: 'airborne',
-    // Which block we're looking at. {location: {x,y,z}, side: {nx,ny,nz}, voxel}
-    lookAtBlock: null
-  },
-  controls: {
+    // Which block we're looking at: {location: {x,y,z}, side: {nx,ny,nz}, voxel}
+    lookAtBlock: null,
+    // Which kind of block we're placing
     placing: vox.INDEX.STONE
   },
   pendingCommands: [],
@@ -62,6 +54,14 @@ var state = {
   config: null,
   error: null
 }
+
+// Load resources
+textures.loadAll(function (err) {
+  if (err) {
+    console.error('failed to load textures', err)
+    handleError('failed to load textures')
+  }
+})
 
 // Handle server messages
 state.socket.on('binary', function (msg) {
@@ -91,8 +91,6 @@ function handleConfig (msg) {
 }
 
 function handleObjects (msg) {
-  if (!Player) return
-
   var now = new Date().getTime()
   var keys = {}
 
@@ -165,12 +163,6 @@ button.addEventListener('click', function () {
   state.startTime = new Date().getTime()
   state.objects.self = new Player(state.player.name)
 
-  // TODO: separate camera from model location
-  // for now, a dirty hack: reference equals, so that physics automatically updates both
-  state.objects.self.location = state.player.location
-  state.objects.self.velocity = state.player.velocity
-  state.objects.self.direction = state.player.direction
-
   splash.remove()
   canvas.addEventListener('click', function () {
     if (state.error) return
@@ -227,31 +219,9 @@ env.shell.on('tick', function () {
   if (elapsedMs > 1000 * config.TICK_INTERVAL) console.log('Slow tick: %d ms', elapsedMs)
 })
 
-function predictObjects (dt, now) {
-  Object.keys(state.objects).forEach(function (key) {
-    if (key === 'self') return
-    var obj = state.objects[key]
-    // Don't extrapolate too far. If there's too much lag, it's better for objects to stop moving
-    // than to teleport through blocks.
-    if (obj.lastUpdateMs - now > config.MAX_EXTRAPOLATE_MS) return
-    var loc = obj.location
-    var vel = obj.velocity
-    if (obj.situation === 'airborne') vel.z -= config.PHYSICS.GRAVITY * dt
-    loc.x += vel.x * dt
-    loc.y += vel.y * dt
-    loc.z += vel.z * dt
-  })
-}
-
 // Renders each frame. Should run at 60Hz.
 // Stops running if the canvas is not visible, for example because the window is minimized.
 env.regl.frame(function (context) {
-  // TODO: figure out which chunks are visible
-  // TODO: remesh all dirty, visible chunks
-  // TODO: draw all visible chunks
-  // TODO: draw all objects
-  // TODO: draw HUD (inventory, hotbar, health bar, etc)
-
   // Track FPS
   var now = new Date().getTime()
   var dt = Math.max(now - state.perf.lastFrameTime, 1) / 1000
@@ -271,6 +241,22 @@ env.regl.frame(function (context) {
   setTimeout(postFrame, 0)
 })
 
+function predictObjects (dt, now) {
+  Object.keys(state.objects).forEach(function (key) {
+    if (key === 'self') return
+    var obj = state.objects[key]
+    // Don't extrapolate too far. If there's too much lag, it's better for objects to stop moving
+    // than to teleport through blocks.
+    if (obj.lastUpdateMs - now > config.MAX_EXTRAPOLATE_MS) return
+    var loc = obj.location
+    var vel = obj.velocity
+    if (obj.situation === 'airborne') vel.z -= config.PHYSICS.GRAVITY * dt
+    loc.x += vel.x * dt
+    loc.y += vel.y * dt
+    loc.z += vel.z * dt
+  })
+}
+
 function render () {
   env.regl.clear({ color: [1, 1, 1, 1], depth: 1 })
   if (!drawScope) return
@@ -287,6 +273,7 @@ function render () {
   if (env.shell.fullscreen) {
     drawHitMarker({ color: [1, 1, 1, 0.5] })
   }
+  // TODO: draw HUD (inventory, hotbar, health bar, etc)
 }
 
 function postFrame () {

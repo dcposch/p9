@@ -11,11 +11,26 @@ module.exports = drawWorld
 
 var CS = config.CHUNK_SIZE
 
-// TODO: use init() or something, don't call at require time
-var chunkCommand = drawChunk()
-
 // Allocate once, update every frame in cullChunks()
 var meshes = []
+
+// Compile regl command
+var chunkCommand = env.regl({
+  // To profile, use this property, then add the following line to the render loop:
+  // if (context.tick % 100 === 0) console.log(JSON.stringify(drawChunk.stats))
+  // profile: true,
+  vert: shaders.vert.uvWorld,
+  frag: shaders.frag.voxel,
+  uniforms: {
+    uAtlas: function () { return textures.loaded.atlas }
+  },
+  attributes: {
+    aPosition: env.regl.prop('verts'),
+    aNormal: env.regl.prop('normals'),
+    aUV: env.regl.prop('uvs')
+  },
+  count: env.regl.prop('count')
+})
 
 // Draw voxel chunks, once resources are loaded.
 function drawWorld (state) {
@@ -71,24 +86,4 @@ function chunkOutsideFrustum (matCombined, chunk) {
     if (v[0] > -1 && v[1] > -1 && v[2] > -1 && v[0] < 1 && v[1] < 1 && v[2] < 1) return false
   }
   return true
-}
-
-// Creates a regl command that draws a voxel chunk
-function drawChunk () {
-  return env.regl({
-    // To profile, use this property, then add the following line to the render loop:
-    // if (context.tick % 100 === 0) console.log(JSON.stringify(drawChunk.stats))
-    // profile: true,
-    vert: shaders.vert.uvWorld,
-    frag: shaders.frag.voxel,
-    uniforms: {
-      uAtlas: textures.loaded.atlas
-    },
-    attributes: {
-      aPosition: env.regl.prop('verts'),
-      aNormal: env.regl.prop('normals'),
-      aUV: env.regl.prop('uvs')
-    },
-    count: env.regl.prop('count')
-  })
 }
