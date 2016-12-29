@@ -41,9 +41,13 @@ Client.prototype = Object.create(EventEmitter.prototype)
 Client.prototype.send = function (message) {
   if (this.closed) return console.error('Ignoring message, socket closed')
   if (!(message instanceof Uint8Array)) message = JSON.stringify(message)
-  this.perf.messagesSent++
-  this.perf.bytesSent += message.length
-  this.ws.send(message)
+  try {
+    this.ws.send(message)
+    this.perf.messagesSent++
+    this.perf.bytesSent += message.length
+  } catch (e) {
+    console.error('websocket send failed', e)
+  }
 }
 
 Client.prototype.die = function (error) {
@@ -63,10 +67,14 @@ function handleClose () {
 }
 
 function handleMessage (data, flags) {
-  this.perf.messagesReceived++
-  this.perf.bytesReceived += data.length // Approximate. Doesn't count overhead or non-ASCII chars
-  if (flags.binary) handleBinaryMessage(this, data)
-  else handleJsonMessage(this, JSON.parse(data))
+  try {
+    this.perf.messagesReceived++
+    this.perf.bytesReceived += data.length // Approximate. Doesn't count overhead or non-ASCII chars
+    if (flags.binary) handleBinaryMessage(this, data)
+    else handleJsonMessage(this, JSON.parse(data))
+  } catch (e) {
+    console.error('error handling client message', e)
+  }
 }
 
 function handleBinaryMessage (client, data) {
