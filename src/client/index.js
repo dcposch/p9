@@ -52,7 +52,6 @@ var state = {
     showHUD: false
   },
   objects: {},
-  hud: new HUD(),
   world: new World(),
   socket: new Socket(),
   config: null,
@@ -282,7 +281,7 @@ function render (dt) {
   if (state.player.camera === 'first-person') {
     drawHitMarker({ color: [1, 1, 1, 0.5] })
   }
-  state.hud.draw()
+  HUD.draw({selectedIndex: HUD.QUICKBAR_VOX.indexOf(state.player.placing)})
 }
 
 function postFrame () {

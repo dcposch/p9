@@ -1,6 +1,7 @@
 var config = require('../config')
 var env = require('./env')
 var vox = require('../vox')
+var HUD = require('./models/hud')
 var shell = env.shell
 
 module.exports = {
@@ -35,17 +36,18 @@ function tick (state, dt, isPaused) {
 function interact (state) {
   var p = state.player
 
-  if (shell.press('2')) p.camera = p.camera === 'first-person' ? 'third-person' : 'first-person'
+  if (shell.wasDown('1')) p.placing = HUD.QUICKBAR_VOX[0]
+  else if (shell.wasDown('2')) p.placing = HUD.QUICKBAR_VOX[1]
+  else if (shell.wasDown('3')) p.placing = HUD.QUICKBAR_VOX[2]
+  else if (shell.wasDown('4')) p.placing = HUD.QUICKBAR_VOX[3]
+  else if (shell.wasDown('5')) p.placing = HUD.QUICKBAR_VOX[4]
+  else if (shell.wasDown('6')) p.placing = HUD.QUICKBAR_VOX[5]
+  else if (shell.wasDown('7')) p.placing = HUD.QUICKBAR_VOX[6]
+  else if (shell.wasDown('8')) p.placing = HUD.QUICKBAR_VOX[7]
 
-  if (shell.press('3')) state.debug.showHUD = !state.debug.showHUD
+  if (shell.press('9')) p.camera = p.camera === 'first-person' ? 'third-person' : 'first-person'
 
-  if (shell.wasDown('4')) p.placing = vox.INDEX.YELLOW
-  else if (shell.wasDown('5')) p.placing = vox.INDEX.RED
-  else if (shell.wasDown('6')) p.placing = vox.INDEX.PINK
-  else if (shell.wasDown('7')) p.placing = vox.INDEX.LIGHT_GREEN
-  else if (shell.wasDown('8')) p.placing = vox.INDEX.LIGHT_BLUE
-  else if (shell.wasDown('9')) p.placing = vox.INDEX.LIGHT_PURPLE
-  else if (shell.wasDown('0')) p.placing = vox.INDEX.STONE
+  if (shell.press('0')) state.debug.showHUD = !state.debug.showHUD
 
   var left = shell.wasDown('mouse-left')
   var right = shell.wasDown('mouse-right')
