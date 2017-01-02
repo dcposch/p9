@@ -12,6 +12,7 @@ function loadAll (cb) {
   var tex = {}
   tex.atlas = load('textures/atlas-p9.png')
   tex.player = load('textures/skin-herobrine.png')
+  tex.hud = load('textures/hud.png')
 
   var keys = Object.keys(tex)
   var promises = keys.map(function (key) { return tex[key] })

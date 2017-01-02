@@ -28,7 +28,7 @@ function updateMatrix (context, props) {
   // First, figure out where the camera goes
   var dir = props.player.direction
   var loc = props.player.location
-  var caltitude = Math.min(1, Math.max(-1, dir.altitude))
+  var caltitude = Math.min(1, Math.max(-1, dir.altitude)) * 0.7
   var cdir = coordinates.toCartesian(dir.azimuth, caltitude, 1.0)
   var cloc
   switch (props.player.camera) {

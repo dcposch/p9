@@ -135,7 +135,7 @@ Player.prototype.draw = function () {
   this.buffers.verts.subdata(this.mesh.verts)
   this.buffers.norms.subdata(this.mesh.norms)
 
-  Player.draw({player: this})
+  drawCommand({player: this})
 }
 
 Player.prototype.destroy = function () {
@@ -143,7 +143,7 @@ Player.prototype.destroy = function () {
   this.buffers.norms.destroy()
 }
 
-Player.draw = regl({
+var drawCommand = regl({
   frag: shaders.frag.texture,
   vert: shaders.vert.uvWorld,
   attributes: {

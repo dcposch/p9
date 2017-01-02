@@ -17,6 +17,7 @@ var drawScope = require('./draw-scope')
 var drawHitMarker = require('./draw-hit-marker')
 var drawWorld = require('./draw-world')
 var drawDebug = null // Created on-demand
+var HUD = require('./models/hud')
 var Player = require('./models/player')
 
 // All game state lives here
@@ -51,6 +52,7 @@ var state = {
     showHUD: false
   },
   objects: {},
+  hud: new HUD(),
   world: new World(),
   socket: new Socket(),
   config: null,
@@ -148,10 +150,7 @@ input.addEventListener('keyup', function () {
   name = name.toLowerCase()
   if (name !== input.value) input.value = name
 
-  // TODO: auth, invites, signup
-  var names = ['magic word', 'dc', 'feross', 'mikola', 'neal', 'lipi', 'noor',
-    'bcrypt', 'satnam', 'pineapple express', 'won', 'cguo', 'kevin chan']
-  var ready = names.includes(input.value)
+  var ready = name.length >= 3 && name.length < 20
   button.classList.toggle('show', ready)
   controls.classList.toggle('show', ready)
 })
@@ -174,7 +173,6 @@ button.addEventListener('click', function () {
 
   var music = state.config && state.config.music
   if (music) sound.play(music.url, music.time)
-  else sound.play('win95.mp3')
 })
 
 // Kill the game on error (eg 'connection lost'). Player has to refresh the page.
@@ -284,7 +282,7 @@ function render (dt) {
   if (state.player.camera === 'first-person') {
     drawHitMarker({ color: [1, 1, 1, 0.5] })
   }
-  // TODO: draw HUD (inventory, hotbar, health bar, etc)
+  state.hud.draw()
 }
 
 function postFrame () {
