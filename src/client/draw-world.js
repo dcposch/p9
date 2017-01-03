@@ -55,7 +55,7 @@ function cullChunks (state) {
     var chunk = chunks[i]
 
     // Don't draw chunks that are all air
-    if (!chunk.mesh) continue
+    if (!chunk.mesh || chunk.mesh.count === 0) continue
 
     // Don't draw chunks that are too far away
     var dx = loc.x - chunk.x

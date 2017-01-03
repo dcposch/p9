@@ -15,7 +15,7 @@ var CS3 = CS * CS * CS
 var verts = new Float32Array(CS3 * 3)
 var normals = new Float32Array(CS3 * 3)
 var uvs = new Float32Array(CS3 * 2)
-var checked = new Uint8Array(CS * CS)
+var checked = new Uint8Array(CS3)
 
 // Variables for meshWorld
 var MAX_QUADS_PER_RUN = 1000
@@ -23,7 +23,6 @@ var chunkPriority = {}
 var chunkCache = {}
 var numChecks = 0
 var numQuadsVisited = 0
-var numPreproc = 0
 
 // Meshes dirty chunks. Schedules chunks for meshing based on a priority algorithm.
 function meshWorld (world, loc) {
@@ -39,6 +38,7 @@ function meshWorld (world, loc) {
       c.mesh.destroy()
       c.mesh = null
       c.dirty = true
+      delete chunkCache[c.getKey()]
     }
     if (d2 > maxDraw * maxDraw) return
 
@@ -86,12 +86,6 @@ function meshWorld (world, loc) {
     if (numQuads > MAX_QUADS_PER_RUN) chunksToMesh.length = i + 1
   }
 
-  // Preprocess for performance
-  chunksToMesh.forEach(function (obj) {
-    if (obj.priority === 3) unpack(obj.chunk)
-  })
-  var preprocessMs = new Date().getTime()
-
   // Mesh
   var counts = [0, 0, 0, 0]
   chunksToMesh.forEach(function (obj) {
@@ -106,10 +100,9 @@ function meshWorld (world, loc) {
   // Planes: Meshed 895 chunks, remeshed 0 in 397ms <always ~400>, 152517 checks 7m quads visited
   // SAT: Meshed 895 + 0 in 412ms, preproc 144 in 223ms, 110 checks 0m quads visited
   // SAT >100: Meshed 895 + 0 in 371ms, preproc 117 in 207ms, 9594 checks 1m quads visited
-  console.log('Meshed %d + %d in %dms, preproc %d in %dms, %d checks %dm quads visited',
-    counts[3], counts[1], meshMs - startMs, numPreproc, preprocessMs - startMs,
+  console.log('Meshed %d + %d in %dms, %d checks %dm quads visited',
+    counts[3], counts[1], meshMs - startMs,
     numChecks, Math.round(numQuadsVisited / 1e6))
-  numPreproc = 0
   numChecks = 0
   numQuadsVisited = 0
 }
@@ -122,7 +115,6 @@ function unpack (chunk) {
   var n = chunk.length
   if (n === 0) return
 
-  numPreproc++
   var key = chunk.getKey()
   var voxels = chunkCache[key]
   if (!voxels) {
@@ -156,6 +148,7 @@ function unpack (chunk) {
 function meshChunk (chunk, world) {
   if (!chunk.data) return
   if (!chunk.packed) throw new Error('must pack chunk before meshing')
+  if (!chunk.length) return
 
   if (chunk.mesh) chunk.mesh.destroy()
 
@@ -163,89 +156,139 @@ function meshChunk (chunk, world) {
   var count = meshBuffers(chunk, world)
 
   chunk.mesh = {
-    verts: env.regl.buffer(new Float32Array(verts.buffer, 0, count * 3)),
-    normals: env.regl.buffer(new Float32Array(normals.buffer, 0, count * 3)),
-    uvs: env.regl.buffer(new Float32Array(uvs.buffer, 0, count * 2)),
     count: count,
+    verts: count && env.regl.buffer(new Float32Array(verts.buffer, 0, count * 3)),
+    normals: count && env.regl.buffer(new Float32Array(normals.buffer, 0, count * 3)),
+    uvs: count && env.regl.buffer(new Float32Array(uvs.buffer, 0, count * 2)),
     destroy: destroy
   }
 }
 
-// Profiling shows this is the most critical path.
+function getVoxels (chunk) {
+  if (!chunk) return null
+  var key = chunk.getKey()
+  if (!chunkCache[key]) unpack(chunk)
+  return chunkCache[key]
+}
+
+// Profiling shows that this is the most critical path.
 // May run hundreds of times in a single frame, allocating 1000+ WebGL buffers
 function meshBuffers (chunk, world) {
-  var data = chunk.data
-  var n = chunk.length
+  checked.fill(0)
+  var voxels = getVoxels(chunk)
   var ivert = 0
   var inormal = 0
   var iuv = 0
-  var i
+  var x, y, z, nx, ny, nz, side
 
-  // Loop thru the packed representation (list of quads)
-  for (var index = 0; index < n; index += 8) {
-    var x0 = chunk.x + data[index]
-    var y0 = chunk.y + data[index + 1]
-    var z0 = chunk.z + data[index + 2]
-    var x1 = chunk.x + data[index + 3]
-    var y1 = chunk.y + data[index + 4]
-    var z1 = chunk.z + data[index + 5]
-    var v = data[index + 6]
+  var neighbors = new Array(3)
+  for (side = 0; side < 3; side++) {
+    nx = (side === 0) ? (chunk.x + CS) : chunk.x
+    ny = (side === 1) ? (chunk.y + CS) : chunk.y
+    nz = (side === 2) ? (chunk.z + CS) : chunk.z
+    neighbors[side] = getVoxels(world.getChunk(nx, ny, nz))
+  }
 
-    // Get uvs, etc
-    var voxType = vox.TYPES[v]
-    if (!voxType) throw new Error('unsupported voxel type ' + v)
-    var sideOffset = voxType.sideOffset
+  // Loop thru voxels, create quads
+  var cs1 = CS - 1
+  for (x = 0; x < CS; x++) {
+    for (y = 0; y < CS; y++) {
+      for (z = 0; z < CS; z++) {
+        var v = voxels[(x << CB << CB) | (y << CB) | z]
+        var check = checked[(x << CB << CB) | (y << CB) | z]
+        for (side = 0; side < 3; side++) {
+          if (check & (1 << side)) {
+            continue // Already meshed
+          }
+          nx = (side === 0) ? (x + 1) : x
+          ny = (side === 1) ? (y + 1) : y
+          nz = (side === 2) ? (z + 1) : z
+          var nvoxels = voxels
+          if ((nx & ~cs1) || (ny & ~cs1) || (nz & ~cs1)) {
+            nx &= cs1
+            ny &= cs1
+            nz &= cs1
+            nvoxels = neighbors[side]
+          }
+          var n = nvoxels ? nvoxels[(nx << CB << CB) | (ny << CB) | nz] : 0
+          if (n === v || (n > 1 && v > 1)) continue // Doesn't need to be meshed
 
-    // Add the six faces (12 tris total) for the quad
-    for (var fside = 0; fside <= 1; fside++) {
-      // Figure out which faces we need to draw
-      var xface = fside ? (x1 - sideOffset) : (x0 + sideOffset)
-      var yface = fside ? (y1 - sideOffset) : (y0 + sideOffset)
-      var zface = fside ? z1 : z0
-      var drawX = check(world, v, fside ? x1 : (x0 - 1), y0, z0, fside ? (x1 + 1) : x0, y1, z1)
-      var drawY = check(world, v, x0, fside ? y1 : (y0 - 1), z0, x1, fside ? (y1 + 1) : y0, z1)
-      var drawZ = check(world, v, x0, y0, fside ? z1 : (z0 - 1), x1, y1, fside ? (z1 + 1) : z0)
+          // Does need to be meshed. Greedily expand to largest possible quad.
+          // TODO: expand to quad, not just to strip
+          var np = n
+          var vp = v
+          var x1 = x
+          var y1 = y
+          var z1 = z
+          if (side === 1) {
+            while (true) {
+              if (++x1 >= CS) break
+              vp = voxels[(x1 << CB << CB) | (y << CB) | z]
+              np = nvoxels ? nvoxels[(x1 << CB << CB) | (ny << CB) | nz] : 0
+              if (np !== n || vp !== v) break
+              checked[(x1 << CB << CB) | (y << CB) | z] |= (1 << side)
+            }
+            y1++
+            z1++
+          }
+          if (side === 2) {
+            while (true) {
+              if (++y1 >= CS) break
+              vp = voxels[(x << CB << CB) | (y1 << CB) | z]
+              np = nvoxels ? nvoxels[(nx << CB << CB) | (y1 << CB) | nz] : 0
+              if (np !== n || vp !== v) break
+              checked[(x << CB << CB) | (y1 << CB) | z] |= (1 << side)
+            }
+            x1++
+            z1++
+          }
+          if (side === 0) {
+            while (true) {
+              if (++z1 >= CS) break
+              vp = voxels[(x << CB << CB) | (y << CB) | z1]
+              np = nvoxels ? nvoxels[(nx << CB << CB) | (ny << CB) | z1] : 0
+              if (np !== n || vp !== v) break
+              checked[(x << CB << CB) | (y << CB) | z1] |= (1 << side)
+            }
+            x1++
+            y1++
+          }
 
-      // Add vertices
-      if (drawX) {
-        ivert += addXYZ(verts, ivert, xface, y0, z0)
-        ivert += addXYZ(verts, ivert, xface, y1, z0)
-        ivert += addXYZ(verts, ivert, xface, y0, z1)
-        ivert += addXYZ(verts, ivert, xface, y0, z1)
-        ivert += addXYZ(verts, ivert, xface, y1, z0)
-        ivert += addXYZ(verts, ivert, xface, y1, z1)
+          // Add verts, norms, uvs
+          var voxType = v < n ? vox.TYPES[n] : vox.TYPES[v]
+          var uv = voxType.uv.side
+          var norm = v < n ? -1 : 1
+          var vnorm, v0, v1, v2
+          v0 = [chunk.x + x, chunk.y + y, chunk.z + z]
+          if (side === 0) {
+            vnorm = [norm, 0, 0]
+            v0[0]++
+            v1 = [0, y1 - y, 0]
+            v2 = [0, 0, z1 - z]
+          } else if (side === 1) {
+            vnorm = [0, norm, 0]
+            v0[1]++
+            v1 = [x1 - x, 0, 0]
+            v2 = [0, 0, z1 - z]
+          } else if (side === 2) {
+            vnorm = [0, 0, norm]
+            v0[2]++
+            v1 = [x1 - x, 0, 0]
+            v2 = [0, y1 - y, 0]
+          }
+          ivert += addXYZ(verts, ivert, v0[0], v0[1], v0[2])
+          ivert += addXYZ(verts, ivert, v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
+          ivert += addXYZ(verts, ivert, v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
+          ivert += addXYZ(verts, ivert, v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
+          ivert += addXYZ(verts, ivert, v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
+          ivert += addXYZ(verts, ivert,
+            v0[0] + v1[0] + v2[0], v0[1] + v1[1] + v2[1], v0[2] + v1[2] + v2[2])
+          for (var i = 0; i < 6; i++) {
+            inormal += addXYZ(normals, inormal, vnorm[0], vnorm[1], vnorm[2])
+            iuv += addUV(uvs, iuv, uv)
+          }
+        }
       }
-
-      if (drawY) {
-        ivert += addXYZ(verts, ivert, x0, yface, z0)
-        ivert += addXYZ(verts, ivert, x1, yface, z0)
-        ivert += addXYZ(verts, ivert, x0, yface, z1)
-        ivert += addXYZ(verts, ivert, x0, yface, z1)
-        ivert += addXYZ(verts, ivert, x1, yface, z0)
-        ivert += addXYZ(verts, ivert, x1, yface, z1)
-      }
-
-      if (drawZ) {
-        ivert += addXYZ(verts, ivert, x0, y0, zface)
-        ivert += addXYZ(verts, ivert, x1, y0, zface)
-        ivert += addXYZ(verts, ivert, x0, y1, zface)
-        ivert += addXYZ(verts, ivert, x0, y1, zface)
-        ivert += addXYZ(verts, ivert, x1, y0, zface)
-        ivert += addXYZ(verts, ivert, x1, y1, zface)
-      }
-
-      // Add normals
-      var dir = fside ? 1 : -1
-      if (drawX) for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, dir, 0, 0)
-      if (drawY) for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, 0, dir, 0)
-      if (drawZ) for (i = 0; i < 6; i++) inormal += addXYZ(normals, inormal, 0, 0, dir)
-
-      // Add texture atlas UVs
-      var uvxy = voxType.uv.side
-      var uvz = fside === 1 ? voxType.uv.top : voxType.uv.bottom
-      if (drawX) for (i = 0; i < 6; i++) iuv += addUV(uvs, iuv, uvxy)
-      if (drawY) for (i = 0; i < 6; i++) iuv += addUV(uvs, iuv, uvxy)
-      if (drawZ) for (i = 0; i < 6; i++) iuv += addUV(uvs, iuv, uvz)
     }
   }
 
@@ -253,91 +296,10 @@ function meshBuffers (chunk, world) {
   return ivert / 3
 }
 
-// Checks whether there are any seethru blocks in a given 3D quad other than vCompare
-function check (world, vCompare, x0, y0, z0, x1, y1, z1) {
-  var cx = x0 >> CB << CB
-  var cy = y0 >> CB << CB
-  var cz = z0 >> CB << CB
-  var chunk = world.getChunk(cx, cy, cz)
-  if (!chunk) return true
-
-  // The region (x0, y0, z0) to (x1, y1, v1) is entirely in one plane
-  // This means we can intersection test it against typically <10 quads instead of hundreds
-  // It also means at least one of wx, wy, or wz below must be equal to 1
-  x0 = (x0 - cx) | 0
-  y0 = (y0 - cy) | 0
-  z0 = (z0 - cz) | 0
-  x1 = (x1 - cx) | 0
-  y1 = (y1 - cy) | 0
-  z1 = (z1 - cz) | 0
-  var wx = x1 - x0
-  var wy = y1 - y0
-  var wz = z1 - z0
-
-  // Fast path
-  var voxels = chunkCache[chunk.getKey()]
-  if (voxels) {
-    for (var ix = x0; ix < x1; ix++) {
-      for (var iy = y0; iy < y1; iy++) {
-        for (var iz = z0; iz < z1; iz++) {
-          var v = voxels[(ix << CB << CB) + (iy << CB) + iz]
-          if (v !== vCompare && v <= 1) return true
-        }
-      }
-    }
-    return false
-  }
-
-  // Slow path:
-  // Check the region, mark `checked` for each voxel, find out if the region contains air
-  checked.fill(0, 0, wx * wy * wz)
-  numChecks++
-  numQuadsVisited += chunk.length / 8
-  var d = chunk.data
-  for (var index = 0; index < chunk.length; index += 8) {
-    var qx0 = d[index]
-    var qy0 = d[index + 1]
-    var qz0 = d[index + 2]
-    var qx1 = d[index + 3]
-    var qy1 = d[index + 4]
-    var qz1 = d[index + 5]
-    v = d[index + 6]
-
-    var overlaps = x0 < qx1 && x1 > qx0 && y0 < qy1 && y1 > qy0 && z0 < qz1 && z1 > qz0
-
-    // If v is opaque (> 1) or matches vCompare, mark opaque blocks
-    if (v === vCompare || v > 1) {
-      if (!overlaps) continue
-      var ox0 = Math.max(x0, qx0) - x0
-      var oy0 = Math.max(y0, qy0) - y0
-      var oz0 = Math.max(z0, qz0) - z0
-      var ox1 = Math.min(x1, qx1) - x0
-      var oy1 = Math.min(y1, qy1) - y0
-      var oz1 = Math.min(z1, qz1) - z0
-      for (ix = ox0; ix < ox1; ix++) {
-        for (iy = oy0; iy < oy1; iy++) {
-          for (iz = oz0; iz < oz1; iz++) {
-            checked[ix * wy * wz + iy * wz + iz] = 1
-          }
-        }
-      }
-    } else {
-      // See if v is transparent and overaps the check region
-      if (overlaps) return true
-    }
-  }
-
-  // See if there were any air blocks (not marked opaque)
-  for (var i = 0; i < wx * wy * wz; i++) {
-    if (!checked[i]) return true
-  }
-  return false
-}
-
-function getDistSquared (chunk, loc) {
-  var dx = loc.x - chunk.x
-  var dy = loc.y - chunk.y
-  var dz = loc.z - chunk.z
+function getDistSquared (a, b) {
+  var dx = a.x - b.x
+  var dy = a.y - b.y
+  var dz = a.z - b.z
   return dx * dx + dy * dy + dz * dz
 }
 
@@ -355,6 +317,7 @@ function addUV (arr, i, uv) {
 }
 
 function destroy () {
+  if (this.count === 0) return
   this.verts.destroy()
   this.normals.destroy()
   this.uvs.destroy()
