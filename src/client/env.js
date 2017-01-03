@@ -37,7 +37,7 @@ function resizeCanvasIfNeeded () {
   var h = INITIAL_H
   if (env.shell.fullscreen) {
     w = FULLSCREEN_W
-    h = FULLSCREEN_W * Math.min(1.0, window.innerHeight / window.innerWidth)
+    h = Math.floor(FULLSCREEN_W * Math.min(1.0, window.innerHeight / window.innerWidth))
   }
 
   if (env.canvas.width !== w || env.canvas.height !== h) {

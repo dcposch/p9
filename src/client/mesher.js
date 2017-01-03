@@ -243,14 +243,14 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
   var nx = (side === 0) ? (x + 1) : x
   var ny = (side === 1) ? (y + 1) : y
   var nz = (side === 2) ? (z + 1) : z
-  var nvoxels = voxels
+  var voxelsn = voxels
   if ((nx & ~cs1) || (ny & ~cs1) || (nz & ~cs1)) {
     nx &= cs1
     ny &= cs1
     nz &= cs1
-    nvoxels = neighbors[side]
+    voxelsn = neighbors[side]
   }
-  var n = nvoxels ? nvoxels[(nx << CB << CB) | (ny << CB) | nz] : 0
+  var n = voxelsn ? voxelsn[(nx << CB << CB) | (ny << CB) | nz] : 0
 
   // If this face is between two of the same voxel type, or between two opaque blocks, don't render
   if (n === v || (n > 1 && v > 1)) return false
@@ -260,27 +260,27 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
   var u1 = new Int32Array([side === 0 ? 0 : 1, side === 0 ? 1 : 0, 0])
   var u2 = new Int32Array([0, side === 2 ? 1 : 0, side === 2 ? 0 : 1])
 
-  // Current voxel, current neighbor, and their locations. TODO: rename
-  var vp, np
-  var vi = new Int32Array([x, y, z])
-  var vn = new Int32Array([nx, ny, nz])
+  // Current voxel, current neighbor, and their locations
+  var voxc, voxn
+  var locc = new Int32Array([x, y, z])
+  var locn = new Int32Array([nx, ny, nz])
 
   // Greedily expand to largest possible strip
   // TODO: quad, not strip
   while (true) {
-    vec3.add(vi, vi, u1)
-    if ((vi[0] & ~cs1) || (vi[1] & ~cs1) || (vi[2] & ~cs1)) break
-    vec3.add(vn, vn, u1)
-    vp = voxels[(vi[0] << CB << CB) | (vi[1] << CB) | vi[2]]
-    np = nvoxels ? nvoxels[(vn[0] << CB << CB) | (vn[1] << CB) | vn[2]] : 0
-    if (np !== n || vp !== v) break
-    checked[(vi[0] << CB << CB) | (vi[1] << CB) | vi[2]] |= (1 << side)
+    vec3.add(locc, locc, u1)
+    vec3.add(locn, locn, u1)
+    if ((locc[0] & ~cs1) || (locc[1] & ~cs1) || (locc[2] & ~cs1)) break
+    voxc = voxels[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]]
+    voxn = voxelsn ? voxelsn[(locn[0] << CB << CB) | (locn[1] << CB) | locn[2]] : 0
+    if (voxc !== v || voxn !== n) break
+    checked[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]] |= (1 << side)
   }
-  vec3.add(vi, vi, u0)
-  vec3.add(vi, vi, u2)
+  vec3.add(locc, locc, u0)
+  vec3.add(locc, locc, u2)
 
   // Add verts, norms, uvs
-  var vdelta = new Int32Array([vi[0] - x, vi[1] - y, vi[2] - z])
+  var vdelta = new Int32Array([locc[0] - x, locc[1] - y, locc[2] - z])
   vec3.add(v0, [chunk.x + x, chunk.y + y, chunk.z + z], u0)
   vec3.multiply(v1, vdelta, u1)
   vec3.multiply(v2, vdelta, u2)
