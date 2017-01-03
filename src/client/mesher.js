@@ -3,7 +3,10 @@ var config = require('../config')
 var vox = require('../vox')
 var vec3 = {
   create: require('gl-vec3/create'),
-  set: require('gl-vec3/set')
+  set: require('gl-vec3/set'),
+  add: require('gl-vec3/add'),
+  multiply: require('gl-vec3/multiply'),
+  scale: require('gl-vec3/scale')
 }
 var vec2 = {
   create: require('gl-vec2/create'),
@@ -252,69 +255,41 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
   // If this face is between two of the same voxel type, or between two opaque blocks, don't render
   if (n === v || (n > 1 && v > 1)) return false
 
-  // Greedily expand to largest possible quad
-  var np = n
-  var vp = v
-  var x1 = x
-  var y1 = y
-  var z1 = z
-  if (side === 1) {
-    while (true) {
-      if (++x1 >= CS) break
-      vp = voxels[(x1 << CB << CB) | (y << CB) | z]
-      np = nvoxels ? nvoxels[(x1 << CB << CB) | (ny << CB) | nz] : 0
-      if (np !== n || vp !== v) break
-      checked[(x1 << CB << CB) | (y << CB) | z] |= (1 << side)
-    }
-    y1++
-    z1++
+  // Unit vectors normal to the face (u0) and parallel (u1 and u2)
+  var u0 = new Int32Array([side === 0 ? 1 : 0, side === 1 ? 1 : 0, side === 2 ? 1 : 0])
+  var u1 = new Int32Array([side === 0 ? 0 : 1, side === 0 ? 1 : 0, 0])
+  var u2 = new Int32Array([0, side === 2 ? 1 : 0, side === 2 ? 0 : 1])
+
+  // Current voxel, current neighbor, and their locations. TODO: rename
+  var vp, np
+  var vi = new Int32Array([x, y, z])
+  var vn = new Int32Array([nx, ny, nz])
+
+  // Greedily expand to largest possible strip
+  // TODO: quad, not strip
+  while (true) {
+    vec3.add(vi, vi, u1)
+    if ((vi[0] & ~cs1) || (vi[1] & ~cs1) || (vi[2] & ~cs1)) break
+    vec3.add(vn, vn, u1)
+    vp = voxels[(vi[0] << CB << CB) | (vi[1] << CB) | vi[2]]
+    np = nvoxels ? nvoxels[(vn[0] << CB << CB) | (vn[1] << CB) | vn[2]] : 0
+    if (np !== n || vp !== v) break
+    checked[(vi[0] << CB << CB) | (vi[1] << CB) | vi[2]] |= (1 << side)
   }
-  if (side === 2) {
-    while (true) {
-      if (++y1 >= CS) break
-      vp = voxels[(x << CB << CB) | (y1 << CB) | z]
-      np = nvoxels ? nvoxels[(nx << CB << CB) | (y1 << CB) | nz] : 0
-      if (np !== n || vp !== v) break
-      checked[(x << CB << CB) | (y1 << CB) | z] |= (1 << side)
-    }
-    x1++
-    z1++
-  }
-  if (side === 0) {
-    while (true) {
-      if (++z1 >= CS) break
-      vp = voxels[(x << CB << CB) | (y << CB) | z1]
-      np = nvoxels ? nvoxels[(nx << CB << CB) | (ny << CB) | z1] : 0
-      if (np !== n || vp !== v) break
-      checked[(x << CB << CB) | (y << CB) | z1] |= (1 << side)
-    }
-    x1++
-    y1++
-  }
+  vec3.add(vi, vi, u0)
+  vec3.add(vi, vi, u2)
 
   // Add verts, norms, uvs
+  var vdelta = new Int32Array([vi[0] - x, vi[1] - y, vi[2] - z])
+  vec3.add(v0, [chunk.x + x, chunk.y + y, chunk.z + z], u0)
+  vec3.multiply(v1, vdelta, u1)
+  vec3.multiply(v2, vdelta, u2)
+
+  vec3.scale(vnorm, u0, v < n ? -1 : 1)
+
   var vtype = v < n ? vox.TYPES[n] : vox.TYPES[v]
   if (side === 2) vec2.copy(vuv, v < n ? vtype.uv.bottom : vtype.uv.top)
   else vec2.copy(vuv, vtype.uv.side)
-
-  var norm = v < n ? -1 : 1
-  vec3.set(v0, chunk.x + x, chunk.y + y, chunk.z + z)
-  if (side === 0) {
-    vec3.set(vnorm, norm, 0, 0)
-    v0[0]++
-    vec3.set(v1, 0, y1 - y, 0)
-    vec3.set(v2, 0, 0, z1 - z)
-  } else if (side === 1) {
-    vec3.set(vnorm, 0, norm, 0)
-    v0[1]++
-    vec3.set(v1, x1 - x, 0, 0)
-    vec3.set(v2, 0, 0, z1 - z)
-  } else if (side === 2) {
-    vec3.set(vnorm, 0, 0, norm)
-    v0[2]++
-    vec3.set(v1, x1 - x, 0, 0)
-    vec3.set(v2, 0, y1 - y, 0)
-  }
 
   return true
 }
