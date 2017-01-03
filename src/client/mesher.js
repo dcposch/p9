@@ -253,7 +253,7 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
   var n = voxelsn ? voxelsn[(nx << CB << CB) | (ny << CB) | nz] : 0
 
   // If this face is between two of the same voxel type, or between two opaque blocks, don't render
-  if (n === v || (n > 1 && v > 1)) return false
+  if (n === v || (vox.isOpaque(v) && vox.isOpaque(n))) return false
 
   // Unit vectors normal to the face (u0) and parallel (u1 and u2)
   var u0 = new Int32Array([side === 0 ? 1 : 0, side === 1 ? 1 : 0, side === 2 ? 1 : 0])
