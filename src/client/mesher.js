@@ -1,6 +1,14 @@
 var env = require('./env')
 var config = require('../config')
 var vox = require('../vox')
+var vec3 = {
+  create: require('gl-vec3/create'),
+  set: require('gl-vec3/set')
+}
+var vec2 = {
+  create: require('gl-vec2/create'),
+  copy: require('gl-vec2/copy')
+}
 
 // Meshes and renders voxels chunks
 module.exports = {
@@ -19,10 +27,16 @@ var checked = new Uint8Array(CS3)
 
 // Variables for meshWorld
 var MAX_QUADS_PER_RUN = 1000
+// Maps chunk key to int. Dirty chunks: 3. Adjacent chunks to remesh lazily: 1
 var chunkPriority = {}
+// Maps chunk key to Uint8Array, unpacked flat voxel arrays.
 var chunkCache = {}
-var numChecks = 0
-var numQuadsVisited = 0
+// Current quad corner, edge, and edge vectors
+var v0 = vec3.create()
+var v1 = vec3.create()
+var v2 = vec3.create()
+var vnorm = vec3.create()
+var vuv = vec2.create()
 
 // Meshes dirty chunks. Schedules chunks for meshing based on a priority algorithm.
 function meshWorld (world, loc) {
@@ -100,11 +114,7 @@ function meshWorld (world, loc) {
   // Planes: Meshed 895 chunks, remeshed 0 in 397ms <always ~400>, 152517 checks 7m quads visited
   // SAT: Meshed 895 + 0 in 412ms, preproc 144 in 223ms, 110 checks 0m quads visited
   // SAT >100: Meshed 895 + 0 in 371ms, preproc 117 in 207ms, 9594 checks 1m quads visited
-  console.log('Meshed %d + %d in %dms, %d checks %dm quads visited',
-    counts[3], counts[1], meshMs - startMs,
-    numChecks, Math.round(numQuadsVisited / 1e6))
-  numChecks = 0
-  numQuadsVisited = 0
+  console.log('Meshed %d + %d in %dms', counts[3], counts[1], meshMs - startMs)
 }
 
 // Convert list of quads to flat array of voxels
@@ -175,107 +185,27 @@ function getVoxels (chunk) {
 // May run hundreds of times in a single frame, allocating 1000+ WebGL buffers
 function meshBuffers (chunk, world) {
   checked.fill(0)
-  var voxels = getVoxels(chunk)
   var ivert = 0
   var inormal = 0
   var iuv = 0
-  var x, y, z, nx, ny, nz, side
 
+  // Get unpacked (flat) arrays for both this chunk and neighbors in +X, +Y, and +Z
+  var voxels = getVoxels(chunk)
   var neighbors = new Array(3)
-  for (side = 0; side < 3; side++) {
-    nx = (side === 0) ? (chunk.x + CS) : chunk.x
-    ny = (side === 1) ? (chunk.y + CS) : chunk.y
-    nz = (side === 2) ? (chunk.z + CS) : chunk.z
+  for (var side = 0; side < 3; side++) {
+    var nx = (side === 0) ? (chunk.x + CS) : chunk.x
+    var ny = (side === 1) ? (chunk.y + CS) : chunk.y
+    var nz = (side === 2) ? (chunk.z + CS) : chunk.z
     neighbors[side] = getVoxels(world.getChunk(nx, ny, nz))
   }
 
-  // Loop thru voxels, create quads
-  var cs1 = CS - 1
-  for (x = 0; x < CS; x++) {
-    for (y = 0; y < CS; y++) {
-      for (z = 0; z < CS; z++) {
-        var v = voxels[(x << CB << CB) | (y << CB) | z]
-        var check = checked[(x << CB << CB) | (y << CB) | z]
+  // Loop thru this chunk, create quads everywhere one voxel type meets another that's seethru
+  for (var x = 0; x < CS; x++) {
+    for (var y = 0; y < CS; y++) {
+      for (var z = 0; z < CS; z++) {
         for (side = 0; side < 3; side++) {
-          if (check & (1 << side)) {
-            continue // Already meshed
-          }
-          nx = (side === 0) ? (x + 1) : x
-          ny = (side === 1) ? (y + 1) : y
-          nz = (side === 2) ? (z + 1) : z
-          var nvoxels = voxels
-          if ((nx & ~cs1) || (ny & ~cs1) || (nz & ~cs1)) {
-            nx &= cs1
-            ny &= cs1
-            nz &= cs1
-            nvoxels = neighbors[side]
-          }
-          var n = nvoxels ? nvoxels[(nx << CB << CB) | (ny << CB) | nz] : 0
-          if (n === v || (n > 1 && v > 1)) continue // Doesn't need to be meshed
+          if (!meshQuad(chunk, x, y, z, side, voxels, neighbors)) continue
 
-          // Does need to be meshed. Greedily expand to largest possible quad.
-          // TODO: expand to quad, not just to strip
-          var np = n
-          var vp = v
-          var x1 = x
-          var y1 = y
-          var z1 = z
-          if (side === 1) {
-            while (true) {
-              if (++x1 >= CS) break
-              vp = voxels[(x1 << CB << CB) | (y << CB) | z]
-              np = nvoxels ? nvoxels[(x1 << CB << CB) | (ny << CB) | nz] : 0
-              if (np !== n || vp !== v) break
-              checked[(x1 << CB << CB) | (y << CB) | z] |= (1 << side)
-            }
-            y1++
-            z1++
-          }
-          if (side === 2) {
-            while (true) {
-              if (++y1 >= CS) break
-              vp = voxels[(x << CB << CB) | (y1 << CB) | z]
-              np = nvoxels ? nvoxels[(nx << CB << CB) | (y1 << CB) | nz] : 0
-              if (np !== n || vp !== v) break
-              checked[(x << CB << CB) | (y1 << CB) | z] |= (1 << side)
-            }
-            x1++
-            z1++
-          }
-          if (side === 0) {
-            while (true) {
-              if (++z1 >= CS) break
-              vp = voxels[(x << CB << CB) | (y << CB) | z1]
-              np = nvoxels ? nvoxels[(nx << CB << CB) | (ny << CB) | z1] : 0
-              if (np !== n || vp !== v) break
-              checked[(x << CB << CB) | (y << CB) | z1] |= (1 << side)
-            }
-            x1++
-            y1++
-          }
-
-          // Add verts, norms, uvs
-          var voxType = v < n ? vox.TYPES[n] : vox.TYPES[v]
-          var uv = voxType.uv.side
-          var norm = v < n ? -1 : 1
-          var vnorm, v0, v1, v2
-          v0 = [chunk.x + x, chunk.y + y, chunk.z + z]
-          if (side === 0) {
-            vnorm = [norm, 0, 0]
-            v0[0]++
-            v1 = [0, y1 - y, 0]
-            v2 = [0, 0, z1 - z]
-          } else if (side === 1) {
-            vnorm = [0, norm, 0]
-            v0[1]++
-            v1 = [x1 - x, 0, 0]
-            v2 = [0, 0, z1 - z]
-          } else if (side === 2) {
-            vnorm = [0, 0, norm]
-            v0[2]++
-            v1 = [x1 - x, 0, 0]
-            v2 = [0, y1 - y, 0]
-          }
           ivert += addXYZ(verts, ivert, v0[0], v0[1], v0[2])
           ivert += addXYZ(verts, ivert, v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
           ivert += addXYZ(verts, ivert, v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
@@ -285,7 +215,7 @@ function meshBuffers (chunk, world) {
             v0[0] + v1[0] + v2[0], v0[1] + v1[1] + v2[1], v0[2] + v1[2] + v2[2])
           for (var i = 0; i < 6; i++) {
             inormal += addXYZ(normals, inormal, vnorm[0], vnorm[1], vnorm[2])
-            iuv += addUV(uvs, iuv, uv)
+            iuv += addUV(uvs, iuv, vuv)
           }
         }
       }
@@ -294,6 +224,99 @@ function meshBuffers (chunk, world) {
 
   // Returns the number of vertices created
   return ivert / 3
+}
+
+// Checks whether we need to draw a quad for the given face of block (x, y, z)
+// If so, sets the quad parameters v0, v1, v2, vnorm, vuv and returns true
+// If not, returns false. Pass side = 0 for the +X face, 1 for +Y, 2 for +Z
+function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
+  // Check if we've already meshed this face
+  var check = checked[(x << CB << CB) | (y << CB) | z]
+  if (check & (1 << side)) return false
+
+  // Get the two voxels on each side of this face: v at (x, y, z), n at neighboring block
+  var cs1 = CS - 1
+  var v = voxels[(x << CB << CB) | (y << CB) | z]
+  var nx = (side === 0) ? (x + 1) : x
+  var ny = (side === 1) ? (y + 1) : y
+  var nz = (side === 2) ? (z + 1) : z
+  var nvoxels = voxels
+  if ((nx & ~cs1) || (ny & ~cs1) || (nz & ~cs1)) {
+    nx &= cs1
+    ny &= cs1
+    nz &= cs1
+    nvoxels = neighbors[side]
+  }
+  var n = nvoxels ? nvoxels[(nx << CB << CB) | (ny << CB) | nz] : 0
+
+  // If this face is between two of the same voxel type, or between two opaque blocks, don't render
+  if (n === v || (n > 1 && v > 1)) return false
+
+  // Greedily expand to largest possible quad
+  var np = n
+  var vp = v
+  var x1 = x
+  var y1 = y
+  var z1 = z
+  if (side === 1) {
+    while (true) {
+      if (++x1 >= CS) break
+      vp = voxels[(x1 << CB << CB) | (y << CB) | z]
+      np = nvoxels ? nvoxels[(x1 << CB << CB) | (ny << CB) | nz] : 0
+      if (np !== n || vp !== v) break
+      checked[(x1 << CB << CB) | (y << CB) | z] |= (1 << side)
+    }
+    y1++
+    z1++
+  }
+  if (side === 2) {
+    while (true) {
+      if (++y1 >= CS) break
+      vp = voxels[(x << CB << CB) | (y1 << CB) | z]
+      np = nvoxels ? nvoxels[(nx << CB << CB) | (y1 << CB) | nz] : 0
+      if (np !== n || vp !== v) break
+      checked[(x << CB << CB) | (y1 << CB) | z] |= (1 << side)
+    }
+    x1++
+    z1++
+  }
+  if (side === 0) {
+    while (true) {
+      if (++z1 >= CS) break
+      vp = voxels[(x << CB << CB) | (y << CB) | z1]
+      np = nvoxels ? nvoxels[(nx << CB << CB) | (ny << CB) | z1] : 0
+      if (np !== n || vp !== v) break
+      checked[(x << CB << CB) | (y << CB) | z1] |= (1 << side)
+    }
+    x1++
+    y1++
+  }
+
+  // Add verts, norms, uvs
+  var vtype = v < n ? vox.TYPES[n] : vox.TYPES[v]
+  if (side === 2) vec2.copy(vuv, v < n ? vtype.uv.bottom : vtype.uv.top)
+  else vec2.copy(vuv, vtype.uv.side)
+
+  var norm = v < n ? -1 : 1
+  vec3.set(v0, chunk.x + x, chunk.y + y, chunk.z + z)
+  if (side === 0) {
+    vec3.set(vnorm, norm, 0, 0)
+    v0[0]++
+    vec3.set(v1, 0, y1 - y, 0)
+    vec3.set(v2, 0, 0, z1 - z)
+  } else if (side === 1) {
+    vec3.set(vnorm, 0, norm, 0)
+    v0[1]++
+    vec3.set(v1, x1 - x, 0, 0)
+    vec3.set(v2, 0, 0, z1 - z)
+  } else if (side === 2) {
+    vec3.set(vnorm, 0, 0, norm)
+    v0[2]++
+    vec3.set(v1, x1 - x, 0, 0)
+    vec3.set(v2, 0, y1 - y, 0)
+  }
+
+  return true
 }
 
 function getDistSquared (a, b) {
