@@ -14,9 +14,9 @@ function isSolid (v) {
   return v > 1
 }
 
-// Checks whether a block is completely opaque (on-world, not air or water, not leaves, etc)
+// Checks whether a block is completely opaque (not air or water, not leaves, etc)
 function isOpaque (v) {
-  return VOX.TYPES[v].opaque
+  return v >= 0 && VOX.TYPES[v].opaque
 }
 
 function VoxType (name, props) {

@@ -24,6 +24,7 @@ module.exports = {
 var CB = config.CHUNK_BITS
 var CS = config.CHUNK_SIZE
 var CS3 = CS * CS * CS
+var ZEROS = new Uint8Array(CS3)
 var verts = new Float32Array(CS3 * 3)
 var normals = new Float32Array(CS3 * 3)
 var uvs = new Float32Array(CS3 * 2)
@@ -126,13 +127,18 @@ function meshWorld (world, loc) {
 
 // Convert list of quads to flat array of voxels
 // Cache unpacked chunk contents
+// Postcondition: chunkCache[chunk.getKey()] will be there
 function unpack (chunk) {
   if (!chunk.packed) throw new Error('chunk must be packed')
   var data = chunk.data
   var n = chunk.length
-  if (n === 0) return
 
   var key = chunk.getKey()
+  if (n === 0) {
+    chunkCache[key] = ZEROS
+    return
+  }
+
   var voxels = chunkCache[key]
   if (!voxels) {
     voxels = chunkCache[key] = new Uint8Array(CS * CS * CS) // 64KB per block... fail
@@ -286,10 +292,10 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
     nz &= cs1
     voxelsn = neighbors[side]
   }
-  var n = voxelsn ? voxelsn[(nx << CB << CB) | (ny << CB) | nz] : 0
+  var n = voxelsn ? voxelsn[(nx << CB << CB) | (ny << CB) | nz] : -1
 
   // If this face is between two of the same voxel type, or between two opaque blocks, don't render
-  if (n === v || (vox.isOpaque(v) && vox.isOpaque(n))) return false
+  if (n === v || n < 0 || (vox.isOpaque(v) && vox.isOpaque(n))) return false
 
   // Unit vectors normal to the face (u0) and parallel (u1 and u2)
   var u0 = new Int32Array([side === 0 ? 1 : 0, side === 1 ? 1 : 0, side === 2 ? 1 : 0])
@@ -300,6 +306,7 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
   var voxc, voxn
   var locc = new Int32Array([x, y, z])
   var locn = new Int32Array([nx, ny, nz])
+  checked[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]] |= (1 << side)
 
   // Greedily expand to largest possible strip
   for (var stripLength = 1; ; stripLength++) {
@@ -307,7 +314,7 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
     vec3.add(locn, locn, u1)
     if ((locc[0] & ~cs1) || (locc[1] & ~cs1) || (locc[2] & ~cs1)) break
     voxc = voxels[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]]
-    voxn = voxelsn ? voxelsn[(locn[0] << CB << CB) | (locn[1] << CB) | locn[2]] : 0
+    voxn = voxelsn ? voxelsn[(locn[0] << CB << CB) | (locn[1] << CB) | locn[2]] : -1
     if (voxc !== v || voxn !== n) break
     checked[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]] |= (1 << side)
   }
@@ -324,7 +331,7 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
       vec3.scaleAndAdd(locc, locc, u1, i)
       vec3.scaleAndAdd(locn, locn, u1, i)
       voxc = voxels[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]]
-      voxn = voxelsn ? voxelsn[(locn[0] << CB << CB) | (locn[1] << CB) | locn[2]] : 0
+      voxn = voxelsn ? voxelsn[(locn[0] << CB << CB) | (locn[1] << CB) | locn[2]] : -1
       if (voxc !== v || voxn !== n) {
         match = false
         break
@@ -343,10 +350,14 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
   vec3.scale(v1, u1, stripLength)
   vec3.scale(v2, u2, stripWidth)
 
-  vec3.scale(vnorm, u0, v < n ? -1 : 1)
+  var showN
+  if (vox.isOpaque(v) && !vox.isOpaque(n)) showN = false
+  else if (!vox.isOpaque(v) && vox.isOpaque(n)) showN = true
+  else showN = v < n
+  vec3.scale(vnorm, u0, showN ? -1 : 1)
 
-  var vtype = v < n ? vox.TYPES[n] : vox.TYPES[v]
-  if (side === 2) vec2.copy(vuv, v < n ? vtype.uv.bottom : vtype.uv.top)
+  var vtype = showN ? vox.TYPES[n] : vox.TYPES[v]
+  if (side === 2) vec2.copy(vuv, showN ? vtype.uv.bottom : vtype.uv.top)
   else vec2.copy(vuv, vtype.uv.side)
 
   return true
