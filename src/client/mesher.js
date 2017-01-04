@@ -169,11 +169,14 @@ function unpack (chunk) {
 // Meshes a chunk, exposed surfaces only, creating a regl object.
 // (That means position, UV VBOs are sent to the GPU.)
 function meshChunk (chunk, world) {
+  if (chunk.mesh) {
+    chunk.mesh.destroy()
+    chunk.mesh = null
+  }
+
   if (!chunk.data) return
   if (!chunk.packed) throw new Error('must pack chunk before meshing')
   if (!chunk.length) return
-
-  if (chunk.mesh) chunk.mesh.destroy()
 
   // Fills 'verts', 'normals', and 'uvs'
   var count = meshBuffers(chunk, world)
@@ -257,6 +260,8 @@ function meshBuffers (chunk, world) {
   return ivert / 3
 }
 
+// Uses the parameters already set in v0, v1, v2, vnorm, anv vuv to add a single quad
+// Appends the quad to vertex, normal, and UV buffers
 function addQuad () {
   ivert += addXYZ(verts, ivert, v0[0], v0[1], v0[2])
   ivert += addXYZ(verts, ivert, v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
