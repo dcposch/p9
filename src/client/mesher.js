@@ -41,6 +41,9 @@ var v1 = vec3.create()
 var v2 = vec3.create()
 var vnorm = vec3.create()
 var vuv = vec2.create()
+var ivert = 0
+var inormal = 0
+var iuv = 0
 
 // Meshes dirty chunks. Schedules chunks for meshing based on a priority algorithm.
 function meshWorld (world, loc) {
@@ -189,9 +192,9 @@ function getVoxels (chunk) {
 // May run hundreds of times in a single frame, allocating 1000+ WebGL buffers
 function meshBuffers (chunk, world) {
   checked.fill(0)
-  var ivert = 0
-  var inormal = 0
-  var iuv = 0
+  ivert = 0
+  inormal = 0
+  iuv = 0
 
   // Get unpacked (flat) arrays for both this chunk and neighbors in +X, +Y, and +Z
   var voxels = getVoxels(chunk)
@@ -204,30 +207,62 @@ function meshBuffers (chunk, world) {
   }
 
   // Loop thru this chunk, create quads everywhere one voxel type meets another that's seethru
-  for (var x = 0; x < CS; x++) {
-    for (var y = 0; y < CS; y++) {
-      for (var z = 0; z < CS; z++) {
-        for (side = 0; side < 3; side++) {
-          if (!meshQuad(chunk, x, y, z, side, voxels, neighbors)) continue
+  var data = chunk.data
+  var n = chunk.length
+  for (var index = 0; index <= n; index += 8) {
+    var x0, y0, z0, x1, y1, z1
+    if (index === n) {
+      x0 = 0
+      y0 = 0
+      z0 = 0
+      x1 = CS
+      y1 = CS
+      z1 = CS
+    } else {
+      x0 = data[index]
+      y0 = data[index + 1]
+      z0 = data[index + 2]
+      x1 = data[index + 3]
+      y1 = data[index + 4]
+      z1 = data[index + 5]
+    }
 
-          ivert += addXYZ(verts, ivert, v0[0], v0[1], v0[2])
-          ivert += addXYZ(verts, ivert, v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
-          ivert += addXYZ(verts, ivert, v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
-          ivert += addXYZ(verts, ivert, v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
-          ivert += addXYZ(verts, ivert, v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
-          ivert += addXYZ(verts, ivert,
-            v0[0] + v1[0] + v2[0], v0[1] + v1[1] + v2[1], v0[2] + v1[2] + v2[2])
-          for (var i = 0; i < 6; i++) {
-            inormal += addXYZ(normals, inormal, vnorm[0], vnorm[1], vnorm[2])
-            iuv += addUV(uvs, iuv, vuv)
-          }
-        }
+    for (var x = x0; x < x1; x++) {
+      for (var y = y0; y < y1; y++) {
+        if (z0 > 0 && meshQuad(chunk, x, y, z0 - 1, 2, voxels, neighbors)) addQuad()
+        if (meshQuad(chunk, x, y, z1 - 1, 2, voxels, neighbors)) addQuad()
+      }
+    }
+    for (x = x0; x < x1; x++) {
+      for (var z = z0; z < z1; z++) {
+        if (y0 > 0 && meshQuad(chunk, x, y0 - 1, z, 1, voxels, neighbors)) addQuad()
+        if (meshQuad(chunk, x, y1 - 1, z, 1, voxels, neighbors)) addQuad()
+      }
+    }
+    for (y = y0; y < y1; y++) {
+      for (z = z0; z < z1; z++) {
+        if (x0 > 0 && meshQuad(chunk, x0 - 1, y, z, 0, voxels, neighbors)) addQuad()
+        if (meshQuad(chunk, x1 - 1, y, z, 0, voxels, neighbors)) addQuad()
       }
     }
   }
 
   // Returns the number of vertices created
   return ivert / 3
+}
+
+function addQuad () {
+  ivert += addXYZ(verts, ivert, v0[0], v0[1], v0[2])
+  ivert += addXYZ(verts, ivert, v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
+  ivert += addXYZ(verts, ivert, v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
+  ivert += addXYZ(verts, ivert, v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
+  ivert += addXYZ(verts, ivert, v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
+  ivert += addXYZ(verts, ivert,
+    v0[0] + v1[0] + v2[0], v0[1] + v1[1] + v2[1], v0[2] + v1[2] + v2[2])
+  for (var i = 0; i < 6; i++) {
+    inormal += addXYZ(normals, inormal, vnorm[0], vnorm[1], vnorm[2])
+    iuv += addUV(uvs, iuv, vuv)
+  }
 }
 
 // Checks whether we need to draw a quad for the given face of block (x, y, z)
