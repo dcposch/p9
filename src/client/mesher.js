@@ -6,7 +6,8 @@ var vec3 = {
   set: require('gl-vec3/set'),
   add: require('gl-vec3/add'),
   multiply: require('gl-vec3/multiply'),
-  scale: require('gl-vec3/scale')
+  scale: require('gl-vec3/scale'),
+  scaleAndAdd: require('gl-vec3/scaleAndAdd')
 }
 var vec2 = {
   create: require('gl-vec2/create'),
@@ -266,8 +267,7 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
   var locn = new Int32Array([nx, ny, nz])
 
   // Greedily expand to largest possible strip
-  // TODO: quad, not strip
-  while (true) {
+  for (var stripLength = 1; ; stripLength++) {
     vec3.add(locc, locc, u1)
     vec3.add(locn, locn, u1)
     if ((locc[0] & ~cs1) || (locc[1] & ~cs1) || (locc[2] & ~cs1)) break
@@ -276,14 +276,37 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
     if (voxc !== v || voxn !== n) break
     checked[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]] |= (1 << side)
   }
-  vec3.add(locc, locc, u0)
-  vec3.add(locc, locc, u2)
+
+  // From there, greedily expand to largest possible quad
+  for (var stripWidth = 1; ; stripWidth++) {
+    vec3.scaleAndAdd(locc, [x, y, z], u2, stripWidth)
+    vec3.scaleAndAdd(locn, [nx, ny, nz], u2, stripWidth)
+    if ((locc[0] & ~cs1) || (locc[1] & ~cs1) || (locc[2] & ~cs1)) break
+    var match = true
+    for (var i = 0; i < stripLength; i++) {
+      vec3.scaleAndAdd(locc, [x, y, z], u2, stripWidth)
+      vec3.scaleAndAdd(locn, [nx, ny, nz], u2, stripWidth)
+      vec3.scaleAndAdd(locc, locc, u1, i)
+      vec3.scaleAndAdd(locn, locn, u1, i)
+      voxc = voxels[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]]
+      voxn = voxelsn ? voxelsn[(locn[0] << CB << CB) | (locn[1] << CB) | locn[2]] : 0
+      if (voxc !== v || voxn !== n) {
+        match = false
+        break
+      }
+    }
+    if (!match) break
+    for (i = 0; i < stripLength; i++) {
+      vec3.scaleAndAdd(locc, [x, y, z], u2, stripWidth)
+      vec3.scaleAndAdd(locc, locc, u1, i)
+      checked[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]] |= (1 << side)
+    }
+  }
 
   // Add verts, norms, uvs
-  var vdelta = new Int32Array([locc[0] - x, locc[1] - y, locc[2] - z])
   vec3.add(v0, [chunk.x + x, chunk.y + y, chunk.z + z], u0)
-  vec3.multiply(v1, vdelta, u1)
-  vec3.multiply(v2, vdelta, u2)
+  vec3.scale(v1, u1, stripLength)
+  vec3.scale(v2, u2, stripWidth)
 
   vec3.scale(vnorm, u0, v < n ? -1 : 1)
 
