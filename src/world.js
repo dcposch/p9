@@ -64,7 +64,7 @@ function removeChunk (chunk) {
 function findChunkIndex (world, chunk) {
   for (var i = 0; i < world.chunks.length; i++) {
     var c = world.chunks[i]
-    if (c.x !== chunk.x || c.y !== chunk.y || c.z !== chunk.z) return i
+    if (c.x === chunk.x && c.y === chunk.y && c.z === chunk.z) return i
   }
   throw new Error('chunk not found')
 }

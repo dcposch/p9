@@ -68,7 +68,6 @@ Chunk.prototype.unpack = function () {
 }
 
 Chunk.prototype.destroy = function () {
-  console.log('DBG destroying ' + this.getKey() + ', mesh ' + (!!this.mesh))
   if (this.mesh) this.mesh.destroy()
 }
 

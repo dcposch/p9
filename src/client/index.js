@@ -289,12 +289,7 @@ function postFrame () {
 
   if (chunks.length > 0) {
     chunks.forEach(function (chunk) {
-      // TODO: state.world.replaceChunk
-      var c = state.world.getChunk(chunk.x, chunk.y, chunk.z)
-      if (!c) return state.world.addChunk(chunk)
-      c.data = chunk.data
-      c.length = chunk.length
-      c.dirty = true
+      state.world.replaceChunk(chunk)
     })
     chunks.length = 0
 
