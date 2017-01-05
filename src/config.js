@@ -7,10 +7,10 @@ module.exports = {
   CHUNK_BITS: CHUNK_BITS,
   PLAYER_WIDTH: 0.5, // You can't get closer than 0.5 meters (blocks) from a block
   PLAYER_HEIGHT: 1.5, // The player's head (the camera) is 1.5 blocks above the feet
-  SPEED_SPRINT: 9, // Blocks per second
-  SPEED_WALK: 5,
-  SPEED_JUMP: 9,
-  SPEED_SPRINT_JUMP: 14,
+  SPEED_WALK: 4, // Blocks per second
+  SPEED_SPRINT: 6,
+  SPEED_JUMP: 6,
+  SPEED_SPRINT_JUMP: 8,
   MOUSE_SENSITIVITY: 0.005, // Radians per pixel
   KEYBINDINGS: {
     'nav-forward': ['W', 'up'],
@@ -22,15 +22,15 @@ module.exports = {
   },
   MAX_EXTRAPOLATE_MS: 100,
   GRAPHICS: {
-    CHUNK_DRAW_RADIUS: 10, // Draw this many chunks in every direction from the player
+    CHUNK_DRAW_RADIUS: 15, // Draw this many chunks in every direction from the player
     MAX_ANISOTROPIC: 0 // Disable anisotropic filtering
   },
   PHYSICS: {
     MAX_DT: 0.01, // Compute physics in increments of at most 10ms to avoid glitches
-    GRAVITY: 30 // Twice Earth gravity, 20ms^-2, each voxel is 1 m^3
+    GRAVITY: 20 // -Z acceleration in ms^-2, each block is 1 m^3
   },
   WORLD_GEN: {
-    CHUNK_RADIUS: 10 // Generate this many chunk in every direction from every player
+    CHUNK_RADIUS: 20 // Generate this many chunk in every direction from every player
   },
   CLIENT: {
     VERSION: 0
