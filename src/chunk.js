@@ -17,7 +17,7 @@ function Chunk (x, y, z, data, packed) {
   this.packed = !!packed
   this.data = data || null
   this.length = packed ? data.length : 0
-  this.mesh = null
+  this.mesh = { opaque: null, trans: null }
   this.dirty = !!data
 }
 
@@ -68,7 +68,26 @@ Chunk.prototype.unpack = function () {
 }
 
 Chunk.prototype.destroy = function () {
-  if (this.mesh) this.mesh.destroy()
+  this.destroyMesh()
+  this.packed = false
+  this.data = null
+  this.length = 0
+  this.dirty = false
+}
+
+Chunk.prototype.destroyMesh = function () {
+  destroyMesh(this.mesh.opaque)
+  destroyMesh(this.mesh.trans)
+  this.mesh.opaque = null
+  this.mesh.trans = null
+}
+
+function destroyMesh (mesh) {
+  if (!mesh) return
+  if (mesh.count === 0) return
+  mesh.verts.destroy()
+  mesh.normals.destroy()
+  mesh.uvs.destroy()
 }
 
 function getVoxPacked (chunk, ix, iy, iz) {

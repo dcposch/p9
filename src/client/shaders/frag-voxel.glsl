@@ -24,11 +24,11 @@ vec4 sampleTileAtlas (vec2 tileCoord, vec2 tileUV);
 
 void main (void) {
     vec4 texColor = computeTexColor(); // Voxel texture
-    if (texColor.a < 0.5) discard; // Binary transparency: see thru leaves, glass blocks, etc
+    if (texColor.a < 0.25) discard; // Binary transparency: see thru leaves, glass blocks, etc
     vec3 light = computeLight(); // Ambient and direct lighting
     vec4 fog = computeDepthFog();
     vec3 emittedLight = light * texColor.xyz;
-    gl_FragColor = vec4(emittedLight * (1.0 - fog.w) + fog.xyz * fog.w, 1.0);
+    gl_FragColor = vec4(emittedLight * (1.0 - fog.w) + fog.xyz * fog.w, texColor.a);
 }
 
 // Computes the voxel texture color for this fragment

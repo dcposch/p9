@@ -33,7 +33,7 @@ function updateMatrix (context, props) {
   var cloc
   switch (props.player.camera) {
     case 'first-person':
-      cloc = [loc.x + 0.5 * cdir[0], loc.y + 0.5 * cdir[1], loc.z + 0.5 * cdir[2]]
+      cloc = [loc.x + 0.3 * cdir[0], loc.y + 0.3 * cdir[1], loc.z + 0.3 * cdir[2]]
       break
     case 'third-person':
       // TODO: add a collision check?

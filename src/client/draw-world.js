@@ -16,29 +16,52 @@ var CS = config.CHUNK_SIZE
 
 // Allocate once, update every frame in cullChunks()
 var meshes = []
+var meshesTrans = []
 
-// Compile regl command
-var chunkCommand = env.regl({
-  // To profile, use this property, then add the following line to the render loop:
-  // if (context.tick % 100 === 0) console.log(JSON.stringify(drawChunk.stats))
-  // profile: true,
-  vert: shaders.vert.uvWorld,
-  frag: shaders.frag.voxel,
-  uniforms: {
-    uAtlas: function () { return textures.loaded.atlas }
-  },
-  attributes: {
-    aPosition: env.regl.prop('verts'),
-    aNormal: env.regl.prop('normals'),
-    aUV: env.regl.prop('uvs')
-  },
-  count: env.regl.prop('count')
-})
+var chunkCommand, chunkCommandTranslucent
+
+// Compile regl commands, if necessary. Returns true if regl commands are ready to go.
+// Returns false if we're still waiting for resources to finish loading.
+function compileCommands () {
+  if (chunkCommand) return true
+  if (!textures.loaded.atlas) return false
+
+  var params = {
+    // To profile, use this property, then add the following line to the render loop:
+    // if (context.tick % 100 === 0) console.log(JSON.stringify(drawChunk.stats))
+    // profile: true,
+    vert: shaders.vert.uvWorld,
+    frag: shaders.frag.voxel,
+    uniforms: {
+      uAtlas: textures.loaded.atlas
+    },
+    attributes: {
+      aPosition: env.regl.prop('verts'),
+      aNormal: env.regl.prop('normals'),
+      aUV: env.regl.prop('uvs')
+    },
+    count: env.regl.prop('count')
+  }
+
+  chunkCommand = env.regl(params)
+  chunkCommandTranslucent = env.regl(Object.assign({}, params, {
+    blend: {
+      enable: true,
+      func: {
+        src: 'src alpha',
+        dst: 'one minus src alpha'
+      }
+    }
+  }))
+}
 
 // Draw voxel chunks, once resources are loaded.
 function drawWorld (state) {
+  if (!compileCommands()) return
   cullChunks(state)
+  // Draw opaque layer first, then translucent meshes, farthest to nearest
   chunkCommand(meshes)
+  chunkCommandTranslucent(meshesTrans)
 }
 
 // Figure out which chunks we have to draw
@@ -48,14 +71,17 @@ function cullChunks (state) {
   var loc = state.player.location
   var maxDistance = config.GRAPHICS.CHUNK_DRAW_RADIUS * config.CHUNK_SIZE
   var matCombined = camera.getMatrix('combined')
-  var totalVerts = 0
 
-  var j = 0
+  var numOpaque = 0
+  var numTrans = 0
+  var totalVerts = 0
   for (var i = 0; i < chunks.length; i++) {
     var chunk = chunks[i]
 
     // Don't draw chunks that are all air
-    if (!chunk.mesh || chunk.mesh.count === 0) continue
+    var opaqueVerts = chunk.mesh.opaque ? chunk.mesh.opaque.count : 0
+    var transVerts = chunk.mesh.trans ? chunk.mesh.trans.count : 0
+    if (opaqueVerts + transVerts === 0) continue
 
     // Don't draw chunks that are too far away
     var dx = loc.x - chunk.x
@@ -68,12 +94,15 @@ function cullChunks (state) {
     var isClose = d2 < CS * CS * 4
     if (!isClose && chunkOutsideFrustum(matCombined, chunk)) continue
 
-    totalVerts += chunk.mesh.count
-    meshes[j++] = chunk.mesh
+    // TODO: no mesh should have count === 0
+    if (opaqueVerts > 0) meshes[numOpaque++] = chunk.mesh.opaque
+    if (transVerts > 0) meshesTrans[numTrans++] = chunk.mesh.trans
+    totalVerts += opaqueVerts + transVerts
   }
-  meshes.length = j
+  meshes.length = numOpaque
+  meshesTrans.length = numTrans
 
-  state.perf.draw.chunks = j
+  state.perf.draw.chunks = numOpaque
   state.perf.draw.verts = totalVerts
 }
 

@@ -3,7 +3,8 @@
 // VOX.INDEX.WATER // equals 1
 var VOX = {
   isSolid: isSolid,
-  isOpaque: isOpaque
+  isOpaque: isOpaque,
+  isTranslucent: isTranslucent
 }
 
 module.exports = VOX
@@ -17,6 +18,11 @@ function isSolid (v) {
 // Checks whether a block is completely opaque (not air or water, not leaves, etc)
 function isOpaque (v) {
   return v >= 0 && VOX.TYPES[v].opaque
+}
+
+// Checks whether a block is translucent (requires alpha blending)
+function isTranslucent (v) {
+  return v === 1 // for now, only water
 }
 
 function VoxType (name, props) {

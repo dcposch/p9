@@ -20,15 +20,10 @@ module.exports = {
   meshChunk: meshChunk
 }
 
-// Variables for meshChunk. Allocate once.
 var CB = config.CHUNK_BITS
 var CS = config.CHUNK_SIZE
 var CS3 = CS * CS * CS
 var ZEROS = new Uint8Array(CS3)
-var verts = new Float32Array(CS3 * 3)
-var normals = new Float32Array(CS3 * 3)
-var uvs = new Float32Array(CS3 * 2)
-var checked = new Uint8Array(CS3)
 
 // Variables for meshWorld
 var MAX_QUADS_PER_RUN = 1000
@@ -36,15 +31,66 @@ var MAX_QUADS_PER_RUN = 1000
 var chunkPriority = {}
 // Maps chunk key to Uint8Array, unpacked flat voxel arrays.
 var chunkCache = {}
-// Current quad corner, edge, and edge vectors
+// Keep track of which blocks in the chunk we've meshed
+var meshed = new Uint8Array(CS3)
+// Mesh opaque (or binary-transparent) quads and translucent quads separately
+var builder = new MeshBuilder()
+var builderTrans = new MeshBuilder()
+
+function MeshBuilder () {
+  this.verts = new Float32Array(CS3 * 3)
+  this.normals = new Float32Array(CS3 * 3)
+  this.uvs = new Float32Array(CS3 * 2)
+
+  this.ivert = 0
+  this.inormal = 0
+  this.iuv = 0
+}
+
+MeshBuilder.prototype.addVert = function (x, y, z) {
+  this.verts[this.ivert] = x
+  this.verts[this.ivert + 1] = y
+  this.verts[this.ivert + 2] = z
+  this.ivert += 3
+}
+
+MeshBuilder.prototype.addNormal = function (x, y, z) {
+  this.normals[this.inormal] = x
+  this.normals[this.inormal + 1] = y
+  this.normals[this.inormal + 2] = z
+  this.inormal += 3
+}
+
+MeshBuilder.prototype.addUV = function (u, v) {
+  this.uvs[this.iuv] = u
+  this.uvs[this.iuv + 1] = v
+  this.iuv += 2
+}
+
+MeshBuilder.prototype.createMesh = function () {
+  var count = this.ivert / 3
+  if (count === 0) return null
+  return {
+    count: count,
+    verts: env.regl.buffer(new Float32Array(this.verts.buffer, 0, count * 3)),
+    normals: env.regl.buffer(new Float32Array(this.normals.buffer, 0, count * 3)),
+    uvs: env.regl.buffer(new Float32Array(this.uvs.buffer, 0, count * 2))
+  }
+}
+
+MeshBuilder.prototype.reset = function () {
+  this.ivert = 0
+  this.inormal = 0
+  this.iuv = 0
+}
+
+// Current quad corner, edges, normal, uv, and which voxel we're drawing
 var v0 = vec3.create()
 var v1 = vec3.create()
 var v2 = vec3.create()
 var vnorm = vec3.create()
 var vuv = vec2.create()
-var ivert = 0
-var inormal = 0
-var iuv = 0
+var vvox = 0
 
 // Meshes dirty chunks. Schedules chunks for meshing based on a priority algorithm.
 function meshWorld (world, loc) {
@@ -56,10 +102,9 @@ function meshWorld (world, loc) {
     // If it's even further than that, unload from GPU
     var maxDraw = config.GRAPHICS.CHUNK_DRAW_RADIUS * CS
     var d2 = getDistSquared(c, loc)
-    if (d2 > maxDraw * maxDraw * 2 && c.mesh) {
-      c.mesh.destroy()
-      c.mesh = null
+    if (d2 > maxDraw * maxDraw * 2 && !c.dirty) {
       c.dirty = true
+      c.destroyMesh()
       delete chunkCache[c.getKey()]
     }
     if (d2 > maxDraw * maxDraw) return
@@ -69,8 +114,8 @@ function meshWorld (world, loc) {
 
     // Remesh the dirty chunks ASAP
     var key = c.getKey()
-    chunkCache[key] = null
     chunkPriority[key] = 3
+    delete chunkCache[key]
 
     // Remesh adjacent chunks soon
     chunkPriority[[c.x + CS, c.y, c.z].join(',')] |= 1
@@ -84,15 +129,15 @@ function meshWorld (world, loc) {
   // Find the ones highest priority and closest to the player
   var chunksToMesh = []
   Object.keys(chunkPriority)
-  .forEach(function (key) {
-    var chunk = world.chunkTable[key]
-    if (!chunk) {
-      delete chunkPriority[key]
-      return
-    }
-    var d2 = getDistSquared(chunk, loc)
-    chunksToMesh.push({priority: chunkPriority[key], chunk: chunk, d2: d2})
-  })
+    .forEach(function (key) {
+      var chunk = world.chunkTable[key]
+      if (!chunk) {
+        delete chunkPriority[key]
+        return
+      }
+      var d2 = getDistSquared(chunk, loc)
+      chunksToMesh.push({priority: chunkPriority[key], chunk: chunk, d2: d2})
+    })
   if (chunksToMesh.length === 0) return // Nothing to do
 
   chunksToMesh.sort(function (a, b) {
@@ -169,24 +214,19 @@ function unpack (chunk) {
 // Meshes a chunk, exposed surfaces only, creating a regl object.
 // (That means position, UV VBOs are sent to the GPU.)
 function meshChunk (chunk, world) {
-  if (chunk.mesh) {
-    chunk.mesh.destroy()
-    chunk.mesh = null
-  }
-
+  chunk.destroyMesh()
   if (!chunk.data) return
   if (!chunk.packed) throw new Error('must pack chunk before meshing')
   if (!chunk.length) return
 
   // Fills 'verts', 'normals', and 'uvs'
-  var count = meshBuffers(chunk, world)
+  builder.reset()
+  builderTrans.reset()
+  meshBuffers(chunk, world)
 
   chunk.mesh = {
-    count: count,
-    verts: count && env.regl.buffer(new Float32Array(verts.buffer, 0, count * 3)),
-    normals: count && env.regl.buffer(new Float32Array(normals.buffer, 0, count * 3)),
-    uvs: count && env.regl.buffer(new Float32Array(uvs.buffer, 0, count * 2)),
-    destroy: destroy
+    opaque: builder.createMesh(),
+    trans: builderTrans.createMesh()
   }
 }
 
@@ -200,10 +240,7 @@ function getVoxels (chunk) {
 // Profiling shows that this is the most critical path.
 // May run hundreds of times in a single frame, allocating 1000+ WebGL buffers
 function meshBuffers (chunk, world) {
-  checked.fill(0)
-  ivert = 0
-  inormal = 0
-  iuv = 0
+  meshed.fill(0)
 
   // Get unpacked (flat) arrays for both this chunk and neighbors in +X, +Y, and +Z
   var voxels = getVoxels(chunk)
@@ -255,24 +292,21 @@ function meshBuffers (chunk, world) {
       }
     }
   }
-
-  // Returns the number of vertices created
-  return ivert / 3
 }
 
 // Uses the parameters already set in v0, v1, v2, vnorm, anv vuv to add a single quad
 // Appends the quad to vertex, normal, and UV buffers
 function addQuad () {
-  ivert += addXYZ(verts, ivert, v0[0], v0[1], v0[2])
-  ivert += addXYZ(verts, ivert, v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
-  ivert += addXYZ(verts, ivert, v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
-  ivert += addXYZ(verts, ivert, v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
-  ivert += addXYZ(verts, ivert, v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
-  ivert += addXYZ(verts, ivert,
-    v0[0] + v1[0] + v2[0], v0[1] + v1[1] + v2[1], v0[2] + v1[2] + v2[2])
+  var b = vox.isTranslucent(vvox) ? builderTrans : builder
+  b.addVert(v0[0], v0[1], v0[2])
+  b.addVert(v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
+  b.addVert(v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
+  b.addVert(v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
+  b.addVert(v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
+  b.addVert(v0[0] + v1[0] + v2[0], v0[1] + v1[1] + v2[1], v0[2] + v1[2] + v2[2])
   for (var i = 0; i < 6; i++) {
-    inormal += addXYZ(normals, inormal, vnorm[0], vnorm[1], vnorm[2])
-    iuv += addUV(uvs, iuv, vuv)
+    b.addNormal(vnorm[0], vnorm[1], vnorm[2])
+    b.addUV(vuv[0], vuv[1])
   }
 }
 
@@ -281,8 +315,8 @@ function addQuad () {
 // If not, returns false. Pass side = 0 for the +X face, 1 for +Y, 2 for +Z
 function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
   // Check if we've already meshed this face
-  var check = checked[(x << CB << CB) | (y << CB) | z]
-  if (check & (1 << side)) return false
+  var m = meshed[(x << CB << CB) | (y << CB) | z]
+  if (m & (1 << side)) return false
 
   // Get the two voxels on each side of this face: v at (x, y, z), n at neighboring block
   var cs1 = CS - 1
@@ -311,7 +345,7 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
   var voxc, voxn
   var locc = new Int32Array([x, y, z])
   var locn = new Int32Array([nx, ny, nz])
-  checked[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]] |= (1 << side)
+  meshed[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]] |= (1 << side)
 
   // Greedily expand to largest possible strip
   for (var stripLength = 1; ; stripLength++) {
@@ -320,8 +354,9 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
     if ((locc[0] & ~cs1) || (locc[1] & ~cs1) || (locc[2] & ~cs1)) break
     voxc = voxels[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]]
     voxn = voxelsn ? voxelsn[(locn[0] << CB << CB) | (locn[1] << CB) | locn[2]] : -1
-    if (voxc !== v || voxn !== n) break
-    checked[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]] |= (1 << side)
+    m = meshed[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]]
+    if (voxc !== v || voxn !== n || (m & (1 << side))) break
+    meshed[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]] |= (1 << side)
   }
 
   // From there, greedily expand to largest possible quad
@@ -337,7 +372,8 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
       vec3.scaleAndAdd(locn, locn, u1, i)
       voxc = voxels[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]]
       voxn = voxelsn ? voxelsn[(locn[0] << CB << CB) | (locn[1] << CB) | locn[2]] : -1
-      if (voxc !== v || voxn !== n) {
+      m = [(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]]
+      if (voxc !== v || voxn !== n || (m & (1 << side))) {
         match = false
         break
       }
@@ -346,7 +382,7 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
     for (i = 0; i < stripLength; i++) {
       vec3.scaleAndAdd(locc, [x, y, z], u2, stripWidth)
       vec3.scaleAndAdd(locc, locc, u1, i)
-      checked[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]] |= (1 << side)
+      meshed[(locc[0] << CB << CB) | (locc[1] << CB) | locc[2]] |= (1 << side)
     }
   }
 
@@ -365,6 +401,8 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
   if (side === 2) vec2.copy(vuv, showN ? vtype.uv.bottom : vtype.uv.top)
   else vec2.copy(vuv, vtype.uv.side)
 
+  vvox = showN ? n : v
+
   return true
 }
 
@@ -373,24 +411,4 @@ function getDistSquared (a, b) {
   var dy = a.y - b.y
   var dz = a.z - b.z
   return dx * dx + dy * dy + dz * dz
-}
-
-function addXYZ (arr, i, a, b, c) {
-  arr[i] = a
-  arr[i + 1] = b
-  arr[i + 2] = c
-  return 3
-}
-
-function addUV (arr, i, uv) {
-  arr[i] = uv[0]
-  arr[i + 1] = uv[1]
-  return 2
-}
-
-function destroy () {
-  if (this.count === 0) return
-  this.verts.destroy()
-  this.normals.destroy()
-  this.uvs.destroy()
 }

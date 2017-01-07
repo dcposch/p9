@@ -227,6 +227,9 @@ env.regl.frame(function (context) {
   state.perf.fps = 0.99 * state.perf.fps + 0.01 / dt // Exponential moving average
   state.perf.lastFrameTime = now
 
+  applyChunkUpdates()
+  mesher.meshWorld(state.world, state.player.location)
+
   if (state.startTime) {
     // Handle player input, physics, update player position, direction, and velocity
     playerControls.tick(state, dt, !env.shell.fullscreen)
@@ -235,9 +238,6 @@ env.regl.frame(function (context) {
     // Draw the frame
     render(dt)
   }
-
-  // Catch up on work immediately *after* the frame ships to keep consistent fps
-  setTimeout(postFrame, 0)
 })
 
 function predictObjects (dt, now) {
@@ -284,18 +284,14 @@ function render (dt) {
   HUD.draw({selectedIndex: HUD.QUICKBAR_VOX.indexOf(state.player.placing)})
 }
 
-function postFrame () {
+function applyChunkUpdates () {
   var chunks = state.pendingChunkUpdates
-
   if (chunks.length > 0) {
     chunks.forEach(function (chunk) {
       state.world.replaceChunk(chunk)
     })
     chunks.length = 0
-
     // TODO: prediction, so that blocks don't pop into and out of existence
-  } else {
-    mesher.meshWorld(state.world, state.player.location)
   }
 }
 
