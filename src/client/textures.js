@@ -11,7 +11,10 @@ module.exports = {
 function loadAll (cb) {
   var tex = {}
   tex.atlas = load('textures/atlas-p9.png')
-  tex.player = load('textures/skin-herobrine.png')
+  tex.skinHerobrine = load('textures/skin-herobrine.png')
+  tex.skinSkeletor = load('textures/skindex-skeletor.png')
+  tex.skinOcean = load('textures/skindex-ocean-dusk.png')
+  tex.skinPurple = load('textures/skindex-purple-dragongirl.png')
   tex.hud = load('textures/hud.png')
 
   var keys = Object.keys(tex)

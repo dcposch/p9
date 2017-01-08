@@ -152,7 +152,14 @@ var drawCommand = regl({
     aUV: bufferUVs
   },
   uniforms: {
-    uTexture: function () { return textures.loaded.player }
+    uTexture: function (context, props) {
+      // TODO: remove this narsty hack
+      var name = props.player.props.name
+      if (name === 'satnam') return textures.loaded.skinSkeletor
+      if (name === 'noor') return textures.loaded.skinPurple
+      if (name === 'jessibo') return textures.loaded.skinOcean
+      return textures.loaded.skinHerobrine
+    }
   },
   count: meshTemplate.verts.length
 })

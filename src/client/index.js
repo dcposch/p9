@@ -246,6 +246,7 @@ function predictObjects (dt, now) {
   self.location = state.player.location
   self.velocity = state.player.velocity
   self.props.direction = state.player.direction
+  self.props.name = state.player.name
 
   // All other object positions are extrapolated from the latest server position + velocity
   Object.keys(state.objects).forEach(function (key) {
