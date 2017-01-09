@@ -15,6 +15,7 @@ function loadAll (cb) {
   tex.skinSkeletor = load('textures/skindex-skeletor.png')
   tex.skinOcean = load('textures/skindex-ocean-dusk.png')
   tex.skinPurple = load('textures/skindex-purple-dragongirl.png')
+  tex.skinGamer = load('textures/skindex-gamer-boy.png')
   tex.hud = load('textures/hud.png')
 
   var keys = Object.keys(tex)

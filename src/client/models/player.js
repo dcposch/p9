@@ -158,6 +158,7 @@ var drawCommand = regl({
       if (name === 'satnam') return textures.loaded.skinSkeletor
       if (name === 'noor') return textures.loaded.skinPurple
       if (name === 'jessibo') return textures.loaded.skinOcean
+      if (name === 'scott') return textures.loaded.skinGamer
       return textures.loaded.skinHerobrine
     }
   },

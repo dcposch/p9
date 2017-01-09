@@ -1,4 +1,5 @@
 var vox = require('../vox')
+var config = require('../config')
 
 module.exports = {
   pick: pick
@@ -16,7 +17,7 @@ function pick (state) {
   var loc = state.player.location
   var dir = state.player.direction
   var world = state.world
-  state.player.lookAtBlock = raycastBlock(loc, dir, world)
+  state.player.lookAtBlock = raycastBlock(loc, dir, world, config.MAX_PICK_DISTANCE)
 }
 
 // Follows a ray until it intersects a block
@@ -24,7 +25,8 @@ function pick (state) {
 // ...where x, y, and z are integers and {nx, ny, nx} is an axis aligned unit normal.
 // Returns null if the ray leaves the world (enters a missing chunk) before intersecting anything.
 // Returns { location: floor(loc), side: (0, 0, 0) } if loc is inside a block.
-function raycastBlock (loc, dir, world) {
+function raycastBlock (loc, dir, world, maxDistance) {
+  var distance = 0
   var lx = loc.x
   var ly = loc.y
   var lz = loc.z
@@ -63,6 +65,9 @@ function raycastBlock (loc, dir, world) {
     lx += dist * dx
     ly += dist * dy
     lz += dist * dz
+
+    distance += dist
+    if (distance > maxDistance) return null // past max pick distance
   }
 }
 

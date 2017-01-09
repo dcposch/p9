@@ -23,6 +23,7 @@ var Player = require('./models/player')
 // All game state lives here
 var state = {
   startTime: 0,
+  paused: true,
   player: {
     // Block coordinates of the player's head. +Z is up. When facing +X, +Y is left.
     location: { x: -68, y: 0, z: 30 },
@@ -195,7 +196,8 @@ env.shell.on('tick', function () {
 
   // Block interactions
   picker.pick(state)
-  var command = playerControls.interact(state)
+  var command = null
+  if (!state.paused) command = playerControls.interact(state)
   if (command) state.pendingCommands.push(command)
 
   // Physics
@@ -232,12 +234,14 @@ env.regl.frame(function (context) {
 
   if (state.startTime) {
     // Handle player input, physics, update player position, direction, and velocity
-    playerControls.tick(state, dt, !env.shell.fullscreen)
+    playerControls.tick(state, dt, state.paused)
     // Prediction: extrapolate object positions from latest server update
     predictObjects(dt, now)
     // Draw the frame
     render(dt)
   }
+
+  state.paused = !env.shell.fullscreen
 })
 
 function predictObjects (dt, now) {
@@ -268,12 +272,12 @@ function render (dt) {
   env.regl.clear({ color: [1, 1, 1, 1], depth: 1 })
   if (!drawScope) return
   drawScope(state, function () {
-    drawWorld(state)
     Object.keys(state.objects).forEach(function (key) {
       var obj = state.objects[key]
       obj.tick(dt)
       obj.draw()
     })
+    drawWorld(state)
   })
   if (state.debug.showHUD) {
     if (!drawDebug) drawDebug = require('./draw-debug')
