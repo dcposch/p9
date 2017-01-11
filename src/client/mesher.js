@@ -217,7 +217,6 @@ function meshChunk (chunk, world) {
   chunk.destroyMesh()
   if (!chunk.data) return
   if (!chunk.packed) throw new Error('must pack chunk before meshing')
-  if (!chunk.length) return
 
   // Fills 'verts', 'normals', and 'uvs'
   builder.reset()
@@ -275,48 +274,31 @@ function meshBuffers (chunk, world) {
 
     for (var x = x0; x < x1; x++) {
       for (var y = y0; y < y1; y++) {
-        if (z0 > 0 && meshQuad(chunk, x, y, z0 - 1, 2, voxels, neighbors)) addQuad()
-        if (meshQuad(chunk, x, y, z1 - 1, 2, voxels, neighbors)) addQuad()
+        if (z0 > 0) meshQuad(chunk, x, y, z0 - 1, 2, voxels, neighbors)
+        meshQuad(chunk, x, y, z1 - 1, 2, voxels, neighbors)
       }
     }
     for (x = x0; x < x1; x++) {
       for (var z = z0; z < z1; z++) {
-        if (y0 > 0 && meshQuad(chunk, x, y0 - 1, z, 1, voxels, neighbors)) addQuad()
-        if (meshQuad(chunk, x, y1 - 1, z, 1, voxels, neighbors)) addQuad()
+        if (y0 > 0) meshQuad(chunk, x, y0 - 1, z, 1, voxels, neighbors)
+        meshQuad(chunk, x, y1 - 1, z, 1, voxels, neighbors)
       }
     }
     for (y = y0; y < y1; y++) {
       for (z = z0; z < z1; z++) {
-        if (x0 > 0 && meshQuad(chunk, x0 - 1, y, z, 0, voxels, neighbors)) addQuad()
-        if (meshQuad(chunk, x1 - 1, y, z, 0, voxels, neighbors)) addQuad()
+        if (x0 > 0) meshQuad(chunk, x0 - 1, y, z, 0, voxels, neighbors)
+        meshQuad(chunk, x1 - 1, y, z, 0, voxels, neighbors)
       }
     }
   }
 }
 
-// Uses the parameters already set in v0, v1, v2, vnorm, anv vuv to add a single quad
-// Appends the quad to vertex, normal, and UV buffers
-function addQuad () {
-  var b = vox.isTranslucent(vvox) ? builderTrans : builder
-  b.addVert(v0[0], v0[1], v0[2])
-  b.addVert(v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
-  b.addVert(v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
-  b.addVert(v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
-  b.addVert(v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
-  b.addVert(v0[0] + v1[0] + v2[0], v0[1] + v1[1] + v2[1], v0[2] + v1[2] + v2[2])
-  for (var i = 0; i < 6; i++) {
-    b.addNormal(vnorm[0], vnorm[1], vnorm[2])
-    b.addUV(vuv[0], vuv[1])
-  }
-}
-
-// Checks whether we need to draw a quad for the given face of block (x, y, z)
-// If so, sets the quad parameters v0, v1, v2, vnorm, vuv and returns true
-// If not, returns false. Pass side = 0 for the +X face, 1 for +Y, 2 for +Z
+// Adds a quad for the given face of block (x, y, z), if needed.
+// Pass side = 0 for the +X face, 1 for +Y, 2 for +Z
 function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
   // Check if we've already meshed this face
   var m = meshed[(x << CB << CB) | (y << CB) | z]
-  if (m & (1 << side)) return false
+  if (m & (1 << side)) return
 
   // Get the two voxels on each side of this face: v at (x, y, z), n at neighboring block
   var cs1 = CS - 1
@@ -334,7 +316,7 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
   var n = voxelsn ? voxelsn[(nx << CB << CB) | (ny << CB) | nz] : -1
 
   // If this face is between two of the same voxel type, or between two opaque blocks, don't render
-  if (n === v || n < 0 || (vox.isOpaque(v) && vox.isOpaque(n))) return false
+  if (n === v || n < 0 || (vox.isOpaque(v) && vox.isOpaque(n))) return
 
   // Unit vectors normal to the face (u0) and parallel (u1 and u2)
   var u0 = new Int32Array([side === 0 ? 1 : 0, side === 1 ? 1 : 0, side === 2 ? 1 : 0])
@@ -403,7 +385,23 @@ function meshQuad (chunk, x, y, z, side, voxels, neighbors) {
 
   vvox = showN ? n : v
 
-  return true
+  addQuad()
+}
+
+// Uses the parameters already set in v0, v1, v2, vnorm, anv vuv to add a single quad
+// Appends the quad to vertex, normal, and UV buffers
+function addQuad () {
+  var b = vox.isTranslucent(vvox) ? builderTrans : builder
+  b.addVert(v0[0], v0[1], v0[2])
+  b.addVert(v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
+  b.addVert(v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
+  b.addVert(v0[0] + v2[0], v0[1] + v2[1], v0[2] + v2[2])
+  b.addVert(v0[0] + v1[0], v0[1] + v1[1], v0[2] + v1[2])
+  b.addVert(v0[0] + v1[0] + v2[0], v0[1] + v1[1] + v2[1], v0[2] + v1[2] + v2[2])
+  for (var i = 0; i < 6; i++) {
+    b.addNormal(vnorm[0], vnorm[1], vnorm[2])
+    b.addUV(vuv[0], vuv[1])
+  }
 }
 
 function getDistSquared (a, b) {
