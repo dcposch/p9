@@ -174,26 +174,25 @@ function meshWorld (world, loc) {
 // Cache unpacked chunk contents
 // Postcondition: chunkCache[chunk.getKey()] will be there
 function unpack (chunk) {
-  if (!chunk.packed) throw new Error('chunk must be packed')
-  var data = chunk.data
   var n = chunk.length
-
   var key = chunk.getKey()
   if (n === 0) {
     chunkCache[key] = ZEROS
     return
   }
 
+  var data = chunk.data
+  if (!chunk.packed) throw new Error('chunk must be packed')
+
   var voxels = chunkCache[key]
   if (!voxels) {
-    voxels = chunkCache[key] = new Uint8Array(CS * CS * CS) // 64KB per block... fail
+    voxels = chunkCache[key] = new Uint8Array(CS * CS * CS)
   } else {
     voxels.fill(0)
   }
 
   // Mark each quad
-  for (var ci = 0; ci < n; ci++) {
-    var index = ci * 8
+  for (var index = 0; index < n; index += 8) {
     var x0 = data[index]
     var y0 = data[index + 1]
     var z0 = data[index + 2]

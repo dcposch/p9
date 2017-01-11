@@ -20,11 +20,21 @@ function testCreate (c, t) {
 
   c.setVox(1, 2, 3, 250)
   t.notEqual(c.data, null, 'chunk with at least one non-air')
-  t.equal(c.mesh, null)
+  t.deepEqual(c.mesh, {opaque: null, trans: null})
   t.ok(c.dirty)
   t.equal(c.getVox(1, 2, 3), 250)
   t.end()
 }
+
+test('get vox, packed', function (t) {
+  var data = new Uint8Array([0, 0, 0, 4, 4, 4, 1, 0, 6, 6, 6, 8, 8, 8, 2, 0])
+  var c = new Chunk(0, 0, 0, data, true)
+  t.equal(c.length, 16)
+  t.equal(c.getVox(6, 6, 6), 2)
+  c.length = 8
+  t.equal(c.getVox(6, 6, 6), 0)
+  t.end()
+})
 
 test('dirty, unpacked', function (t) {
   var c = new Chunk()

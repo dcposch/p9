@@ -92,7 +92,8 @@ function destroyMesh (mesh) {
 
 function getVoxPacked (chunk, ix, iy, iz) {
   var data = chunk.data
-  for (var i = 0; i < data.length; i += 8) {
+  var n = chunk.length
+  for (var i = 0; i < n; i += 8) {
     var x0 = data[i]
     var y0 = data[i + 1]
     var z0 = data[i + 2]
