@@ -70,7 +70,7 @@ textures.loadAll(function (err) {
 // Handle server messages
 state.socket.on('binary', function (msg) {
   state.pendingChunkUpdates = ChunkIO.read(msg)
-  console.log('Read %d chunks', state.pendingChunkUpdates.length)
+  console.log('Read %d chunks, %s KB', state.pendingChunkUpdates.length, msg.length >> 10)
 })
 
 state.socket.on('json', function (msg) {
@@ -161,8 +161,8 @@ button.addEventListener('click', function () {
   env.shell.pointerLock = true
 
   state.player.name = input.value
-  state.startTime = new Date().getTime()
   state.objects.self = new Player(state.player.name)
+  state.startTime = new Date().getTime()
 
   splash.remove()
   canvas.addEventListener('click', function () {
@@ -208,13 +208,14 @@ env.shell.on('tick', function () {
   // TODO: create or modify any chunks we got from the server since the last tick
   // TODO: update player state if there's data from the server
   // TODO: update objects, other players, NPCs, etc if there's data from the server
-  state.socket.send({
-    type: 'update',
-    player: state.player,
-    commands: state.pendingCommands
-  })
-  if (state.pendingCommands.length) console.log('Sent %d commands', state.pendingCommands.length)
-  state.pendingCommands.length = 0
+  if (state.socket.isReady()) {
+    state.socket.send({
+      type: 'update',
+      player: state.player,
+      commands: state.pendingCommands
+    })
+    state.pendingCommands.length = 0
+  }
 
   var elapsedMs = Math.round(new Date().getTime() - startMs)
   if (elapsedMs > 1000 * config.TICK_INTERVAL) console.log('Slow tick: %d ms', elapsedMs)
@@ -232,7 +233,7 @@ env.regl.frame(function (context) {
   applyChunkUpdates()
   mesher.meshWorld(state.world, state.player.location)
 
-  if (state.startTime) {
+  if (state.startTime > 0 && state.world.chunks.length > 0) {
     // Handle player input, physics, update player position, direction, and velocity
     playerControls.tick(state, dt, state.paused)
     // Prediction: extrapolate object positions from latest server update

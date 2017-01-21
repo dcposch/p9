@@ -33,8 +33,13 @@ function Socket () {
 
 Socket.prototype = Object.create(EventEmitter.prototype)
 
+Socket.prototype.isReady = function () {
+  return this.ws && this.ws.readyState === this.ws.OPEN
+}
+
 Socket.prototype.send = function (msg) {
-  if (!this.ws) throw new Error('not connected') // TODO: queue? ignore?
+  if (!this.ws) throw new Error('not connected')
+  if (this.ws.readyState !== this.ws.OPEN) throw new Error('websocket state: ' + this.ws.readyState)
   if (msg instanceof Uint8Array) this.ws.send(msg)
   else this.ws.send(JSON.stringify(msg))
 }
