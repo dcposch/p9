@@ -70,7 +70,7 @@ textures.loadAll(function (err) {
 // Handle server messages
 state.socket.on('binary', function (msg) {
   state.pendingChunkUpdates = ChunkIO.read(msg)
-  console.log('Read %d chunks, %s KB', state.pendingChunkUpdates.length, msg.length >> 10)
+  console.log('Read %d chunks, %s KB', state.pendingChunkUpdates.length, msg.byteLength >> 10)
 })
 
 state.socket.on('json', function (msg) {
@@ -144,7 +144,12 @@ var error = document.querySelector('.error')
 var splash = document.querySelector('.splash')
 
 // First, the player has to type in their name...
-input.addEventListener('keyup', function () {
+input.addEventListener('keyup', updateSplash)
+setInterval(updateSplash, 500)
+
+function updateSplash () {
+  if (state.startTime > 0) return // Splash screen already gone
+
   var name = input.value.replace(/[^A-Za-z ]/g, '')
   if (name !== input.value) label.innerHTML = 'letters only'
   name = name.toLowerCase()
@@ -153,7 +158,7 @@ input.addEventListener('keyup', function () {
   var ready = name.length >= 3 && name.length < 20
   button.classList.toggle('show', ready)
   controls.classList.toggle('show', ready)
-})
+}
 
 // ...then, click to start
 button.addEventListener('click', function () {

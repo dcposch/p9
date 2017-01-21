@@ -37,6 +37,7 @@ module.exports = {
     VERSION: 0
   },
   SERVER: {
+    CHUNK_SEND_RADIUS: 15,
     VERSION: 0,
     PORT: 8080
   }

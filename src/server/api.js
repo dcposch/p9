@@ -114,7 +114,7 @@ function isInRange (a, b) {
   var dy = (b.y >> CB) - (a.y >> CB)
   var dz = (b.z >> CB) - (a.z >> CB)
   var r2 = dx * dx + dy * dy + dz * dz
-  var rmax = config.WORLD_GEN.CHUNK_RADIUS
+  var rmax = config.SERVER.CHUNK_SEND_RADIUS
   return r2 < rmax * rmax
 }
 
